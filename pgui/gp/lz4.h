@@ -329,7 +329,7 @@ typedef union LZ4_stream_u LZ4_stream_t;  /* incomplete type (defined later) */
 #if !defined(RC_INVOKED) /* https://docs.microsoft.com/en-us/windows/win32/menurc/predefined-macros */
 #if !defined(LZ4_STATIC_LINKING_ONLY_DISABLE_MEMORY_ALLOCATION)
 LZ4LIB_API LZ4_stream_t* LZ4_createStream(void);
-LZ4LIB_API int           LZ4_freeStream (LZ4_stream_t* streamPtr);
+LZ4LIB_API int LZ4_freeStream (LZ4_stream_t* streamPtr);
 #endif /* !defined(LZ4_STATIC_LINKING_ONLY_DISABLE_MEMORY_ALLOCATION) */
 #endif
 
@@ -463,7 +463,7 @@ typedef union LZ4_streamDecode_u LZ4_streamDecode_t;   /* tracking context */
 #if !defined(RC_INVOKED) /* https://docs.microsoft.com/en-us/windows/win32/menurc/predefined-macros */
 #if !defined(LZ4_STATIC_LINKING_ONLY_DISABLE_MEMORY_ALLOCATION)
 LZ4LIB_API LZ4_streamDecode_t* LZ4_createStreamDecode(void);
-LZ4LIB_API int                 LZ4_freeStreamDecode (LZ4_streamDecode_t* LZ4_stream);
+LZ4LIB_API int LZ4_freeStreamDecode (LZ4_streamDecode_t* LZ4_stream);
 #endif /* !defined(LZ4_STATIC_LINKING_ONLY_DISABLE_MEMORY_ALLOCATION) */
 #endif
 
@@ -699,14 +699,14 @@ int LZ4_compress_destSize_extState(void* state, const char* src, char* dst, int*
 #if defined(__cplusplus) || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */)
 # include <stdint.h>
   typedef  int8_t  LZ4_i8;
-  typedef uint8_t  LZ4_byte;
+  typedef uint8_t LZ4_byte;
   typedef uint16_t LZ4_u16;
   typedef uint32_t LZ4_u32;
 #else
-  typedef   signed char  LZ4_i8;
-  typedef unsigned char  LZ4_byte;
+  typedef   signed char LZ4_i8;
+  typedef unsigned char LZ4_byte;
   typedef unsigned short LZ4_u16;
-  typedef unsigned int   LZ4_u32;
+  typedef unsigned int LZ4_u32;
 #endif
 
 /*! LZ4_stream_t :
@@ -825,8 +825,8 @@ LZ4_DEPRECATED("use LZ4_decompress_safe() instead") LZ4LIB_API int LZ4_uncompres
  * independently.
  */
 LZ4_DEPRECATED("Use LZ4_createStream() instead") LZ4LIB_API void* LZ4_create (char* inputBuffer);
-LZ4_DEPRECATED("Use LZ4_createStream() instead") LZ4LIB_API int   LZ4_sizeofStreamState(void);
-LZ4_DEPRECATED("Use LZ4_resetStream() instead")  LZ4LIB_API int   LZ4_resetStreamState(void* state, char* inputBuffer);
+LZ4_DEPRECATED("Use LZ4_createStream() instead") LZ4LIB_API int LZ4_sizeofStreamState(void);
+LZ4_DEPRECATED("Use LZ4_resetStream() instead")  LZ4LIB_API int LZ4_resetStreamState(void* state, char* inputBuffer);
 LZ4_DEPRECATED("Use LZ4_saveDict() instead")     LZ4LIB_API char* LZ4_slideInputBuffer (void* state);
 
 /*! Obsolete streaming decoding functions (since v1.7.0) */

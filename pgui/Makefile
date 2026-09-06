@@ -1,4 +1,5 @@
-BUILD	?= /tmp/pgui
+# BUILD	?= /tmp/pgui
+BUILD	?= ./bin
 TARGET	= $(BUILD)/pgui
 
 CC	= gcc

@@ -1,22 +1,20 @@
 #include "hal.h"
 #include "cmsis/stm32xx.h"
 
-#define STEP_DMA_MAX		64
+#define STEP_DMA_MAX 64
 
 typedef struct {
+	uint16_t dmabuf[STEP_DMA_MAX] LD_DMA;
 
-	uint16_t	dmabuf[STEP_DMA_MAX] LD_DMA;
+	int dma_rp;
 
-	int		dma_rp;
+	int wire_STEP;
+	int wire_DIR;
 
-	int		wire_STEP;
-	int		wire_DIR;
+	uint16_t NCNT;
+} priv_STEP_t;
 
-	uint16_t	NCNT;
-}
-priv_STEP_t;
-
-static priv_STEP_t		priv_STEP;
+static priv_STEP_t priv_STEP;
 
 void STEP_mode_DMA()
 {
@@ -52,8 +50,8 @@ void STEP_mode_DMA()
 		| (1U << DMA_SxCR_MSIZE_Pos) | (1U << DMA_SxCR_PSIZE_Pos)
 		| DMA_SxCR_MINC | DMA_SxCR_CIRC;
 	DMA2_Stream1->NDTR = STEP_DMA_MAX;
-	DMA2_Stream1->PAR = (uint32_t) XGPIO_GET_IDR(GPIO_STEP);
-	DMA2_Stream1->M0AR = (uint32_t) priv_STEP.dmabuf;
+	DMA2_Stream1->PAR = (uint32_t)XGPIO_GET_IDR(GPIO_STEP);
+	DMA2_Stream1->M0AR = (uint32_t)priv_STEP.dmabuf;
 	DMA2_Stream1->FCR = DMA_SxFCR_DMDIS;
 
 	DMA2->LIFCR = DMA_LIFCR_CTCIF1 | DMA_LIFCR_CHTIF1 | DMA_LIFCR_CTEIF1
@@ -85,17 +83,14 @@ void STEP_mode_DMA()
 
 void STEP_startup()
 {
-	if (		hal.STEP_mode == STEP_ON_STEP_DIR
-			|| hal.STEP_mode == STEP_ON_CW_CCW) {
-
+	if (hal.STEP_mode == STEP_ON_STEP_DIR || hal.STEP_mode == STEP_ON_CW_CCW) {
 		STEP_mode_DMA();
 	}
 }
 
-static void
-STEP_halt()
+static void STEP_halt()
 {
-	int		N = 0;
+	int N = 0;
 
 	/* Disable STEP/DIR pins.
 	 * */
@@ -111,7 +106,6 @@ STEP_halt()
 	DMA2_Stream1->CR = 0;
 
 	while (DMA2_Stream1->CR & DMA_SxCR_EN) {
-
 		__NOP();
 
 		if (N > 70000)
@@ -128,19 +122,17 @@ STEP_halt()
 void STEP_configure()
 {
 	if (hal.STEP_mode != STEP_DISABLED) {
-
 		STEP_halt();
 		STEP_startup();
-	}
-	else {
+	} else {
 		STEP_halt();
 	}
 }
 
 int STEP_get_POSITION()
 {
-	int		wp = (STEP_DMA_MAX - DMA2_Stream1->NDTR) & (STEP_DMA_MAX - 1);
-	int		rp = priv_STEP.dma_rp;
+	int wp = (STEP_DMA_MAX - DMA2_Stream1->NDTR) & (STEP_DMA_MAX - 1);
+	int rp = priv_STEP.dma_rp;
 
 #ifdef STM32F7
 	/* Invalidate D-Cache.
@@ -151,23 +143,17 @@ int STEP_get_POSITION()
 #define XGPIO_GET_STATE(xGPIO, IDR)	((IDR & (1U << XGPIO_GET_N(xGPIO))) ? 1 : 0)
 
 	if (hal.STEP_mode == STEP_ON_STEP_DIR) {
-
 		while (rp != wp) {
-
-			uint16_t	IDR = priv_STEP.dmabuf[rp];
-			int		wire_STEP, wire_DIR;
+			uint16_t IDR = priv_STEP.dmabuf[rp];
+			int wire_STEP, wire_DIR;
 
 			wire_STEP = XGPIO_GET_STATE(GPIO_STEP, IDR);
 			wire_DIR = XGPIO_GET_STATE(GPIO_DIR, IDR);
 
-			if (unlikely(		priv_STEP.wire_STEP == 0
-						&& wire_STEP != 0)) {
-
+			if (unlikely(priv_STEP.wire_STEP == 0 && wire_STEP != 0)) {
 				if (wire_DIR != 0) {
-
 					priv_STEP.NCNT++;
-				}
-				else {
+				} else {
 					priv_STEP.NCNT--;
 				}
 			}
@@ -177,26 +163,19 @@ int STEP_get_POSITION()
 
 			rp = (rp + 1) & (STEP_DMA_MAX - 1);
 		}
-	}
-	else if (hal.STEP_mode == STEP_ON_CW_CCW) {
-
+	} else if (hal.STEP_mode == STEP_ON_CW_CCW) {
 		while (rp != wp) {
-
-			uint16_t	IDR = priv_STEP.dmabuf[rp];
-			int		wire_CW, wire_CCW;
+			uint16_t IDR = priv_STEP.dmabuf[rp];
+			int wire_CW, wire_CCW;
 
 			wire_CW = XGPIO_GET_STATE(GPIO_STEP, IDR);
 			wire_CCW = XGPIO_GET_STATE(GPIO_DIR, IDR);
 
-			if (unlikely(		priv_STEP.wire_STEP == 0
-						&& wire_CW != 0)) {
-
+			if (unlikely(priv_STEP.wire_STEP == 0 && wire_CW != 0)) {
 				priv_STEP.NCNT++;
 			}
 
-			if (unlikely(		priv_STEP.wire_DIR == 0
-						&& wire_CCW != 0)) {
-
+			if (unlikely(priv_STEP.wire_DIR == 0 && wire_CCW != 0)) {
 				priv_STEP.NCNT--;
 			}
 

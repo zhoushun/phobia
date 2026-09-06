@@ -34,466 +34,425 @@
 #undef FP_NAN
 #endif
 
-#define ERROR(fmt, ...)		fprintf(stderr, "%s:%i: " fmt, __FILE__, __LINE__, ## __VA_ARGS__)
-#define FP_NAN			fp_nan()
+#define ERROR(fmt, ...) fprintf(stderr, "%s:%i: " fmt, __FILE__, __LINE__, ## __VA_ARGS__)
+#define FP_NAN fp_nan()
 
-#define PLOT_DATASET_MAX			10
-#define PLOT_CHUNK_SIZE				16777216
-#define PLOT_CHUNK_MAX				2000
-#define PLOT_CHUNK_CACHE			4
-#define PLOT_RCACHE_SIZE			32
-#define PLOT_SLICE_SPAN				4
-#define PLOT_AXES_MAX				10
-#define PLOT_FIGURE_MAX 			10
-#define PLOT_DATA_BOX_MAX			10
-#define PLOT_MEDIAN_MAX 			57
-#define PLOT_POLYFIT_MAX			7
-#define PLOT_SUBTRACT				20
-#define PLOT_GROUP_MAX				40
-#define PLOT_MARK_MAX				80
-#define PLOT_SKETCH_CHUNK_SIZE			32768
-#define PLOT_SKETCH_MAX				800
-#define PLOT_STRING_MAX				200
-#define PLOT_RUNTIME_MAX			20
+#define PLOT_DATASET_MAX        10
+#define PLOT_CHUNK_SIZE         16777216
+#define PLOT_CHUNK_MAX          2000
+#define PLOT_CHUNK_CACHE        4
+#define PLOT_RCACHE_SIZE        32
+#define PLOT_SLICE_SPAN         4
+#define PLOT_AXES_MAX           10
+#define PLOT_FIGURE_MAX         10
+#define PLOT_DATA_BOX_MAX       10
+#define PLOT_MEDIAN_MAX         57
+#define PLOT_POLYFIT_MAX        7
+#define PLOT_SUBTRACT           20
+#define PLOT_GROUP_MAX          40
+#define PLOT_MARK_MAX           80
+#define PLOT_SKETCH_CHUNK_SIZE  32768
+#define PLOT_SKETCH_MAX         800
+#define PLOT_STRING_MAX         200
+#define PLOT_RUNTIME_MAX        20
 
 enum {
-	TTF_ID_NONE			= 0,
-	TTF_ID_ROBOTO_MONO_NORMAL,
-	TTF_ID_ROBOTO_MONO_THIN
+    TTF_ID_NONE = 0,
+    TTF_ID_ROBOTO_MONO_NORMAL,
+    TTF_ID_ROBOTO_MONO_THIN
 };
 
 enum {
-	AXIS_FREE			= 0,
-	AXIS_BUSY_X,
-	AXIS_BUSY_Y
+    AXIS_FREE = 0,
+    AXIS_BUSY_X,
+    AXIS_BUSY_Y
 };
 
 enum {
-	AXIS_SLAVE_DISABLE		= 0,
-	AXIS_SLAVE_ENABLE,
-	AXIS_SLAVE_HOLD_AS_IS
+    AXIS_SLAVE_DISABLE = 0,
+    AXIS_SLAVE_ENABLE,
+    AXIS_SLAVE_HOLD_AS_IS
 };
 
 enum {
-	LOCK_FREE			= 0,
-	LOCK_AUTO,
-	LOCK_CONDITION,
-	LOCK_STACKED
+    LOCK_FREE = 0,
+    LOCK_AUTO,
+    LOCK_CONDITION,
+    LOCK_STACKED
 };
 
 enum {
-	FIGURE_DRAWING_LINE		= 0,
-	FIGURE_DRAWING_DASH,
-	FIGURE_DRAWING_DOT
+    FIGURE_DRAWING_LINE = 0,
+    FIGURE_DRAWING_DASH,
+    FIGURE_DRAWING_DOT
 };
 
 enum {
-	SUBTRACT_FREE			= 0,
-	SUBTRACT_TIME_MEDIAN,
-	SUBTRACT_DATA_MEDIAN,
-	SUBTRACT_SCALE,
-	SUBTRACT_RESAMPLE,
-	SUBTRACT_POLYFIT,
-	SUBTRACT_BINARY_SUBTRACTION,
-	SUBTRACT_BINARY_ADDITION,
-	SUBTRACT_BINARY_MULTIPLICATION,
-	SUBTRACT_BINARY_DIVISION,
-	SUBTRACT_BINARY_HYPOTENUSE,
-	SUBTRACT_FILTER_DIFFERENCE,
-	SUBTRACT_FILTER_CUMULATIVE,
-	SUBTRACT_FILTER_BITFIELD,
-	SUBTRACT_FILTER_LOW_PASS,
-	SUBTRACT_FILTER_MEDIAN,
-	SUBTRACT_FILTER_DEMULTIPLEX
+    SUBTRACT_FREE = 0,
+    SUBTRACT_TIME_MEDIAN,
+    SUBTRACT_DATA_MEDIAN,
+    SUBTRACT_SCALE,
+    SUBTRACT_RESAMPLE,
+    SUBTRACT_POLYFIT,
+    SUBTRACT_BINARY_SUBTRACTION,
+    SUBTRACT_BINARY_ADDITION,
+    SUBTRACT_BINARY_MULTIPLICATION,
+    SUBTRACT_BINARY_DIVISION,
+    SUBTRACT_BINARY_HYPOTENUSE,
+    SUBTRACT_FILTER_DIFFERENCE,
+    SUBTRACT_FILTER_CUMULATIVE,
+    SUBTRACT_FILTER_BITFIELD,
+    SUBTRACT_FILTER_LOW_PASS,
+    SUBTRACT_FILTER_MEDIAN,
+    SUBTRACT_FILTER_DEMULTIPLEX
 };
 
 enum {
-	UNWRAP_NONE			= 0,
-	UNWRAP_OVERFLOW,
-	UNWRAP_BURST
+    UNWRAP_NONE = 0,
+    UNWRAP_OVERFLOW,
+    UNWRAP_BURST
 };
 
 enum {
-	SKETCH_STARTED			= 0,
-	SKETCH_INTERRUPTED,
-	SKETCH_FINISHED
+    SKETCH_STARTED = 0,
+    SKETCH_INTERRUPTED,
+    SKETCH_FINISHED
 };
 
 enum {
-	DATA_BOX_FREE			= 0,
-	DATA_BOX_SLICE,
-	DATA_BOX_PICK,
-	DATA_BOX_POLYFIT
+    DATA_BOX_FREE = 0,
+    DATA_BOX_SLICE,
+    DATA_BOX_PICK,
+    DATA_BOX_POLYFIT
 };
 
-typedef double			fval_t;
+typedef double fval_t;
 
 typedef struct {
-
-	int		X;
-	int		Y;
+    int X;
+    int Y;
 }
 tuple_t;
 
 typedef struct {
+    draw_t *dw;
+    scheme_t *sch;
 
-	draw_t			*dw;
-	scheme_t		*sch;
+    void *ld;
 
-	void			*ld;
+    struct {
+        int column_N;
+        int length_N;
 
-	struct {
+        int chunk_SHIFT;
+        int chunk_MASK;
+        int chunk_bSIZE;
 
-		int		column_N;
-		int		length_N;
+        int lz4_compress;
+        void *lz4_reserved;
 
-		int		chunk_SHIFT;
-		int		chunk_MASK;
-		int		chunk_bSIZE;
+        struct {
+            fval_t *raw;
 
-		int		lz4_compress;
-		void		*lz4_reserved;
+            int chunk_N;
+            int dirty;
+        } cache[PLOT_CHUNK_CACHE];
 
-		struct {
+        int cache_ID;
 
-			fval_t		*raw;
+        struct {
+            void *raw;
+            int length;
+        } compress[PLOT_CHUNK_MAX];
 
-			int		chunk_N;
-			int		dirty;
-		}
-		cache[PLOT_CHUNK_CACHE];
+        fval_t *raw[PLOT_CHUNK_MAX];
+        int *map;
 
-		int		cache_ID;
+        int head_N;
+        int tail_N;
+        int id_N;
 
-		struct {
+        struct {
+            int busy;
 
-			void		*raw;
-			int		length;
-		}
-		compress[PLOT_CHUNK_MAX];
+            union {
+                struct {
+                    int column_X;
+                    int column_Y;
 
-		fval_t		*raw[PLOT_CHUNK_MAX];
-		int		*map;
+                    int column_T;
 
-		int		head_N;
-		int		tail_N;
-		int		id_N;
+                    int length;
+                    int unwrap;
+                    int opdata;
 
-		struct {
+                    struct {
+                        double fval;
+                        double fpay;
+                    } window[PLOT_MEDIAN_MAX];
 
-			int	busy;
+                    int keep;
+                    int tail;
 
-			union {
+                    double prev[2];
+                    double offset;
+                } median;
 
-				struct {
+                struct {
+                    int column_X;
+                    int modified;
 
-					int	column_X;
-					int	column_Y;
+                    double scale;
+                    double offset;
+                } scale;
 
-					int	column_T;
+                struct {
+                    int column_X;
 
-					int	length;
-					int	unwrap;
-					int	opdata;
+                    int in_data_N;
+                    int in_column_X;
+                    int in_column_Y;
+                } resample;
 
-					struct {
+                struct {
+                    int column_X;
+                    int column_Y;
 
-						double	fval;
-						double	fpay;
-					}
-					window[PLOT_MEDIAN_MAX];
+                    int poly_N0;
+                    int poly_N1;
 
-					int	keep;
-					int	tail;
+                    double coefs[PLOT_POLYFIT_MAX + 1];
+                    double std;
+                } polyfit;
 
-					double	prev[2];
-					double	offset;
-				}
-				median;
+                struct {
+                    int column_X;
+                    int column_Y;
+                } binary;
 
-				struct {
+                struct {
+                    int column_X;
+                    int column_Y;
 
-					int	column_X;
-					int	modified;
+                    double value;
+                    double state[2];
+                } filter;
+            } op;
+        } sub[PLOT_SUBTRACT];
 
-					double	scale;
-					double	offset;
-				}
-				scale;
+        int sub_N;
+        int sub_paused;
+    } data[PLOT_DATASET_MAX];
 
-				struct {
+    struct {
+        int busy;
 
-					int	column_X;
+        int data_N;
+        int column_N;
 
-					int	in_data_N;
-					int	in_column_X;
-					int	in_column_Y;
-				}
-				resample;
+        struct {
+            int computed;
+            int finite;
 
-				struct {
+            fval_t fmin;
+            fval_t fmax;
+        } chunk[PLOT_CHUNK_MAX];
 
-					int	column_X;
-					int	column_Y;
+        int cached;
 
-					int	poly_N0;
-					int	poly_N1;
+        fval_t fmin;
+        fval_t fmax;
+    } rcache[PLOT_RCACHE_SIZE];
 
-					double	coefs[PLOT_POLYFIT_MAX + 1];
-					double	std;
-				}
-				polyfit;
+    struct {
+        int busy;
 
-				struct {
+        int lock_scale;
+        int lock_tick;
 
-					int	column_X;
-					int	column_Y;
-				}
-				binary;
+        int slave;
+        int slave_N;
 
-				struct {
+        double scale;
+        double offset;
 
-					int	column_X;
-					int	column_Y;
+        char label[PLOT_STRING_MAX];
 
-					double	value;
-					double	state[2];
-				}
-				filter;
-			}
-			op;
-		}
-		sub[PLOT_SUBTRACT];
+        int compact;
+        int exponential;
 
-		int		sub_N;
-		int		sub_paused;
-	}
-	data[PLOT_DATASET_MAX];
+        int layout_pos;
 
-	struct {
+        double ruler_tih;
+        double ruler_tis;
+        double ruler_min;
+        double ruler_max;
+    } axis[PLOT_AXES_MAX];
 
-		int		busy;
+    struct {
+        int busy;
+        int hidden;
 
-		int		data_N;
-		int		column_N;
+        int drawing;
+        int width;
 
-		struct {
+        int data_N;
+        int column_X;
+        int column_Y;
+        int axis_X;
+        int axis_Y;
 
-			int		computed;
-			int		finite;
+        double mark_X[PLOT_MARK_MAX];
+        double mark_Y[PLOT_MARK_MAX];
 
-			fval_t		fmin;
-			fval_t		fmax;
-		}
-		chunk[PLOT_CHUNK_MAX];
+        int slice_busy;
+        const fval_t *slice_row;
+        int slice_id_N;
+        double slice_X;
+        double slice_Y;
 
-		int		cached;
+        int slice_base_catch;
+        double slice_base_X;
+        double slice_base_Y;
 
-		fval_t		fmin;
-		fval_t		fmax;
-	}
-	rcache[PLOT_RCACHE_SIZE];
+        int brush_N;
 
-	struct {
+        char label[PLOT_STRING_MAX];
+    } figure[PLOT_FIGURE_MAX];
 
-		int		busy;
+    struct {
+        int op_time_median;
+        int op_time_unwrap;
+        int op_time_opdata;
+        int op_scale;
 
-		int		lock_scale;
-		int		lock_tick;
+        int length;
+        double ungap;
 
-		int		slave;
-		int		slave_N;
+        double scale;
+        double offset;
 
-		double		scale;
-		double		offset;
+        char label[PLOT_STRING_MAX];
+    } group[PLOT_GROUP_MAX];
 
-		char		label[PLOT_STRING_MAX];
+    clipBox_t viewport;
+    clipBox_t screen;
 
-		int		compact;
-		int		exponential;
+    TTF_Font *font;
 
-		int		layout_pos;
+    lse_t lsq;
 
-		double		ruler_tih;
-		double		ruler_tis;
-		double		ruler_min;
-		double		ruler_max;
-	}
-	axis[PLOT_AXES_MAX];
+    int rcache_ID;
+    int rcache_wipe_data_N;
+    int rcache_wipe_chunk_N;
 
-	struct {
+    int legend_hidden;
+    int legend_X;
+    int legend_Y;
+    int legend_size_X;
+    int legend_N;
 
-		int		busy;
-		int		hidden;
+    int data_box_on;
+    int data_box_X;
+    int data_box_Y;
+    int data_box_size_X;
+    int data_box_N;
+    char data_box_text[PLOT_DATA_BOX_MAX][PLOT_STRING_MAX];
+    char data_box_clipboard[PLOT_DATA_BOX_MAX * PLOT_STRING_MAX];
 
-		int		drawing;
-		int		width;
+    int slice_on;
+    int slice_mode_N;
+    int slice_axis_N;
 
-		int		data_N;
-		int		column_X;
-		int		column_Y;
-		int		axis_X;
-		int		axis_Y;
+    int pick_on;
 
-		double		mark_X[PLOT_MARK_MAX];
-		double		mark_Y[PLOT_MARK_MAX];
+    int mark_on;
+    int mark_length;
+    int mark_size;
+    int mark_density;
 
-		int		slice_busy;
-		const fval_t	*slice_row;
-		int		slice_id_N;
-		double		slice_X;
-		double		slice_Y;
+    int brush_on;
+    int brush_box_X;
+    int brush_box_Y;
+    int brush_cur_X;
+    int brush_cur_Y;
 
-		int		slice_base_catch;
-		double		slice_base_X;
-		double		slice_base_Y;
+    struct {
+        int sketch;
 
-		int		brush_N;
+        int rN;
+        int id_N;
 
-		char		label[PLOT_STRING_MAX];
-	}
-	figure[PLOT_FIGURE_MAX];
+        int skipped;
+        int line;
 
-	struct {
+        double last_X;
+        double last_Y;
 
-		int		op_time_median;
-		int		op_time_unwrap;
-		int		op_time_opdata;
-		int		op_scale;
+        int list_self;
+    } draw[PLOT_FIGURE_MAX];
 
-		int		length;
-		double		ungap;
+    int draw_in_progress;
 
-		double		scale;
-		double		offset;
+    Uint32 tick_cached;
+    int tick_skip;
 
-		char		label[PLOT_STRING_MAX];
-	}
-	group[PLOT_GROUP_MAX];
+    struct {
+        int figure_N;
 
-	clipBox_t		viewport;
-	clipBox_t		screen;
+        int drawing;
+        int width;
 
-	TTF_Font		*font;
+        double *chunk;
+        int length;
 
-	lse_t			lsq;
+        int linked;
+    } sketch[PLOT_SKETCH_MAX];
 
-	int			rcache_ID;
-	int			rcache_wipe_data_N;
-	int			rcache_wipe_chunk_N;
+    int sketch_list_garbage;
+    int sketch_list_todraw;
+    int sketch_list_current;
+    int sketch_list_current_end;
 
-	int			legend_hidden;
-	int			legend_X;
-	int			legend_Y;
-	int			legend_size_X;
-	int			legend_N;
+    int layout_font_ttf;
+    int layout_font_pt;
+    int layout_font_height;
+    int layout_font_long;
+    int layout_font_space;
+    int layout_border;
+    int layout_ruler_box;
+    int layout_label_box;
+    int layout_tick_tooth;
+    int layout_grid_dash;
+    int layout_grid_space;
+    int layout_drawing_dash;
+    int layout_drawing_space;
+    int layout_mark_size;
+    int layout_fence_dash;
+    int layout_fence_space;
+    int layout_fence_point;
 
-	int			data_box_on;
-	int			data_box_X;
-	int			data_box_Y;
-	int			data_box_size_X;
-	int			data_box_N;
-	char			data_box_text[PLOT_DATA_BOX_MAX][PLOT_STRING_MAX];
-	char			data_box_clipboard[PLOT_DATA_BOX_MAX * PLOT_STRING_MAX];
+    int on_X;
+    int on_Y;
 
-	int			slice_on;
-	int			slice_mode_N;
-	int			slice_axis_N;
+    int hover_figure;
+    int hover_legend;
+    int hover_data_box;
+    int hover_axis;
 
-	int			pick_on;
+    int interpolation;
+    double defungap;
 
-	int			mark_on;
-	int			mark_length;
-	int			mark_size;
-	int			mark_density;
+    int default_drawing;
+    int default_width;
 
-	int			brush_on;
-	int			brush_box_X;
-	int			brush_box_Y;
-	int			brush_cur_X;
-	int			brush_cur_Y;
+    int transparency;
+    int fprecision;
+    int fhexadecimal;
+    int lz4_compress;
 
-	struct {
-
-		int		sketch;
-
-		int		rN;
-		int		id_N;
-
-		int		skipped;
-		int		line;
-
-		double		last_X;
-		double		last_Y;
-
-		int		list_self;
-	}
-	draw[PLOT_FIGURE_MAX];
-
-	int			draw_in_progress;
-
-	Uint32			tick_cached;
-	int			tick_skip;
-
-	struct {
-
-		int		figure_N;
-
-		int		drawing;
-		int		width;
-
-		double		*chunk;
-		int		length;
-
-		int		linked;
-	}
-	sketch[PLOT_SKETCH_MAX];
-
-	int			sketch_list_garbage;
-	int			sketch_list_todraw;
-	int			sketch_list_current;
-	int			sketch_list_current_end;
-
-	int			layout_font_ttf;
-	int			layout_font_pt;
-	int			layout_font_height;
-	int			layout_font_long;
-	int			layout_font_space;
-	int			layout_border;
-	int			layout_ruler_box;
-	int			layout_label_box;
-	int			layout_tick_tooth;
-	int			layout_grid_dash;
-	int			layout_grid_space;
-	int			layout_drawing_dash;
-	int			layout_drawing_space;
-	int			layout_mark_size;
-	int			layout_fence_dash;
-	int			layout_fence_space;
-	int			layout_fence_point;
-
-	int			on_X;
-	int			on_Y;
-
-	int			hover_figure;
-	int			hover_legend;
-	int			hover_data_box;
-	int			hover_axis;
-
-	int			interpolation;
-	double			defungap;
-
-	int			default_drawing;
-	int			default_width;
-
-	int			transparency;
-	int			fprecision;
-	int			fhexadecimal;
-	int			lz4_compress;
-
-	int			shift_on;
-}
-plot_t;
+    int shift_on;
+} plot_t;
 
 double fp_nan();
 int fp_isfinite(double x);

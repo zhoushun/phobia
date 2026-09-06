@@ -4,14 +4,12 @@
 #include "libc.h"
 
 typedef struct {
+	int begin;
+	int total;
 
-	int		begin;
-	int		total;
-
-	uint32_t	flash;
-	uint32_t	map[6];
-}
-FLASH_config_t;
+	uint32_t flash;
+	uint32_t map[6];
+} FLASH_config_t;
 
 extern const FLASH_config_t	FLASH_config;
 

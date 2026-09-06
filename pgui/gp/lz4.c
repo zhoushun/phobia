@@ -311,10 +311,10 @@ static int LZ4_isAligned(const void* ptr, size_t alignment)
 # if UINT_MAX != 4294967295UL
 #   error "LZ4 code (when not C++ or C99) assumes that sizeof(int) == 4"
 # endif
-  typedef unsigned char       BYTE;
+  typedef unsigned char BYTE;
   typedef unsigned short      U16;
-  typedef unsigned int        U32;
-  typedef   signed int        S32;
+  typedef unsigned int U32;
+  typedef   signed int S32;
   typedef unsigned long long  U64;
   typedef size_t              uptrval;   /* generally true, except OpenVMS-64 */
 #endif
@@ -472,7 +472,7 @@ void LZ4_wildCopy8(void* dstPtr, const void* srcPtr, void* dstEnd)
 }
 
 static const unsigned inc32table[8] = {0, 1, 2,  1,  0,  4, 4, 4};
-static const int      dec64table[8] = {0, 0, 0, -1, -4,  1, 2, 3};
+static const int dec64table[8] = {0, 0, 0, -1, -4,  1, 2, 3};
 
 
 #ifndef LZ4_FAST_DEC_LOOP
@@ -1125,8 +1125,7 @@ LZ4_FORCE_INLINE int LZ4_compress_generic_validated(
                 *token = (RUN_MASK<<ML_BITS);
                 for(; len >= 255 ; len-=255) *op++ = 255;
                 *op++ = (BYTE)len;
-            }
-            else *token = (BYTE)(litLength<<ML_BITS);
+            } else *token = (BYTE)(litLength<<ML_BITS);
 
             /* Copy Literals */
             LZ4_wildCopy8(op, anchor, op+litLength);

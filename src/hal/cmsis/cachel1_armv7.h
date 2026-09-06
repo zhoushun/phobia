@@ -77,7 +77,7 @@ __STATIC_FORCEINLINE void SCB_EnableICache (void)
   */
 __STATIC_FORCEINLINE void SCB_DisableICache (void)
 {
-  #if defined (__ICACHE_PRESENT) && (__ICACHE_PRESENT == 1U)
+  #if defined (__ICACHE_PRESENT      ) && (__ICACHE_PRESENT == 1U)
     __DSB();
     __ISB();
     SCB->CCR &= ~(uint32_t)SCB_CCR_IC_Msk;  /* disable I-Cache */

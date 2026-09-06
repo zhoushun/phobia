@@ -1,8 +1,7 @@
 #include "hal.h"
 #include "cmsis/stm32xx.h"
 
-static void
-DPS_mode_DRIVE_HALL()
+static void DPS_mode_DRIVE_HALL()
 {
 	/* Enable HALL pins.
 	 * */
@@ -11,8 +10,7 @@ DPS_mode_DRIVE_HALL()
 	GPIO_set_mode_INPUT(GPIO_HALL_C);
 }
 
-static void
-DPS_mode_DRIVE_EABI()
+static void DPS_mode_DRIVE_EABI()
 {
 	/* Enable TIM3 clock.
 	 * */
@@ -47,17 +45,13 @@ DPS_mode_DRIVE_EABI()
 void DPS_startup()
 {
 	if (hal.DPS_mode == DPS_DRIVE_HALL) {
-
 		DPS_mode_DRIVE_HALL();
-	}
-	else if (hal.DPS_mode == DPS_DRIVE_EABI) {
-
+	} else if (hal.DPS_mode == DPS_DRIVE_EABI) {
 		DPS_mode_DRIVE_EABI();
 	}
 }
 
-static void
-DPS_halt()
+static void DPS_halt()
 {
 	/* Disable TIM3 pins.
 	 * */
@@ -77,21 +71,19 @@ DPS_halt()
 void DPS_configure()
 {
 	if (hal.DPS_mode != DPS_DISABLED) {
-
 		DPS_halt();
 		DPS_startup();
-	}
-	else {
+	} else {
 		DPS_halt();
 	}
 }
 
 int DPS_get_HALL()
 {
-	GPIO_TypeDef	*GPIO = (GPIO_TypeDef *) (GPIOA_BASE
+	GPIO_TypeDef *GPIO = (GPIO_TypeDef *)(GPIOA_BASE
 				+ 0x0400U * XGPIO_GET_PORT(GPIO_HALL_A));
 
-	int		IDR, HS;
+	int IDR, HS;
 
 	IDR = GPIO->IDR;
 

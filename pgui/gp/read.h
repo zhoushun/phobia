@@ -28,185 +28,169 @@
 #include "draw.h"
 #include "plot.h"
 
-#define READ_PAGE_MAX		1000
-#define READ_COLUMN_MAX		2000
-#define READ_TOKEN_MAX		80
-#define READ_FILE_PATH_MAX	800
-#define READ_TEXT_SCAN_MAX	9
-#define READ_TEXT_HEAD_MAX	3
-#define READ_TEXT_DEVIATE_MAX	2
-#define READ_SUBTRACT_MAX	4
+#define READ_PAGE_MAX           1000
+#define READ_COLUMN_MAX         2000
+#define READ_TOKEN_MAX          80
+#define READ_FILE_PATH_MAX      800
+#define READ_TEXT_SCAN_MAX      9
+#define READ_TEXT_HEAD_MAX      3
+#define READ_TEXT_DEVIATE_MAX   2
+#define READ_SUBTRACT_MAX       4
 
-#define GP_MIN_SIZE_X		640
-#define GP_MIN_SIZE_Y		480
+#define GP_MIN_SIZE_X 640
+#define GP_MIN_SIZE_Y 480
 
 enum {
-	FORMAT_NONE			= 0,
-	FORMAT_BLANK_DATA,
-	FORMAT_STUB_DATA,
-	FORMAT_TEXT_STDIN,
-	FORMAT_TEXT_CSV,
-	FORMAT_BINARY_FP_32,
-	FORMAT_BINARY_FP_64,
+    FORMAT_NONE = 0,
+    FORMAT_BLANK_DATA,
+    FORMAT_STUB_DATA,
+    FORMAT_TEXT_STDIN,
+    FORMAT_TEXT_CSV,
+    FORMAT_BINARY_FP_32,
+    FORMAT_BINARY_FP_64,
 
 #ifdef _LEGACY
-	FORMAT_BINARY_LEGACY_V1,
-	FORMAT_BINARY_LEGACY_V2,
+    FORMAT_BINARY_LEGACY_V1,
+    FORMAT_BINARY_LEGACY_V2,
 #endif /* _LEGACY */
 };
 
 enum {
-	DATA_HINT_NONE			= 0,
-	DATA_HINT_FLOAT,
-	DATA_HINT_HEX,
-	DATA_HINT_OCT
+    DATA_HINT_NONE = 0,
+    DATA_HINT_FLOAT,
+    DATA_HINT_HEX,
+    DATA_HINT_OCT
 };
 
 enum {
-	BOM_NONE			= 0,
-	BOM_UTF_8,
-	BOM_UTF_UNKNOWN
+    BOM_NONE = 0,
+    BOM_UTF_8,
+    BOM_UTF_UNKNOWN
 };
 
 typedef struct {
-
-	char		delim;
-	char		space[READ_TOKEN_MAX];
-	char		lend[READ_TOKEN_MAX];
-}
-markup_t;
+    char delim;
+    char space[READ_TOKEN_MAX];
+    char lend[READ_TOKEN_MAX];
+} markup_t;
 
 typedef struct {
+    int busy;
+    int resample;
 
-	int		busy;
-	int		resample;
+    int data_N;
+    int column_X;
+    int column_Y;
 
-	int		data_N;
-	int		column_X;
-	int		column_Y;
-
-	double		args[2];
-}
-subtract_t;
+    double args[2];
+} subtract_t;
 
 typedef struct {
+    int busy;
+    char title[PLOT_STRING_MAX];
 
-	int		busy;
-	char		title[PLOT_STRING_MAX];
+    struct {
+        int busy;
 
-	struct {
+        int drawing;
+        int width;
 
-		int		busy;
+        int dN;
+        int cX;
+        int cY;
+        int aX;
+        int aY;
 
-		int		drawing;
-		int		width;
+        subtract_t bX[READ_SUBTRACT_MAX];
+        subtract_t bY[READ_SUBTRACT_MAX];
 
-		int		dN;
-		int		cX;
-		int		cY;
-		int		aX;
-		int		aY;
+        char label[PLOT_STRING_MAX];
+    } fig[PLOT_FIGURE_MAX];
 
-		subtract_t	bX[READ_SUBTRACT_MAX];
-		subtract_t	bY[READ_SUBTRACT_MAX];
+    struct {
+        int slave;
+        int slave_N;
 
-		char		label[PLOT_STRING_MAX];
-	}
-	fig[PLOT_FIGURE_MAX];
+        double scale;
+        double offset;
 
-	struct {
-
-		int		slave;
-		int		slave_N;
-
-		double		scale;
-		double		offset;
-
-		char		label[PLOT_STRING_MAX];
-	}
-	ax[PLOT_AXES_MAX];
-}
-page_t;
+        char label[PLOT_STRING_MAX];
+    } ax[PLOT_AXES_MAX];
+} page_t;
 
 typedef struct {
+    char file[READ_FILE_PATH_MAX];
+    const char *path;
 
-	char		file[READ_FILE_PATH_MAX];
-	const char	*path;
+    FILE *fd;
+    const char *in;
 
-	FILE		*fd;
-	const char	*in;
+    char tbuf[READ_FILE_PATH_MAX];
+    int unchar;
+    int line_N;
+    int newline;
+    int fromUI;
 
-	char		tbuf[READ_FILE_PATH_MAX];
-	int		unchar;
-	int		line_N;
-	int		newline;
-	int		fromUI;
-
-	int		dmap[PLOT_DATASET_MAX];
-}
-parse_t;
+    int dmap[PLOT_DATASET_MAX];
+} parse_t;
 
 typedef struct {
+    draw_t *dw;
+    plot_t *pl;
 
-	draw_t		*dw;
-	plot_t		*pl;
+    char screenpath[READ_FILE_PATH_MAX];
+    char ttfname[READ_FILE_PATH_MAX];
 
-	char		screenpath[READ_FILE_PATH_MAX];
-	char		ttfname[READ_FILE_PATH_MAX];
+    int config_version;
+    int window_size_x;
+    int window_size_y;
+    int language;
+    int colorscheme;
+    int timecol;
+    int shortfilename;
+    int fastdraw;
 
-	int		config_version;
-	int		window_size_x;
-	int		window_size_y;
-	int		language;
-	int		colorscheme;
-	int		timecol;
-	int		shortfilename;
-	int		fastdraw;
-
-	markup_t	mk_config;
-	markup_t	mk_text;
+    markup_t mk_config;
+    markup_t mk_text;
 
 #ifdef _WINDOWS
-	int		legacy_label;
-	int		legacy_console;
+    int legacy_label;
+    int legacy_console;
 #endif /* _WINDOWS */
 
-	int		preload;
-	int		chunk;
-	int		timeout;
-	int		length_N;
+    int preload;
+    int chunk;
+    int timeout;
+    int length_N;
 
-	struct {
+    struct {
+        int format;
+        int column_N;
+        int length_N;
 
-		int		format;
-		int		column_N;
-		int		length_N;
+        char file[READ_FILE_PATH_MAX];
+        int line_N;
 
-		char		file[READ_FILE_PATH_MAX];
-		int		line_N;
+        FILE *fd;
+        async_FILE *afd;
 
-		FILE		*fd;
-		async_FILE	*afd;
+        char buf[READ_TOKEN_MAX * READ_COLUMN_MAX];
+        fval_t row[READ_COLUMN_MAX];
 
-		char		buf[READ_TOKEN_MAX * READ_COLUMN_MAX];
-		fval_t		row[READ_COLUMN_MAX];
+        char label[READ_COLUMN_MAX][READ_TOKEN_MAX];
 
-		char		label[READ_COLUMN_MAX][READ_TOKEN_MAX];
+        int hint[READ_COLUMN_MAX];
+        int bom;
+    } data[PLOT_DATASET_MAX];
 
-		int		hint[READ_COLUMN_MAX];
-		int		bom;
-	}
-	data[PLOT_DATASET_MAX];
+    page_t page[READ_PAGE_MAX];
 
-	page_t		page[READ_PAGE_MAX];
+    int keep_N;
 
-	int		keep_N;
-
-	int		bind_N;
-	int		page_N;
-	int		figure_N;
-}
-read_t;
+    int bind_N;
+    int page_N;
+    int figure_N;
+} read_t;
 
 char *stoi(const markup_t *mk, int *x, char *s);
 char *htoi(const markup_t *mk, int *x, char *s);

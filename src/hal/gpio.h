@@ -4,13 +4,13 @@
 #define XGPIO_DEF4(PORT, N, CH, FUNC)	(((PORT) - 'A') << 4 | ((N) & 0xFU) << 0	\
 					| ((CH) & 0x1FU) << 7 | ((FUNC) & 0xFU) << 12)
 
-#define XGPIO_DEF3(PORT, N, CH)		XGPIO_DEF4(PORT, N, CH, 0)
+#define XGPIO_DEF3(PORT, N, CH)	XGPIO_DEF4(PORT, N, CH, 0)
 #define XGPIO_DEF2(PORT, N)		XGPIO_DEF4(PORT, N, 0, 0)
 
-#define XGPIO_GET_PORT(XGPIO)		(((XGPIO) >> 4) & 0x7U)
+#define XGPIO_GET_PORT(XGPIO)	(((XGPIO) >> 4) & 0x7U)
 #define XGPIO_GET_N(XGPIO)		(((XGPIO) >> 0) & 0xFU)
 #define XGPIO_GET_CH(XGPIO)		(((XGPIO) >> 7) & 0x1FU)
-#define XGPIO_GET_FUNC(XGPIO)		(((XGPIO) >> 12) & 0xFU)
+#define XGPIO_GET_FUNC(XGPIO)	(((XGPIO) >> 12) & 0xFU)
 
 #define XGPIO_OPEN_DRAIN		(1U << 16)
 

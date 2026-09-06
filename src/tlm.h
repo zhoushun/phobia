@@ -5,41 +5,32 @@
 
 #include "regfile.h"
 
-#define TLM_DATA_MAX		22500
-#define TLM_INPUT_MAX		20
+#define TLM_DATA_MAX 22500
+#define TLM_INPUT_MAX 20
 
 enum {
-	TLM_MODE_DISABLED	= 0,
-	TLM_MODE_GRAB,
-	TLM_MODE_WATCH,
-	TLM_MODE_STREAM
+    TLM_MODE_DISABLED = 0,
+    TLM_MODE_GRAB,
+    TLM_MODE_WATCH,
+    TLM_MODE_STREAM
 };
 
 typedef struct {
-
-	int		rate_grab;
-	int		rate_watch;
-	int		rate_stream;
-
-	int		watch_AUTO;
-
-	int		mode;
-	int		reg_ID[TLM_INPUT_MAX];
-
-	const reg_t	*layout_reg[TLM_INPUT_MAX];
-
-	int		layout_N;
-	int		length_MAX;
-
-	int		clock;
-	int		skip;
-
-	int		rate;
-	int		line;
-
-	rval_t		rdata[TLM_DATA_MAX];	/* memory to keep telemetry data */
-}
-tlm_t;
+    int rate_grab;
+    int rate_watch;
+    int rate_stream;
+    int watch_AUTO;
+    int mode;
+    int reg_ID[TLM_INPUT_MAX];
+    const reg_t *layout_reg[TLM_INPUT_MAX];
+    int layout_N;
+    int length_MAX;
+    int clock;
+    int skip;
+    int rate;
+    int line;
+    rval_t rdata[TLM_DATA_MAX]; /* memory to keep telemetry data */
+} tlm_t;
 
 void tlm_reg_default(tlm_t *tlm);
 void tlm_reg_grab(tlm_t *tlm);

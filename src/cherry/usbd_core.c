@@ -62,13 +62,8 @@ static void usbd_class_event_notify_handler(uint8_t event, void *arg);
 
 static void usbd_print_setup(struct usb_setup_packet *setup)
 {
-    USB_LOG_INFO("Setup: "
-                 "bmRequestType 0x%02x, bRequest 0x%02x, wValue 0x%04x, wIndex 0x%04x, wLength 0x%04x\r\n",
-                 setup->bmRequestType,
-                 setup->bRequest,
-                 setup->wValue,
-                 setup->wIndex,
-                 setup->wLength);
+    USB_LOG_INFO("Setup: bmRequestType 0x%02x, bRequest 0x%02x, wValue 0x%04x, wIndex 0x%04x, wLength 0x%04x\r\n",
+            setup->bmRequestType, setup->bRequest, setup->wValue, setup->wIndex, setup->wLength);
 }
 
 static int is_device_configured(void)
@@ -89,9 +84,7 @@ static int is_device_configured(void)
 static int usbd_set_endpoint(const struct usb_endpoint_descriptor *ep)
 {
     USB_LOG_INFO("Open ep:0x%02x type:%u mps:%u\r\n",
-                 ep->bEndpointAddress,
-                 USB_GET_ENDPOINT_TYPE(ep->bmAttributes),
-                 USB_GET_MAXPACKETSIZE(ep->wMaxPacketSize));
+            ep->bEndpointAddress, USB_GET_ENDPOINT_TYPE(ep->bmAttributes), USB_GET_MAXPACKETSIZE(ep->wMaxPacketSize));
 
     return usbd_ep_open(ep) == 0 ? 1 : 0;
 }
@@ -108,8 +101,7 @@ static int usbd_set_endpoint(const struct usb_endpoint_descriptor *ep)
 static int usbd_reset_endpoint(const struct usb_endpoint_descriptor *ep)
 {
     USB_LOG_INFO("Close ep:0x%02x type:%u\r\n",
-                 ep->bEndpointAddress,
-                 USB_GET_ENDPOINT_TYPE(ep->bmAttributes));
+            ep->bEndpointAddress, USB_GET_ENDPOINT_TYPE(ep->bmAttributes));
 
     return usbd_ep_close(ep->bEndpointAddress) == 0 ? 1 : 0;
 }
@@ -143,9 +135,9 @@ static int usbd_get_descriptor(uint16_t type_index, uint8_t **data, uint32_t *le
      */
     if ((type == USB_DESCRIPTOR_TYPE_INTERFACE) || (type == USB_DESCRIPTOR_TYPE_ENDPOINT) ||
 #ifndef CONFIG_USB_HS
-             (type > USB_DESCRIPTOR_TYPE_ENDPOINT)) {
+            (type > USB_DESCRIPTOR_TYPE_ENDPOINT)) {
 #else
-             (type > USB_DESCRIPTOR_TYPE_OTHER_SPEED)) {
+            (type > USB_DESCRIPTOR_TYPE_OTHER_SPEED)) {
 #endif
         return 0;
     }
@@ -222,21 +214,18 @@ static int usbd_set_configuration(uint8_t config_index, uint8_t alt_setting)
                     found = 1;
 
                     current_desc_len = 0;
-                    desc_len = (p[CONF_DESC_wTotalLength]) |
-                               (p[CONF_DESC_wTotalLength + 1] << 8);
+                    desc_len = (p[CONF_DESC_wTotalLength]) | (p[CONF_DESC_wTotalLength + 1] << 8);
                 }
 
                 break;
 
             case USB_DESCRIPTOR_TYPE_INTERFACE:
                 /* remember current alternate setting */
-                cur_alt_setting =
-                    p[INTF_DESC_bAlternateSetting];
+                cur_alt_setting = p[INTF_DESC_bAlternateSetting];
                 break;
 
             case USB_DESCRIPTOR_TYPE_ENDPOINT:
-                if ((cur_config != config_index) ||
-                    (cur_alt_setting != alt_setting)) {
+                if ((cur_config != config_index) || (cur_alt_setting != alt_setting)) {
                     break;
                 }
 
@@ -283,42 +272,37 @@ static int usbd_set_interface(uint8_t iface, uint8_t alt_setting)
 
     while (p[DESC_bLength] != 0U) {
         switch (p[DESC_bDescriptorType]) {
-            case USB_DESCRIPTOR_TYPE_CONFIGURATION:
-                current_desc_len = 0;
-                desc_len = (p[CONF_DESC_wTotalLength]) |
-                           (p[CONF_DESC_wTotalLength + 1] << 8);
+        case USB_DESCRIPTOR_TYPE_CONFIGURATION:
+            current_desc_len = 0;
+            desc_len = (p[CONF_DESC_wTotalLength]) | (p[CONF_DESC_wTotalLength + 1] << 8);
+            break;
+        case USB_DESCRIPTOR_TYPE_INTERFACE:
+            /* remember current alternate setting */
+            cur_alt_setting = p[INTF_DESC_bAlternateSetting];
+            cur_iface = p[INTF_DESC_bInterfaceNumber];
 
-                break;
+            if (cur_iface == iface && cur_alt_setting == alt_setting) {
+                if_desc = (void *)p;
+            }
 
-            case USB_DESCRIPTOR_TYPE_INTERFACE:
-                /* remember current alternate setting */
-                cur_alt_setting = p[INTF_DESC_bAlternateSetting];
-                cur_iface = p[INTF_DESC_bInterfaceNumber];
+            USB_LOG_DBG("Current iface %u alt setting %u", cur_iface, cur_alt_setting);
+            break;
 
-                if (cur_iface == iface &&
-                    cur_alt_setting == alt_setting) {
-                    if_desc = (void *)p;
+        case USB_DESCRIPTOR_TYPE_ENDPOINT:
+            if (cur_iface == iface) {
+                ep_desc = (struct usb_endpoint_descriptor *)p;
+
+                if (cur_alt_setting != alt_setting) {
+                    ret = usbd_reset_endpoint(ep_desc);
+                } else {
+                    ret = usbd_set_endpoint(ep_desc);
                 }
+            }
 
-                USB_LOG_DBG("Current iface %u alt setting %u",
-                            cur_iface, cur_alt_setting);
-                break;
+            break;
 
-            case USB_DESCRIPTOR_TYPE_ENDPOINT:
-                if (cur_iface == iface) {
-                    ep_desc = (struct usb_endpoint_descriptor *)p;
-
-                    if (cur_alt_setting != alt_setting) {
-                        ret = usbd_reset_endpoint(ep_desc);
-                    } else {
-                        ret = usbd_set_endpoint(ep_desc);
-                    }
-                }
-
-                break;
-
-            default:
-                break;
+        default:
+            break;
         }
 
         /* skip to next descriptor */
@@ -349,70 +333,70 @@ static int usbd_std_device_req_handler(struct usb_setup_packet *setup, uint8_t *
     int ret = 1;
 
     switch (setup->bRequest) {
-        case USB_REQUEST_GET_STATUS:
-            /* bit 0: self-powered */
-            /* bit 1: remote wakeup */
-            (*data)[0] = 0x00;
-            (*data)[1] = 0x00;
-            *len = 2;
-            break;
+    case USB_REQUEST_GET_STATUS:
+        /* bit 0: self-powered */
+        /* bit 1: remote wakeup */
+        (*data)[0] = 0x00;
+        (*data)[1] = 0x00;
+        *len = 2;
+        break;
 
-        case USB_REQUEST_CLEAR_FEATURE:
-        case USB_REQUEST_SET_FEATURE:
-            if (value == USB_FEATURE_REMOTE_WAKEUP) {
-                if (setup->bRequest == USB_REQUEST_SET_FEATURE) {
-                    usbd_event_handler(USBD_EVENT_SET_REMOTE_WAKEUP);
-                } else {
-                    usbd_event_handler(USBD_EVENT_CLR_REMOTE_WAKEUP);
-                }
-            } else if (value == USB_FEATURE_TEST_MODE) {
-#ifdef CONFIG_USBDEV_TEST_MODE
-                g_usbd_core.test_mode = 1;
-                usbd_execute_test_mode(setup);
-#endif
-            }
-            *len = 0;
-            break;
-
-        case USB_REQUEST_SET_ADDRESS:
-            usbd_set_address(value);
-            *len = 0;
-            break;
-
-        case USB_REQUEST_GET_DESCRIPTOR:
-            ret = usbd_get_descriptor(value, data, len);
-            break;
-
-        case USB_REQUEST_SET_DESCRIPTOR:
-            ret = 0;
-            break;
-
-        case USB_REQUEST_GET_CONFIGURATION:
-            *data = (uint8_t *)&g_usbd_core.configuration;
-            *len = 1;
-            break;
-
-        case USB_REQUEST_SET_CONFIGURATION:
-            value &= 0xFF;
-
-            if (!usbd_set_configuration(value, 0)) {
-                ret = 0;
+    case USB_REQUEST_CLEAR_FEATURE:
+    case USB_REQUEST_SET_FEATURE:
+        if (value == USB_FEATURE_REMOTE_WAKEUP) {
+            if (setup->bRequest == USB_REQUEST_SET_FEATURE) {
+                usbd_event_handler(USBD_EVENT_SET_REMOTE_WAKEUP);
             } else {
-                g_usbd_core.configuration = value;
-                usbd_class_event_notify_handler(USBD_EVENT_CONFIGURED, NULL);
-                usbd_event_handler(USBD_EVENT_CONFIGURED);
+                usbd_event_handler(USBD_EVENT_CLR_REMOTE_WAKEUP);
             }
-            *len = 0;
-            break;
+        } else if (value == USB_FEATURE_TEST_MODE) {
+#ifdef CONFIG_USBDEV_TEST_MODE
+            g_usbd_core.test_mode = 1;
+            usbd_execute_test_mode(setup);
+#endif
+        }
+        *len = 0;
+        break;
 
-        case USB_REQUEST_GET_INTERFACE:
-        case USB_REQUEST_SET_INTERFACE:
-            ret = 0;
-            break;
+    case USB_REQUEST_SET_ADDRESS:
+        usbd_set_address(value);
+        *len = 0;
+        break;
 
-        default:
+    case USB_REQUEST_GET_DESCRIPTOR:
+        ret = usbd_get_descriptor(value, data, len);
+        break;
+
+    case USB_REQUEST_SET_DESCRIPTOR:
+        ret = 0;
+        break;
+
+    case USB_REQUEST_GET_CONFIGURATION:
+        *data = (uint8_t *)&g_usbd_core.configuration;
+        *len = 1;
+        break;
+
+    case USB_REQUEST_SET_CONFIGURATION:
+        value &= 0xFF;
+
+        if (!usbd_set_configuration(value, 0)) {
             ret = 0;
-            break;
+        } else {
+            g_usbd_core.configuration = value;
+            usbd_class_event_notify_handler(USBD_EVENT_CONFIGURED, NULL);
+            usbd_event_handler(USBD_EVENT_CONFIGURED);
+        }
+        *len = 0;
+        break;
+
+    case USB_REQUEST_GET_INTERFACE:
+    case USB_REQUEST_SET_INTERFACE:
+        ret = 0;
+        break;
+
+    default:
+        ret = 0;
+        break;
     }
 
     return ret;
@@ -644,7 +628,7 @@ static int usbd_vendor_request_handler(struct usb_setup_packet *setup, uint8_t *
 }
 
 /**
- * @brief handle setup request( standard/class/vendor/other)
+ * @brief handle setup request(standard/class/vendor/other)
  *
  * @param [in]     setup The setup packet
  * @param [in,out] data  Data buffer

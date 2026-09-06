@@ -26,21 +26,20 @@
 
 typedef struct {
 
-	Uint32		plot_background;
-	Uint32		plot_figure[10];
-	Uint32		plot_axis;
-	Uint32		plot_hovered;
-	Uint32		plot_text;
-	Uint32		plot_hidden;
+    Uint32 plot_background;
+    Uint32 plot_figure[10];
+    Uint32 plot_axis;
+    Uint32 plot_hovered;
+    Uint32 plot_text;
+    Uint32 plot_hidden;
 
-	Uint32		menu_background;
-	Uint32		menu_hovered;
-	Uint32		menu_scrollbar;
-	Uint32		menu_item_text;
-	Uint32		menu_item_hidden;
-	Uint32		menu_fuzzy_light;
-}
-scheme_t;
+    Uint32 menu_background;
+    Uint32 menu_hovered;
+    Uint32 menu_scrollbar;
+    Uint32 menu_item_text;
+    Uint32 menu_item_hidden;
+    Uint32 menu_fuzzy_light;
+} scheme_t;
 
 void schemeFill(scheme_t *sch, int nu);
 

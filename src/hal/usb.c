@@ -18,25 +18,22 @@
 #define USBD_LANGID_STRING	0x0409	/* English (United States) */
 
 typedef struct {
-
 	QueueHandle_t		rx_queue;
 	QueueHandle_t		tx_queue;
 
 	struct usbd_interface	intf0;
 	struct usbd_interface	intf1;
 
-	LD_DMA uint8_t		rx_buf[CDC_DATA_SZ];
-	LD_DMA uint8_t		tx_buf[CDC_DATA_SZ];
+	LD_DMA uint8_t rx_buf[CDC_DATA_SZ];
+	LD_DMA uint8_t tx_buf[CDC_DATA_SZ];
 
-	int			rx_flag;
-	int			tx_flag;
-}
-priv_USB_t;
+	int rx_flag;
+	int tx_flag;
+} priv_USB_t;
 
-static priv_USB_t		priv_USB;
+static priv_USB_t priv_USB;
 
-static const uint8_t		cdc_acm_descriptor[] = {
-
+static const uint8_t cdc_acm_descriptor[] = {
 	USB_DEVICE_DESCRIPTOR_INIT(USB_2_0, 0xEF, 0x02, 0x01, USBD_VID, USBD_PID, 0x0100, 0x01),
 	USB_CONFIG_DESCRIPTOR_INIT((0x09 + CDC_ACM_DESCRIPTOR_LEN), 0x02, 0x01, USB_CONFIG_SELF_POWERED, 100),
 
@@ -68,8 +65,7 @@ void usb_dc_low_level_init(void)
 	if (hal.MCU_ID == MCU_ID_STM32F405) {
 
 		USB_OTG_FS->GCCFG = USB_OTG_GCCFG_NOVBUSSENS | USB_OTG_GCCFG_PWRDWN;
-	}
-	else if (hal.MCU_ID == MCU_ID_GD32F405) {
+	} else if (hal.MCU_ID == MCU_ID_GD32F405) {
 
 		USB_OTG_FS->GCCFG = (0x000DU << 16);	/* PWRON | VBUSACEN | VBUSBCEN */
 	}
@@ -82,70 +78,54 @@ void usb_dc_low_level_init(void)
 void usbd_event_handler(uint8_t event)
 {
 	switch (event) {
+    case USBD_EVENT_CONFIGURED:
+        priv_USB.rx_flag = 1;
+        priv_USB.tx_flag = 0;
 
-		case USBD_EVENT_CONFIGURED:
-
-			priv_USB.rx_flag = 1;
-			priv_USB.tx_flag = 0;
-
-			usbd_ep_start_read(CDC_OUT_EP, priv_USB.rx_buf, CDC_DATA_SZ);
-			break;
-
-		default:
-			break;
+        usbd_ep_start_read(CDC_OUT_EP, priv_USB.rx_buf, CDC_DATA_SZ);
+        break;
+    default:
+        break;
 	}
 }
 
-static void
-usbd_cdc_acm_bulk_out(uint8_t ep, uint32_t nbytes)
+static void usbd_cdc_acm_bulk_out(uint8_t ep, uint32_t nbytes)
 {
-	BaseType_t		xWoken = pdFALSE;
+	BaseType_t xWoken = pdFALSE;
 
 	if (nbytes > 0) {
-
-		int		n;
-
+		int n;
 		for (n = 0; n < nbytes; ++n) {
-
-			xQueueSendToBackFromISR(priv_USB.rx_queue,
-					&priv_USB.rx_buf[n], &xWoken);
+			xQueueSendToBackFromISR(priv_USB.rx_queue, &priv_USB.rx_buf[n], &xWoken);
 		}
 
 		IODEF_TO_USB();
 	}
 
 	if (uxQueueSpacesAvailableFromISR(priv_USB.rx_queue) >= CDC_DATA_SZ) {
-
 		usbd_ep_start_read(CDC_OUT_EP, priv_USB.rx_buf, CDC_DATA_SZ);
-	}
-	else {
+	} else {
 		priv_USB.rx_flag = 0;
 	}
 
 	portYIELD_FROM_ISR(xWoken);
 }
 
-static void
-usbd_cdc_acm_bulk_in(uint8_t ep, uint32_t nbytes)
+static void usbd_cdc_acm_bulk_in(uint8_t ep, uint32_t nbytes)
 {
-	BaseType_t		xWoken = pdFALSE;
-	int			len = 0;
+	BaseType_t xWoken = pdFALSE;
+	int len = 0;
 
-	while (		len < CDC_DATA_SZ
-			&& xQueueReceiveFromISR(priv_USB.tx_queue,
-				&priv_USB.tx_buf[len], &xWoken) == pdTRUE) {
+	while (len < CDC_DATA_SZ &&
+            xQueueReceiveFromISR(priv_USB.tx_queue, &priv_USB.tx_buf[len], &xWoken) == pdTRUE) {
 		len++;
 	}
 
 	if (len > 0) {
-
 		usbd_ep_start_write(CDC_IN_EP, priv_USB.tx_buf, len);
-	}
-	else if (nbytes == CDC_DATA_SZ) {
-
+	} else if (nbytes == CDC_DATA_SZ) {
 		usbd_ep_start_write(CDC_IN_EP, NULL, 0);
-	}
-	else {
+	} else {
 		priv_USB.tx_flag = 0;
 	}
 
@@ -168,38 +148,27 @@ void usbd_cdc_acm_get_line_coding(uint8_t intf, struct cdc_line_coding *line_cod
 LD_TASK void task_USB_IN(void *pData)
 {
 	do {
-		vTaskDelay((TickType_t) 10);
+		vTaskDelay((TickType_t)10);
 
 		if (priv_USB.rx_flag == 0) {
-
 			if (uxQueueSpacesAvailable(priv_USB.rx_queue) >= CDC_DATA_SZ) {
-
 				priv_USB.rx_flag = 1;
-
 				usbd_ep_start_read(CDC_OUT_EP, priv_USB.rx_buf, CDC_DATA_SZ);
 			}
 		}
 
 		if (priv_USB.tx_flag == 0) {
-
-			int	len = 0;
-
-			while (		len < CDC_DATA_SZ
-					&& xQueueReceive(priv_USB.tx_queue,
-						&priv_USB.tx_buf[len],
-						(TickType_t) 10) == pdTRUE) {
+			int len = 0;
+			while (len < CDC_DATA_SZ
+					&& xQueueReceive(priv_USB.tx_queue, &priv_USB.tx_buf[len], (TickType_t)10) == pdTRUE) {
 				len++;
 			}
-
 			if (len > 0) {
-
 				priv_USB.tx_flag = 1;
-
 				usbd_ep_start_write(CDC_IN_EP, priv_USB.tx_buf, len);
 			}
 		}
-	}
-	while (1);
+	} while (1);
 }
 
 extern QueueHandle_t USART_public_rx_queue();
@@ -207,13 +176,11 @@ extern QueueHandle_t USART_public_rx_queue();
 void USB_startup()
 {
 	const struct usbd_endpoint	cdc_in_ep = {
-
 		.ep_addr = CDC_IN_EP,
 		.ep_cb = usbd_cdc_acm_bulk_in
 	};
 
 	const struct usbd_endpoint	cdc_out_ep = {
-
 		.ep_addr = CDC_OUT_EP,
 		.ep_cb = usbd_cdc_acm_bulk_out
 	};
@@ -260,17 +227,12 @@ void USB_startup()
 
 void USB_putc(int c)
 {
-	char		xbyte = (char) c;
+	char xbyte = (char)c;
 
 	GPIO_set_HIGH(GPIO_LED_ALERT);
-
 	if (xQueueSendToBack(priv_USB.tx_queue, &xbyte, (TickType_t) 100) != pdTRUE) {
-
 		log_TRACE("USB queue overflow" EOL);
-
 		xQueueReset(priv_USB.tx_queue);
 	}
-
 	GPIO_set_LOW(GPIO_LED_ALERT);
 }
-

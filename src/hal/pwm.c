@@ -3,25 +3,24 @@
 
 void irq_TIM1_UP_TIM10() { }
 
-static int
-PWM_build()
+static int PWM_build()
 {
-	int		resolution, DTG;
+	int resolution, DTG;
 
-	resolution = (int) ((float) (CLOCK_TIM1_HZ / 2U) / hal.PWM_frequency + 0.5f);
-	DTG = (int) ((float) CLOCK_TIM1_HZ * hal.PWM_deadtime / 1000000000.f + 0.5f);
+	resolution = (int) ((float)(CLOCK_TIM1_HZ / 2U) / hal.PWM_frequency + 0.5f);
+	DTG = (int) ((float)CLOCK_TIM1_HZ * hal.PWM_deadtime / 1000000000.f + 0.5f);
 	DTG = (DTG < 127) ? DTG : 127;
 
-	hal.PWM_frequency = (float) (CLOCK_TIM1_HZ / 2U) / (float) resolution;
+	hal.PWM_frequency = (float)(CLOCK_TIM1_HZ / 2U) / (float)resolution;
 	hal.PWM_resolution = resolution;
-	hal.PWM_deadtime = (float) DTG * 1000000000.f / (float) CLOCK_TIM1_HZ;
+	hal.PWM_deadtime = (float)DTG * 1000000000.f / (float)CLOCK_TIM1_HZ;
 
 	return DTG;
 }
 
 void PWM_startup()
 {
-	int		DTG;
+	int DTG;
 
 	DTG = PWM_build();
 
@@ -53,7 +52,6 @@ void PWM_startup()
 
 #ifdef HW_HAVE_PWM_STOP
 	if (hal.PWM_stop == HAL_ENABLED) {
-
 		TIM1->BDTR |= (3U << TIM_BDTR_BKF_Pos)
 			| (0U << TIM_BDTR_BKP_Pos) | TIM_BDTR_BKE;
 	}
@@ -101,7 +99,7 @@ void PWM_startup()
 
 void PWM_configure()
 {
-	int		DTG;
+	int DTG;
 
 	DTG = PWM_build();
 
@@ -112,11 +110,9 @@ void PWM_configure()
 
 #ifdef HW_HAVE_PWM_STOP
 	if (hal.PWM_stop == HAL_ENABLED) {
-
 		TIM1->BDTR |= (3U << TIM_BDTR_BKF_Pos)
 			| (0U << TIM_BDTR_BKP_Pos) | TIM_BDTR_BKE;
-	}
-	else {
+	} else {
 		TIM1->BDTR &= ~(TIM_BDTR_BKF_Msk | TIM_BDTR_BKP_Msk
 				| TIM_BDTR_BKE);
 	}
@@ -156,8 +152,7 @@ void PWM_set_Z(int Z)
 #else /* HW_HAVE_PWM_POLARITY */
 		TIM1->CCER &= ~(TIM_CCER_CC1NE | TIM_CCER_CC1E);
 #endif
-	}
-	else {
+	} else {
 
 #ifdef HW_HAVE_PWM_THREE_WIRE
 		GPIO_set_HIGH(GPIO_TIM1_CH1N);
@@ -172,7 +167,6 @@ void PWM_set_Z(int Z)
 	}
 
 	if (Z & LEG_B) {
-
 #ifdef HW_HAVE_PWM_THREE_WIRE
 		GPIO_set_LOW(GPIO_TIM1_CH2N);
 #endif /* HW_HAVE_PWM_THREE_WIRE */
@@ -183,8 +177,7 @@ void PWM_set_Z(int Z)
 #else /* HW_HAVE_PWM_POLARITY */
 		TIM1->CCER &= ~(TIM_CCER_CC2NE | TIM_CCER_CC2E);
 #endif
-	}
-	else {
+	} else {
 
 #ifdef HW_HAVE_PWM_THREE_WIRE
 		GPIO_set_HIGH(GPIO_TIM1_CH2N);
@@ -214,8 +207,7 @@ void PWM_set_Z(int Z)
 #else /* HW_HAVE_PWM_POLARITY */
 		TIM1->CCER &= ~(TIM_CCER_CC3NE | TIM_CCER_CC3E);
 #endif
-	}
-	else {
+	} else {
 
 #ifdef HW_HAVE_PWM_THREE_WIRE
 		GPIO_set_HIGH(GPIO_TIM1_CH3N);
@@ -236,7 +228,6 @@ void PWM_set_Z(int Z)
 int PWM_fault()
 {
 	if (TIM1->SR & TIM_SR_BIF) {
-
 		TIM1->SR &= ~TIM_SR_BIF;
 
 		return HAL_FAULT;

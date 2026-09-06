@@ -37,8945 +37,7527 @@ extern SDL_RWops *TTF_RW_roboto_mono_thin();
 
 double fp_nan()
 {
-	union {
-		unsigned long long	l;
-		double			f;
-	}
-	u = { 0xFFF8000000000000ULL };
+    union {
+        unsigned long long l;
+        double f;
+    } u = {0xFFF8000000000000ULL};
 
-	return u.f;
+    return u.f;
 }
 
 int fp_isfinite(double x)
 {
-	union {
-		double			f;
-		unsigned long long	l;
-	}
-	u = { x };
+    union {
+        double f;
+        unsigned long long l;
+    } u = {x};
 
-	return ((0x7FFUL & (unsigned long) (u.l >> 52)) != 0x7FFUL) ? 1 : 0;
+    return ((0x7FFUL & (unsigned long)(u.l >> 52)) != 0x7FFUL) ? 1 : 0;
 }
 
 plot_t *plotAlloc(draw_t *dw, scheme_t *sch)
 {
-	plot_t		*pl;
-	int		N;
+    plot_t *pl;
+    int N;
 
-	pl = (plot_t *) calloc(1, sizeof(plot_t));
+    pl = (plot_t *)calloc(1, sizeof(plot_t));
 
-	pl->dw = dw;
-	pl->sch = sch;
+    pl->dw = dw;
+    pl->sch = sch;
 
-	for (N = 0; N < PLOT_SKETCH_MAX - 1; ++N)
-		pl->sketch[N].linked = N + 1;
+    for (N = 0; N < PLOT_SKETCH_MAX - 1; ++N)
+        pl->sketch[N].linked = N + 1;
 
-	pl->sketch[PLOT_SKETCH_MAX - 1].linked = -1;
+    pl->sketch[PLOT_SKETCH_MAX - 1].linked = -1;
 
-	pl->sketch_list_garbage = 0;
-	pl->sketch_list_todraw = -1;
-	pl->sketch_list_current = -1;
-	pl->sketch_list_current_end = -1;
+    pl->sketch_list_garbage = 0;
+    pl->sketch_list_todraw = -1;
+    pl->sketch_list_current = -1;
+    pl->sketch_list_current_end = -1;
 
-	for (N = 0; N < PLOT_FIGURE_MAX; ++N)
-		pl->draw[N].list_self = -1;
+    for (N = 0; N < PLOT_FIGURE_MAX; ++N)
+        pl->draw[N].list_self = -1;
 
-	pl->layout_font_long = 11;
-	pl->layout_font_space = 16;
-	pl->layout_border = 5;
-	pl->layout_tick_tooth = 5;
-	pl->layout_grid_dash = 2;
-	pl->layout_grid_space = 8;
-	pl->layout_drawing_dash = 8;
-	pl->layout_drawing_space = 12;
-	pl->layout_fence_dash = 10;
-	pl->layout_fence_space = 10;
-	pl->layout_fence_point = 10;
+    pl->layout_font_long = 11;
+    pl->layout_font_space = 16;
+    pl->layout_border = 5;
+    pl->layout_tick_tooth = 5;
+    pl->layout_grid_dash = 2;
+    pl->layout_grid_space = 8;
+    pl->layout_drawing_dash = 8;
+    pl->layout_drawing_space = 12;
+    pl->layout_fence_dash = 10;
+    pl->layout_fence_space = 10;
+    pl->layout_fence_point = 10;
 
-	pl->interpolation = 1;
-	pl->defungap = 10.;
+    pl->interpolation = 1;
+    pl->defungap = 10.;
 
-	pl->mark_size = 40;
-	pl->mark_density = 40;
+    pl->mark_size = 40;
+    pl->mark_density = 40;
 
-	pl->default_drawing = FIGURE_DRAWING_LINE;
-	pl->default_width = 2;
+    pl->default_drawing = FIGURE_DRAWING_LINE;
+    pl->default_width = 2;
 
-	pl->transparency = 1;
-	pl->fprecision = 9;
-	pl->fhexadecimal = 1;
-	pl->lz4_compress = 1;
+    pl->transparency = 1;
+    pl->fprecision = 9;
+    pl->fhexadecimal = 1;
+    pl->lz4_compress = 1;
 
-	return pl;
+    return pl;
 }
 
-static void
-plotSketchFree(plot_t *pl)
+static void plotSketchFree(plot_t *pl)
 {
-	int		N;
+    int N;
 
-	plotSketchClean(pl);
+    plotSketchClean(pl);
 
-	for (N = 0; N < PLOT_SKETCH_MAX; ++N) {
-
-		if (pl->sketch[N].chunk != NULL) {
-
-			free(pl->sketch[N].chunk);
-
-			pl->sketch[N].chunk = NULL;
-		}
-	}
+    for (N = 0; N < PLOT_SKETCH_MAX; ++N) {
+        if (pl->sketch[N].chunk != NULL) {
+            free(pl->sketch[N].chunk);
+            pl->sketch[N].chunk = NULL;
+        }
+    }
 }
 
 void plotClean(plot_t *pl)
 {
-	int		dN;
+    int dN;
 
-	drawPixmapClean(pl->dw);
-	plotSketchFree(pl);
+    drawPixmapClean(pl->dw);
+    plotSketchFree(pl);
 
-	for (dN = 0; dN < PLOT_DATASET_MAX; ++dN) {
+    for (dN = 0; dN < PLOT_DATASET_MAX; ++dN) {
+        if (pl->data[dN].column_N != 0)
+            plotDataClean(pl, dN);
+    }
 
-		if (pl->data[dN].column_N != 0)
-			plotDataClean(pl, dN);
-	}
-
-	free(pl);
+    free(pl);
 }
 
-static void
-plotFontLayout(plot_t *pl)
+static void plotFontLayout(plot_t *pl)
 {
-	TTF_SizeUTF8(pl->font, "Ab", &pl->layout_font_long, &pl->layout_font_height);
+    TTF_SizeUTF8(pl->font, "Ab", &pl->layout_font_long, &pl->layout_font_height);
 
-	pl->layout_font_long /= 2;
-	pl->layout_font_height = TTF_FontHeight(pl->font);
+    pl->layout_font_long /= 2;
+    pl->layout_font_height = TTF_FontHeight(pl->font);
 
-	pl->layout_font_space = pl->layout_font_long * 14 / 10;
-	pl->layout_ruler_box = pl->layout_tick_tooth + pl->layout_font_height;
-	pl->layout_label_box = pl->layout_font_height;
+    pl->layout_font_space = pl->layout_font_long * 14 / 10;
+    pl->layout_ruler_box = pl->layout_tick_tooth + pl->layout_font_height;
+    pl->layout_label_box = pl->layout_font_height;
 
-	pl->layout_mark_size = pl->layout_font_height * pl->mark_size / 200;
-	pl->layout_mark_size = (pl->layout_mark_size < 1) ? 1 : pl->layout_mark_size;
+    pl->layout_mark_size = pl->layout_font_height * pl->mark_size / 200;
+    pl->layout_mark_size = (pl->layout_mark_size < 1) ? 1 : pl->layout_mark_size;
 }
 
 void plotFontDefault(plot_t *pl, int ttfnum, int ptsize, int style)
 {
-	if (pl->font != NULL) {
+    if (pl->font != NULL) {
+        TTF_CloseFont(pl->font);
+        pl->font = NULL;
+    }
 
-		TTF_CloseFont(pl->font);
+    switch (ttfnum) {
+    case TTF_ID_ROBOTO_MONO_THIN:
+        pl->font = TTF_OpenFontRW(TTF_RW_roboto_mono_thin(), 1, ptsize);
+        break;
+    case TTF_ID_ROBOTO_MONO_NORMAL:
+        pl->font = TTF_OpenFontRW(TTF_RW_roboto_mono_normal(), 1, ptsize);
+    default:
+        ttfnum = TTF_ID_ROBOTO_MONO_NORMAL;
+        break;
+    }
 
-		pl->font = NULL;
-	}
+    TTF_SetFontStyle(pl->font, style);
 
-	switch (ttfnum) {
+    pl->layout_font_ttf = ttfnum;
+    pl->layout_font_pt = ptsize;
 
-		default:
-			ttfnum = TTF_ID_ROBOTO_MONO_NORMAL;
-
-		case TTF_ID_ROBOTO_MONO_NORMAL:
-			pl->font = TTF_OpenFontRW(TTF_RW_roboto_mono_normal(), 1, ptsize);
-			break;
-
-		case TTF_ID_ROBOTO_MONO_THIN:
-			pl->font = TTF_OpenFontRW(TTF_RW_roboto_mono_thin(), 1, ptsize);
-			break;
-	}
-
-	TTF_SetFontStyle(pl->font, style);
-
-	pl->layout_font_ttf = ttfnum;
-	pl->layout_font_pt = ptsize;
-
-	plotFontLayout(pl);
+    plotFontLayout(pl);
 }
 
 int plotFontOpen(plot_t *pl, const char *ttf, int ptsize, int style)
 {
-	if (pl->font != NULL) {
+    if (pl->font != NULL) {
+        TTF_CloseFont(pl->font);
+        pl->font = NULL;
+    }
 
-		TTF_CloseFont(pl->font);
+    pl->font = TTF_OpenFont(ttf, ptsize);
 
-		pl->font = NULL;
-	}
+    if (pl->font == NULL) {
+        ERROR("TTF_OpenFont: \"%s\"\n", TTF_GetError());
+        return -1;
+    }
 
-	pl->font = TTF_OpenFont(ttf, ptsize);
+    TTF_SetFontStyle(pl->font, style);
 
-	if (pl->font == NULL) {
+    pl->layout_font_ttf = 0;
+    pl->layout_font_pt = ptsize;
 
-		ERROR("TTF_OpenFont: \"%s\"\n", TTF_GetError());
-		return -1;
-	}
+    plotFontLayout(pl);
 
-	TTF_SetFontStyle(pl->font, style);
-
-	pl->layout_font_ttf = 0;
-	pl->layout_font_pt = ptsize;
-
-	plotFontLayout(pl);
-
-	return 0;
+    return 0;
 }
 
-static void
-plotDataChunkAlloc(plot_t *pl, int dN, int lN)
+static void plotDataChunkAlloc(plot_t *pl, int dN, int lN)
 {
-	int		N, kN, lSHIFT;
+    int N, kN, lSHIFT;
 
-	lSHIFT = pl->data[dN].chunk_SHIFT;
+    lSHIFT = pl->data[dN].chunk_SHIFT;
 
-	kN = (lN & pl->data[dN].chunk_MASK) ? 1 : 0;
-	kN += lN >> lSHIFT;
+    kN = (lN & pl->data[dN].chunk_MASK) ? 1 : 0;
+    kN += lN >> lSHIFT;
 
-	if (kN > PLOT_CHUNK_MAX) {
+    if (kN > PLOT_CHUNK_MAX) {
+        kN = PLOT_CHUNK_MAX;
+        lN = kN * (1UL << lSHIFT);
+    }
 
-		kN = PLOT_CHUNK_MAX;
-		lN = kN * (1UL << lSHIFT);
-	}
+    if (pl->data[dN].lz4_compress != 0) {
+        for (N = kN; N < PLOT_CHUNK_MAX; ++N) {
+            if (pl->data[dN].compress[N].raw != NULL) {
+                free(pl->data[dN].compress[N].raw);
+                pl->data[dN].compress[N].raw = NULL;
+            }
+        }
+    } else {
+        for (N = 0; N < kN; ++N) {
+            if (pl->data[dN].raw[N] == NULL) {
+                pl->data[dN].raw[N] = (fval_t *) malloc(pl->data[dN].chunk_bSIZE);
 
-	if (pl->data[dN].lz4_compress != 0) {
+                if (pl->data[dN].raw[N] == NULL) {
+                    lN = N * (1UL << lSHIFT);
+                    ERROR("Unable to allocate raw memory of %i dataset\n", dN);
+                    break;
+                }
+            }
+        }
 
-		for (N = kN; N < PLOT_CHUNK_MAX; ++N) {
+        for (N = kN; N < PLOT_CHUNK_MAX; ++N) {
+            if (pl->data[dN].raw[N] != NULL) {
+                free(pl->data[dN].raw[N]);
+                pl->data[dN].raw[N] = NULL;
+            }
+        }
+    }
 
-			if (pl->data[dN].compress[N].raw != NULL) {
-
-				free(pl->data[dN].compress[N].raw);
-
-				pl->data[dN].compress[N].raw = NULL;
-			}
-		}
-	}
-	else {
-		for (N = 0; N < kN; ++N) {
-
-			if (pl->data[dN].raw[N] == NULL) {
-
-				pl->data[dN].raw[N] = (fval_t *) malloc(pl->data[dN].chunk_bSIZE);
-
-				if (pl->data[dN].raw[N] == NULL) {
-
-					lN = N * (1UL << lSHIFT);
-
-					ERROR("Unable to allocate raw memory of %i dataset\n", dN);
-					break;
-				}
-			}
-		}
-
-		for (N = kN; N < PLOT_CHUNK_MAX; ++N) {
-
-			if (pl->data[dN].raw[N] != NULL) {
-
-				free(pl->data[dN].raw[N]);
-
-				pl->data[dN].raw[N] = NULL;
-			}
-		}
-	}
-
-	pl->data[dN].length_N = lN;
+    pl->data[dN].length_N = lN;
 }
 
 unsigned long long plotDataMemoryUsage(plot_t *pl, int dN)
 {
-	int			N;
-	unsigned long long	bUSAGE;
+    int N;
+    unsigned long long bUSAGE;
 
-	if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+    if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+        ERROR("Dataset number is out of range\n");
+        return 0;
+    }
 
-		ERROR("Dataset number is out of range\n");
-		return 0;
-	}
+    bUSAGE = 0;
 
-	bUSAGE = 0;
+    for (N = 0; N < PLOT_CHUNK_MAX; ++N) {
+        if (pl->data[dN].raw[N] != NULL) {
+            bUSAGE += pl->data[dN].chunk_bSIZE;
+        }
 
-	for (N = 0; N < PLOT_CHUNK_MAX; ++N) {
+        if (pl->data[dN].compress[N].raw != NULL) {
+            bUSAGE += pl->data[dN].compress[N].length;
+        }
+    }
 
-		if (pl->data[dN].raw[N] != NULL) {
-
-			bUSAGE += pl->data[dN].chunk_bSIZE;
-		}
-
-		if (pl->data[dN].compress[N].raw != NULL) {
-
-			bUSAGE += pl->data[dN].compress[N].length;
-		}
-	}
-
-	return bUSAGE;
+    return bUSAGE;
 }
 
 unsigned long long plotDataMemoryUncompressed(plot_t *pl, int dN)
 {
-	int			N;
-	unsigned long long	bUSAGE;
+    int N;
+    unsigned long long bUSAGE;
 
-	if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+    if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+        ERROR("Dataset number is out of range\n");
+        return 0;
+    }
 
-		ERROR("Dataset number is out of range\n");
-		return 0;
-	}
+    bUSAGE = 0;
 
-	bUSAGE = 0;
+    for (N = 0; N < PLOT_CHUNK_MAX; ++N) {
+        if (pl->data[dN].raw[N] != NULL || pl->data[dN].compress[N].raw != NULL) {
+            bUSAGE += pl->data[dN].chunk_bSIZE;
+        }
+    }
 
-	for (N = 0; N < PLOT_CHUNK_MAX; ++N) {
-
-		if (		pl->data[dN].raw[N] != NULL
-				|| pl->data[dN].compress[N].raw != NULL) {
-
-			bUSAGE += pl->data[dN].chunk_bSIZE;
-		}
-	}
-
-	return bUSAGE;
+    return bUSAGE;
 }
 
 unsigned long long plotDataMemoryCached(plot_t *pl, int dN)
 {
-	int			N;
-	unsigned long long	bUSAGE;
+    int N;
+    unsigned long long bUSAGE;
 
-	if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+    if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+        ERROR("Dataset number is out of range\n");
+        return 0;
+    }
 
-		ERROR("Dataset number is out of range\n");
-		return 0;
-	}
+    bUSAGE = 0;
 
-	bUSAGE = 0;
+    for (N = 0; N < PLOT_CHUNK_CACHE; ++N) {
+        if (pl->data[dN].cache[N].raw != NULL) {
+            bUSAGE += pl->data[dN].chunk_bSIZE;
+        }
+    }
 
-	for (N = 0; N < PLOT_CHUNK_CACHE; ++N) {
-
-		if (pl->data[dN].cache[N].raw != NULL) {
-
-			bUSAGE += pl->data[dN].chunk_bSIZE;
-		}
-	}
-
-	return bUSAGE;
+    return bUSAGE;
 }
 
-static int
-plotDataCacheGetNode(plot_t *pl, int dN)
+static int plotDataCacheGetNode(plot_t *pl, int dN)
 {
-	int		N, kNOT, xN = -1;
+    int N, kNOT, xN = -1;
 
-	for (N = 0; N < PLOT_CHUNK_CACHE; ++N) {
+    for (N = 0; N < PLOT_CHUNK_CACHE; ++N) {
+        if (pl->data[dN].cache[N].raw == NULL) {
+            xN = N;
+            break;
+        }
+    }
 
-		if (pl->data[dN].cache[N].raw == NULL) {
+    if (xN < 0) {
+        kNOT = pl->data[dN].tail_N >> pl->data[dN].chunk_SHIFT;
 
-			xN = N;
-			break;
-		}
-	}
+        N = (pl->data[dN].cache_ID < PLOT_CHUNK_CACHE - 1)
+            ? pl->data[dN].cache_ID + 1 : 0;
 
-	if (xN < 0) {
+        if (pl->data[dN].cache[N].chunk_N == kNOT) {
+            N = (N < PLOT_CHUNK_CACHE - 1) ? N + 1 : 0;
+        }
 
-		kNOT = pl->data[dN].tail_N >> pl->data[dN].chunk_SHIFT;
+        xN = N;
+        pl->data[dN].cache_ID = N;
+    }
 
-		N = (pl->data[dN].cache_ID < PLOT_CHUNK_CACHE - 1)
-			? pl->data[dN].cache_ID + 1 : 0;
-
-		if (pl->data[dN].cache[N].chunk_N == kNOT) {
-
-			N = (N < PLOT_CHUNK_CACHE - 1) ? N + 1 : 0;
-		}
-
-		xN = N;
-
-		pl->data[dN].cache_ID = N;
-	}
-
-	return xN;
+    return xN;
 }
 
-static void
-plotDataCacheFetch(plot_t *pl, int dN, int kN)
+static void plotDataCacheFetch(plot_t *pl, int dN, int kN)
 {
-	int		xN, kNZ, lzLEN;
+    int xN, kNZ, lzLEN;
 
-	xN = plotDataCacheGetNode(pl, dN);
+    xN = plotDataCacheGetNode(pl, dN);
 
-	if (pl->data[dN].cache[xN].raw != NULL) {
+    if (pl->data[dN].cache[xN].raw != NULL) {
+        kNZ = pl->data[dN].cache[xN].chunk_N;
 
-		kNZ = pl->data[dN].cache[xN].chunk_N;
+        if (pl->data[dN].cache[xN].dirty != 0) {
+            lzLEN = LZ4_compressBound(pl->data[dN].chunk_bSIZE);
 
-		if (pl->data[dN].cache[xN].dirty != 0) {
+            if (pl->data[dN].compress[kNZ].raw != NULL) {
+                free(pl->data[dN].compress[kNZ].raw);
+                pl->data[dN].compress[kNZ].raw = NULL;
+            }
 
-			lzLEN = LZ4_compressBound(pl->data[dN].chunk_bSIZE);
+            pl->data[dN].compress[kNZ].length = 0;
 
-			if (pl->data[dN].compress[kNZ].raw != NULL) {
+            if (pl->data[dN].lz4_reserved == NULL) {
+                pl->data[dN].lz4_reserved = (void *)malloc(lzLEN);
+            }
 
-				free(pl->data[dN].compress[kNZ].raw);
+            if (pl->data[dN].lz4_reserved != NULL) {
+                lzLEN = LZ4_compress_fast((const char *) pl->data[dN].cache[xN].raw,
+                        (char *)pl->data[dN].lz4_reserved, pl->data[dN].chunk_bSIZE, lzLEN, 1);
 
-				pl->data[dN].compress[kNZ].raw = NULL;
-			}
+                pl->data[dN].compress[kNZ].raw = (void *)malloc(lzLEN);
 
-			pl->data[dN].compress[kNZ].length = 0;
+                if (pl->data[dN].compress[kNZ].raw != NULL) {
+                    memcpy(pl->data[dN].compress[kNZ].raw, pl->data[dN].lz4_reserved, lzLEN);
+                    pl->data[dN].compress[kNZ].length = lzLEN;
+                } else {
+                    ERROR("Unable to allocate LZ4 memory of %i dataset\n", dN);
+                }
+            } else {
+                ERROR("Unable to allocate reserved memory of %i dataset\n", dN);
+            }
+        }
 
-			if (pl->data[dN].lz4_reserved == NULL) {
+        pl->data[dN].raw[kNZ] = NULL;
+    } else {
+        pl->data[dN].cache[xN].raw = (fval_t *) malloc(pl->data[dN].chunk_bSIZE);
 
-				pl->data[dN].lz4_reserved = (void *) malloc(lzLEN);
-			}
+        if (pl->data[dN].cache[xN].raw == NULL) {
+            ERROR("Unable to allocate cache of %i dataset\n", dN);
+        }
+    }
 
-			if (pl->data[dN].lz4_reserved != NULL) {
+    pl->data[dN].cache[xN].chunk_N = kN;
+    pl->data[dN].cache[xN].dirty = 0;
 
-				lzLEN = LZ4_compress_fast((const char *) pl->data[dN].cache[xN].raw,
-						(char *) pl->data[dN].lz4_reserved,
-						pl->data[dN].chunk_bSIZE, lzLEN, 1);
+    pl->data[dN].raw[kN] = pl->data[dN].cache[xN].raw;
 
-				pl->data[dN].compress[kNZ].raw = (void *) malloc(lzLEN);
+    if (pl->data[dN].compress[kN].raw != NULL) {
+        lzLEN = LZ4_decompress_safe((const char *) pl->data[dN].compress[kN].raw,
+                (char *)pl->data[dN].raw[kN],  pl->data[dN].compress[kN].length,
+                pl->data[dN].chunk_bSIZE);
 
-				if (pl->data[dN].compress[kNZ].raw != NULL) {
-
-					memcpy(pl->data[dN].compress[kNZ].raw,
-							pl->data[dN].lz4_reserved, lzLEN);
-
-					pl->data[dN].compress[kNZ].length = lzLEN;
-				}
-				else {
-					ERROR("Unable to allocate LZ4 memory of %i dataset\n", dN);
-				}
-			}
-			else {
-				ERROR("Unable to allocate reserved memory of %i dataset\n", dN);
-			}
-		}
-
-		pl->data[dN].raw[kNZ] = NULL;
-	}
-	else {
-		pl->data[dN].cache[xN].raw = (fval_t *) malloc(pl->data[dN].chunk_bSIZE);
-
-		if (pl->data[dN].cache[xN].raw == NULL) {
-
-			ERROR("Unable to allocate cache of %i dataset\n", dN);
-		}
-	}
-
-	pl->data[dN].cache[xN].chunk_N = kN;
-	pl->data[dN].cache[xN].dirty = 0;
-
-	pl->data[dN].raw[kN] = pl->data[dN].cache[xN].raw;
-
-	if (pl->data[dN].compress[kN].raw != NULL) {
-
-		lzLEN = LZ4_decompress_safe((const char *) pl->data[dN].compress[kN].raw,
-				(char *) pl->data[dN].raw[kN], pl->data[dN].compress[kN].length,
-				pl->data[dN].chunk_bSIZE);
-
-		if (lzLEN != pl->data[dN].chunk_bSIZE) {
-
-			ERROR("Unable to decompress LZ4 memory of %i dataset\n", dN);
-		}
-	}
+        if (lzLEN != pl->data[dN].chunk_bSIZE) {
+            ERROR("Unable to decompress LZ4 memory of %i dataset\n", dN);
+        }
+    }
 }
 
-static void
-plotDataChunkFetch(plot_t *pl, int dN, int kN)
+static void plotDataChunkFetch(plot_t *pl, int dN, int kN)
 {
-	if (		   pl->data[dN].raw[kN] == NULL
-			&& pl->data[dN].length_N != 0) {
-
-		plotDataCacheFetch(pl, dN, kN);
-	}
+    if (pl->data[dN].raw[kN] == NULL && pl->data[dN].length_N != 0) {
+        plotDataCacheFetch(pl, dN, kN);
+    }
 }
 
-static void
-plotDataChunkWrite(plot_t *pl, int dN, int kN)
+static void plotDataChunkWrite(plot_t *pl, int dN, int kN)
 {
-	int		N;
+    int N;
 
-	if (		   pl->data[dN].raw[kN] == NULL
-			&& pl->data[dN].length_N != 0) {
+    if (pl->data[dN].raw[kN] == NULL && pl->data[dN].length_N != 0) {
+        plotDataCacheFetch(pl, dN, kN);
+    }
 
-		plotDataCacheFetch(pl, dN, kN);
-	}
-
-	if (pl->data[dN].raw[kN] != NULL) {
-
-		for (N = 0; N < PLOT_CHUNK_CACHE; ++N) {
-
-			if (pl->data[dN].cache[N].chunk_N == kN) {
-
-				pl->data[dN].cache[N].dirty = 1;
-				break;
-			}
-		}
-	}
+    if (pl->data[dN].raw[kN] != NULL) {
+        for (N = 0; N < PLOT_CHUNK_CACHE; ++N) {
+            if (pl->data[dN].cache[N].chunk_N == kN) {
+                pl->data[dN].cache[N].dirty = 1;
+                break;
+            }
+        }
+    }
 }
 
 void plotDataAlloc(plot_t *pl, int dN, int cN, int lN)
 {
-	int		*map;
+    int *map;
+    int N, bSIZE;
 
-	int		N, bSIZE;
+    if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+        ERROR("Dataset number is out of range\n");
+        return;
+    }
 
-	if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+    if (cN < 1) {
+        ERROR("Number of columns is too few\n");
+        return;
+    }
 
-		ERROR("Dataset number is out of range\n");
-		return ;
-	}
+    if (lN < 1) {
+        ERROR("Length of dataset is too short\n");
+        return;
+    }
 
-	if (cN < 1) {
+    if (pl->data[dN].column_N != 0) {
+        if (pl->data[dN].column_N != cN) {
+            ERROR("Number of columns cannot be changed\n");
+            return;
+        }
 
-		ERROR("Number of columns is too few\n");
-		return ;
-	}
+        if (plotFigureHaveData(pl, dN) != 0) {
+            plotSketchClean(pl);
+        }
 
-	if (lN < 1) {
+        plotDataRangeCacheClean(pl, dN);
+        plotDataChunkAlloc(pl, dN, lN);
 
-		ERROR("Length of dataset is too short\n");
-		return ;
-	}
+        pl->data[dN].head_N = 0;
+        pl->data[dN].tail_N = 0;
+        pl->data[dN].id_N = 0;
+        pl->data[dN].sub_N = 0;
+    } else {
+        pl->data[dN].column_N = cN;
 
-	if (pl->data[dN].column_N != 0) {
+        for (N = 0; N < 30; ++N) {
+            bSIZE = (int) sizeof(fval_t) * (cN + PLOT_SUBTRACT) * (1UL << N);
 
-		if (pl->data[dN].column_N != cN) {
+            if (bSIZE >= PLOT_CHUNK_SIZE) {
+                pl->data[dN].chunk_SHIFT = N;
+                pl->data[dN].chunk_MASK = (1UL << N) - 1UL;
+                pl->data[dN].chunk_bSIZE = bSIZE;
+                break;
+            }
+        }
 
-			ERROR("Number of columns cannot be changed\n");
-			return ;
-		}
+        pl->data[dN].lz4_compress = pl->lz4_compress;
 
-		if (plotFigureHaveData(pl, dN) != 0) {
+        plotDataChunkAlloc(pl, dN, lN);
 
-			plotSketchClean(pl);
-		}
+        pl->data[dN].cache_ID = 0;
+        pl->data[dN].head_N = 0;
+        pl->data[dN].tail_N = 0;
+        pl->data[dN].id_N = 0;
+        pl->data[dN].sub_N = 0;
 
-		plotDataRangeCacheClean(pl, dN);
-		plotDataChunkAlloc(pl, dN, lN);
+        for (N = 0; N < PLOT_SUBTRACT; ++N) {
+            pl->data[dN].sub[N].busy = SUBTRACT_FREE;
+        }
 
-		pl->data[dN].head_N = 0;
-		pl->data[dN].tail_N = 0;
-		pl->data[dN].id_N = 0;
-		pl->data[dN].sub_N = 0;
-	}
-	else {
-		pl->data[dN].column_N = cN;
+        map = (int *) malloc(sizeof(int) * (cN + PLOT_SUBTRACT + 1));
 
-		for (N = 0; N < 30; ++N) {
+        if (map == NULL) {
+            ERROR("No memory allocated for %i map\n", dN);
+            return;
+        }
 
-			bSIZE = (int) sizeof(fval_t) * (cN + PLOT_SUBTRACT) * (1UL << N);
+        pl->data[dN].map = (int *) map + 1;
 
-			if (bSIZE >= PLOT_CHUNK_SIZE) {
-
-				pl->data[dN].chunk_SHIFT = N;
-				pl->data[dN].chunk_MASK = (1UL << N) - 1UL;
-				pl->data[dN].chunk_bSIZE = bSIZE;
-				break;
-			}
-		}
-
-		pl->data[dN].lz4_compress = pl->lz4_compress;
-
-		plotDataChunkAlloc(pl, dN, lN);
-
-		pl->data[dN].cache_ID = 0;
-
-		pl->data[dN].head_N = 0;
-		pl->data[dN].tail_N = 0;
-		pl->data[dN].id_N = 0;
-		pl->data[dN].sub_N = 0;
-
-		for (N = 0; N < PLOT_SUBTRACT; ++N) {
-
-			pl->data[dN].sub[N].busy = SUBTRACT_FREE;
-		}
-
-		map = (int *) malloc(sizeof(int) * (cN + PLOT_SUBTRACT + 1));
-
-		if (map == NULL) {
-
-			ERROR("No memory allocated for %i map\n", dN);
-			return ;
-		}
-
-		pl->data[dN].map = (int *) map + 1;
-
-		for (N = -1; N < cN + PLOT_SUBTRACT; ++N) {
-
-			pl->data[dN].map[N] = -1;
-		}
-	}
+        for (N = -1; N < cN + PLOT_SUBTRACT; ++N) {
+            pl->data[dN].map[N] = -1;
+        }
+    }
 }
 
 void plotDataResize(plot_t *pl, int dN, int lN)
 {
-	if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+    if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+        ERROR("Dataset number is out of range\n");
+        return;
+    }
 
-		ERROR("Dataset number is out of range\n");
-		return ;
-	}
+    if (lN < 1) {
+        ERROR("Length of dataset is too short\n");
+        return;
+    }
 
-	if (lN < 1) {
+    if (pl->data[dN].column_N != 0) {
+        if (lN < pl->data[dN].length_N) {
+            pl->data[dN].head_N = 0;
+            pl->data[dN].tail_N = 0;
+            pl->data[dN].id_N = 0;
+            pl->data[dN].sub_N = 0;
+        }
 
-		ERROR("Length of dataset is too short\n");
-		return ;
-	}
-
-	if (pl->data[dN].column_N != 0) {
-
-		if (lN < pl->data[dN].length_N) {
-
-			pl->data[dN].head_N = 0;
-			pl->data[dN].tail_N = 0;
-			pl->data[dN].id_N = 0;
-			pl->data[dN].sub_N = 0;
-		}
-
-		plotDataChunkAlloc(pl, dN, lN);
-	}
+        plotDataChunkAlloc(pl, dN, lN);
+    }
 }
 
 int plotDataLength(plot_t *pl, int dN)
 {
-	int		N;
+    int N;
 
-	N = pl->data[dN].tail_N - pl->data[dN].head_N;
-	N += (N < 0) ? pl->data[dN].length_N : 0;
+    N = pl->data[dN].tail_N - pl->data[dN].head_N;
+    N += (N < 0) ? pl->data[dN].length_N : 0;
 
-	return N;
+    return N;
 }
 
 int plotDataSpaceLeft(plot_t *pl, int dN)
 {
-	return pl->data[dN].length_N - plotDataLength(pl, dN);
+    return pl->data[dN].length_N - plotDataLength(pl, dN);
 }
 
 void plotDataGrowUp(plot_t *pl, int dN)
 {
-	int			lSHIFT, lN;
+    int lSHIFT, lN;
 
-	lSHIFT = pl->data[dN].chunk_SHIFT;
+    lSHIFT = pl->data[dN].chunk_SHIFT;
 
-	lN = pl->data[dN].length_N;
-	lN = ((lN >> lSHIFT) + 1) << lSHIFT;
+    lN = pl->data[dN].length_N;
+    lN = ((lN >> lSHIFT) + 1) << lSHIFT;
 
-	plotDataResize(pl, dN, lN);
+    plotDataResize(pl, dN, lN);
 }
 
-static const fval_t *
-plotDataGet(plot_t *pl, int dN, int *rN)
+static const fval_t* plotDataGet(plot_t *pl, int dN, int *rN)
 {
-	const fval_t	*row = NULL;
+    const fval_t *row = NULL;
+    int lN, kN, jN;
 
-	int		lN, kN, jN;
+    if (*rN != pl->data[dN].tail_N) {
+        kN = *rN >> pl->data[dN].chunk_SHIFT;
+        jN = *rN & pl->data[dN].chunk_MASK;
 
-	if (*rN != pl->data[dN].tail_N) {
+        if (pl->data[dN].lz4_compress != 0) {
+            plotDataChunkFetch(pl, dN, kN);
+        }
 
-		kN = *rN >> pl->data[dN].chunk_SHIFT;
-		jN = *rN & pl->data[dN].chunk_MASK;
+        row = pl->data[dN].raw[kN];
 
-		if (pl->data[dN].lz4_compress != 0) {
+        if (row != NULL) {
+            row += (pl->data[dN].column_N + PLOT_SUBTRACT) * jN;
 
-			plotDataChunkFetch(pl, dN, kN);
-		}
+            lN = pl->data[dN].length_N;
+            *rN = (*rN < lN - 1) ? *rN + 1 : 0;
+        }
+    }
 
-		row = pl->data[dN].raw[kN];
-
-		if (row != NULL) {
-
-			row += (pl->data[dN].column_N + PLOT_SUBTRACT) * jN;
-
-			lN = pl->data[dN].length_N;
-			*rN = (*rN < lN - 1) ? *rN + 1 : 0;
-		}
-	}
-
-	return row;
+    return row;
 }
 
-static void
-plotDataRangeCacheWipe(plot_t *pl, int dN, int kN)
+static void plotDataRangeCacheWipe(plot_t *pl, int dN, int kN)
 {
-	int		N;
+    int N;
 
-	for (N = 0; N < PLOT_RCACHE_SIZE; ++N) {
-
-		if (		pl->rcache[N].busy != 0
-				&& pl->rcache[N].data_N == dN) {
-
-			pl->rcache[N].chunk[kN].computed = 0;
-			pl->rcache[N].cached = 0;
-		}
-	}
+    for (N = 0; N < PLOT_RCACHE_SIZE; ++N) {
+        if (pl->rcache[N].busy != 0 && pl->rcache[N].data_N == dN) {
+            pl->rcache[N].chunk[kN].computed = 0;
+            pl->rcache[N].cached = 0;
+        }
+    }
 }
 
-static fval_t *
-plotDataWrite(plot_t *pl, int dN, int *rN)
+static fval_t* plotDataWrite(plot_t *pl, int dN, int *rN)
 {
-	fval_t		*row = NULL;
-	int		lN, kN, jN;
+    fval_t *row = NULL;
+    int lN, kN, jN;
 
-	if (*rN != pl->data[dN].tail_N) {
+    if (*rN != pl->data[dN].tail_N) {
+        kN = *rN >> pl->data[dN].chunk_SHIFT;
+        jN = *rN & pl->data[dN].chunk_MASK;
 
-		kN = *rN >> pl->data[dN].chunk_SHIFT;
-		jN = *rN & pl->data[dN].chunk_MASK;
+        if (pl->data[dN].lz4_compress != 0) {
+            plotDataChunkWrite(pl, dN, kN);
+        }
 
-		if (pl->data[dN].lz4_compress != 0) {
+        if (pl->rcache_wipe_data_N != dN || pl->rcache_wipe_chunk_N != kN) {
+            plotDataRangeCacheWipe(pl, dN, kN);
+            pl->rcache_wipe_data_N = dN;
+            pl->rcache_wipe_chunk_N = kN;
+        }
 
-			plotDataChunkWrite(pl, dN, kN);
-		}
+        row = pl->data[dN].raw[kN];
 
-		if (		   pl->rcache_wipe_data_N != dN
-				|| pl->rcache_wipe_chunk_N != kN) {
+        if (row != NULL) {
+            row += (pl->data[dN].column_N + PLOT_SUBTRACT) * jN;
+            lN = pl->data[dN].length_N;
+            *rN = (*rN < lN - 1) ? *rN + 1 : 0;
+        }
+    }
 
-			plotDataRangeCacheWipe(pl, dN, kN);
-
-			pl->rcache_wipe_data_N = dN;
-			pl->rcache_wipe_chunk_N = kN;
-		}
-
-		row = pl->data[dN].raw[kN];
-
-		if (row != NULL) {
-
-			row += (pl->data[dN].column_N + PLOT_SUBTRACT) * jN;
-
-			lN = pl->data[dN].length_N;
-			*rN = (*rN < lN - 1) ? *rN + 1 : 0;
-		}
-	}
-
-	return row;
+    return row;
 }
 
-static void
-plotDataSkip(plot_t *pl, int dN, int *rN, int *id_N, int iN)
+static void plotDataSkip(plot_t *pl, int dN, int *rN, int *id_N, int iN)
 {
-	int		N, lN, tN;
+    int N, lN, tN;
 
-	lN = pl->data[dN].length_N;
+    lN = pl->data[dN].length_N;
 
-	N = *rN - pl->data[dN].head_N;
-	N = (N < 0) ? N + lN : N;
+    N = *rN - pl->data[dN].head_N;
+    N = (N < 0) ? N + lN : N;
 
-	tN = pl->data[dN].tail_N - pl->data[dN].head_N;
-	tN = (tN < 0) ? tN + lN : tN;
+    tN = pl->data[dN].tail_N - pl->data[dN].head_N;
+    tN = (tN < 0) ? tN + lN : tN;
 
-	iN = (N + iN < 0) ? - N : iN;
-	iN = (N + iN > tN) ? tN - N : iN;
+    iN = (N + iN < 0) ? - N : iN;
+    iN = (N + iN > tN) ? tN - N : iN;
 
-	N += iN;
+    N += iN;
 
-	N = pl->data[dN].head_N + N;
-	N = (N > lN - 1) ? N - lN : N;
+    N = pl->data[dN].head_N + N;
+    N = (N > lN - 1) ? N - lN : N;
 
-	if (rN != NULL) {
+    if (rN != NULL) {
+        *rN = N;
+    }
 
-		*rN = N;
-	}
-
-	if (id_N != NULL) {
-
-		*id_N += iN;
-	}
+    if (id_N != NULL) {
+        *id_N += iN;
+    }
 }
 
-static int
-plotDataChunkN(plot_t *pl, int dN, int rN)
+static int plotDataChunkN(plot_t *pl, int dN, int rN)
 {
-	int		kN;
+    int kN;
 
-	kN = rN >> pl->data[dN].chunk_SHIFT;
+    kN = rN >> pl->data[dN].chunk_SHIFT;
 
-	return kN;
+    return kN;
 }
 
-static void
-plotDataChunkSkip(plot_t *pl, int dN, int *rN, int *id_N)
+static void plotDataChunkSkip(plot_t *pl, int dN, int *rN, int *id_N)
 {
-	int		skip_N, wrap_N;
+    int skip_N, wrap_N;
 
-	skip_N = (1UL << pl->data[dN].chunk_SHIFT)
-		- (*rN & pl->data[dN].chunk_MASK);
+    skip_N = (1UL << pl->data[dN].chunk_SHIFT) - (*rN & pl->data[dN].chunk_MASK);
+    wrap_N = pl->data[dN].length_N - *rN;
+    skip_N = (wrap_N < skip_N) ? wrap_N : skip_N;
 
-	wrap_N = pl->data[dN].length_N - *rN;
-	skip_N = (wrap_N < skip_N) ? wrap_N : skip_N;
-
-	plotDataSkip(pl, dN, rN, id_N, skip_N);
+    plotDataSkip(pl, dN, rN, id_N, skip_N);
 }
 
-static tuple_t
-plotDataMedianAdd(plot_t *pl, int dN, int sN, double fval, double fpay)
+static tuple_t plotDataMedianAdd(plot_t *pl, int dN, int sN, double fval, double fpay)
 {
-	int		index[PLOT_MEDIAN_MAX];
-	int		N, Nq, N0, N1, length, keep, tail, total;
+    int index[PLOT_MEDIAN_MAX];
+    int N, Nq, N0, N1, length, keep, tail, total;
 
-	tuple_t		mN = { -1, -1 };
+    tuple_t mN = {-1, -1};
 
-	length = pl->data[dN].sub[sN].op.median.length;
-	keep = pl->data[dN].sub[sN].op.median.keep;
-	tail = pl->data[dN].sub[sN].op.median.tail;
+    length = pl->data[dN].sub[sN].op.median.length;
+    keep = pl->data[dN].sub[sN].op.median.keep;
+    tail = pl->data[dN].sub[sN].op.median.tail;
 
-	pl->data[dN].sub[sN].op.median.window[tail].fval = fval;
-	pl->data[dN].sub[sN].op.median.window[tail].fpay = fpay;
+    pl->data[dN].sub[sN].op.median.window[tail].fval = fval;
+    pl->data[dN].sub[sN].op.median.window[tail].fpay = fpay;
 
-	keep = (keep < length - 1) ? keep + 1 : length;
-	tail = (tail < length - 1) ? tail + 1 : 0;
+    keep = (keep < length - 1) ? keep + 1 : length;
+    tail = (tail < length - 1) ? tail + 1 : 0;
 
-	pl->data[dN].sub[sN].op.median.keep = keep;
-	pl->data[dN].sub[sN].op.median.tail = tail;
+    pl->data[dN].sub[sN].op.median.keep = keep;
+    pl->data[dN].sub[sN].op.median.tail = tail;
 
-	for (N = 0, total = 0; N < keep; ++N) {
+    for (N = 0, total = 0; N < keep; ++N) {
+        fval = pl->data[dN].sub[sN].op.median.window[N].fval;
 
-		fval = pl->data[dN].sub[sN].op.median.window[N].fval;
+        if (fp_isfinite(fval)) {
+            index[total++] = N;
 
-		if (fp_isfinite(fval)) {
+            for (Nq = total - 1; Nq > 0; --Nq) {
+                N0 = index[Nq - 1];
+                N1 = index[Nq];
 
-			index[total++] = N;
+                fval = pl->data[dN].sub[sN].op.median.window[N0].fval;
+                fpay = pl->data[dN].sub[sN].op.median.window[N1].fval;
 
-			for (Nq = total - 1; Nq > 0; --Nq) {
+                if (fval < fpay) {
+                    index[Nq - 1] = N1;
+                    index[Nq] = N0;
+                }
+            }
+        }
+    }
 
-				N0 = index[Nq - 1];
-				N1 = index[Nq];
+    if (total > 2 || (length < 3 && total > 0)) {
+        mN.X = index[total / 2];
+        mN.Y = mN.X;
+    }
 
-				fval = pl->data[dN].sub[sN].op.median.window[N0].fval;
-				fpay = pl->data[dN].sub[sN].op.median.window[N1].fval;
+    if (pl->data[dN].sub[sN].op.median.opdata != 0) {
+        for (N = 0, total = 0; N < keep; ++N) {
 
-				if (fval < fpay) {
+            fval = pl->data[dN].sub[sN].op.median.window[N].fval;
+            fpay = pl->data[dN].sub[sN].op.median.window[N].fpay;
 
-					index[Nq - 1] = N1;
-					index[Nq] = N0;
-				}
-			}
-		}
-	}
+            if (fp_isfinite(fval) && fp_isfinite(fpay)) {
+                index[total++] = N;
 
-	if (total > 2 || (length < 3 && total > 0)) {
+                for (Nq = total - 1; Nq > 0; --Nq) {
+                    N0 = index[Nq - 1];
+                    N1 = index[Nq];
 
-		mN.X = index[total / 2];
-		mN.Y = mN.X;
-	}
+                    fval = pl->data[dN].sub[sN].op.median.window[N0].fpay;
+                    fpay = pl->data[dN].sub[sN].op.median.window[N1].fpay;
 
-	if (pl->data[dN].sub[sN].op.median.opdata != 0) {
+                    if (fval < fpay) {
+                        index[Nq - 1] = N1;
+                        index[Nq] = N0;
+                    }
+                }
+            }
+        }
 
-		for (N = 0, total = 0; N < keep; ++N) {
+        if (total > 2 || (length < 3 && total > 0)) {
+            mN.Y = index[total / 2];
+        }
+    }
 
-			fval = pl->data[dN].sub[sN].op.median.window[N].fval;
-			fpay = pl->data[dN].sub[sN].op.median.window[N].fpay;
-
-			if (fp_isfinite(fval) && fp_isfinite(fpay)) {
-
-				index[total++] = N;
-
-				for (Nq = total - 1; Nq > 0; --Nq) {
-
-					N0 = index[Nq - 1];
-					N1 = index[Nq];
-
-					fval = pl->data[dN].sub[sN].op.median.window[N0].fpay;
-					fpay = pl->data[dN].sub[sN].op.median.window[N1].fpay;
-
-					if (fval < fpay) {
-
-						index[Nq - 1] = N1;
-						index[Nq] = N0;
-					}
-				}
-			}
-		}
-
-		if (total > 2 || (length < 3 && total > 0)) {
-
-			mN.Y = index[total / 2];
-		}
-	}
-
-	return mN;
+    return mN;
 }
 
-static void
-plotDataResample(plot_t *pl, int dN, int cNX, int cNY, int in_dN, int in_cNX, int in_cNY)
+static void plotDataResample(plot_t *pl, int dN, int cNX, int cNY, int in_dN, int in_cNX, int in_cNY)
 {
-	fval_t		*row, X, Y, X2, Y2, prev_X2, prev_Y2, Qf;
-	const fval_t	*prey;
+    fval_t *row, X, Y, X2, Y2, prev_X2, prev_Y2, Qf;
+    const fval_t *prey;
+    int rN, id_N, rN2, id_N2;
 
-	int		rN, id_N, rN2, id_N2;
+    rN = pl->data[dN].head_N;
+    id_N = pl->data[dN].id_N;
 
-	rN = pl->data[dN].head_N;
-	id_N = pl->data[dN].id_N;
+    rN2 = pl->data[in_dN].head_N;
+    id_N2 = pl->data[in_dN].id_N;
 
-	rN2 = pl->data[in_dN].head_N;
-	id_N2 = pl->data[in_dN].id_N;
+    do {
+        prey = plotDataGet(pl, in_dN, &rN2);
 
-	do {
-		prey = plotDataGet(pl, in_dN, &rN2);
+        if (prey == NULL)
+            break;
 
-		if (prey == NULL)
-			break;
+        X2 = (in_cNX < 0) ? id_N2 : prey[in_cNX];
+        Y2 = (in_cNY < 0) ? id_N2 : prey[in_cNY];
 
-		X2 = (in_cNX < 0) ? id_N2 : prey[in_cNX];
-		Y2 = (in_cNY < 0) ? id_N2 : prey[in_cNY];
+        id_N2++;
 
-		id_N2++;
+        if (fp_isfinite(X2))
+            break;
+    } while (1);
 
-		if (fp_isfinite(X2))
-			break;
-	}
-	while (1);
+    if (id_N2 != pl->data[in_dN].id_N) {
+        prev_X2 = X2;
+        prev_Y2 = Y2;
+    } else {
+        ERROR("No data to resample in dataset %i column %i\n", in_dN, in_cNX);
+        return;
+    }
 
-	if (id_N2 != pl->data[in_dN].id_N) {
+    do {
+        row = plotDataWrite(pl, dN, &rN);
 
-		prev_X2 = X2;
-		prev_Y2 = Y2;
-	}
-	else {
-		ERROR("No data to resample in dataset %i column %i\n", in_dN, in_cNX);
-		return ;
-	}
+        if (row == NULL)
+            break;
 
-	do {
-		row = plotDataWrite(pl, dN, &rN);
+        X = (cNX < 0) ? id_N : row[cNX];
 
-		if (row == NULL)
-			break;
+        if (fp_isfinite(X)) {
+            do {
+                if (X2 >= X)
+                    break;
 
-		X = (cNX < 0) ? id_N : row[cNX];
+                prey = plotDataGet(pl, in_dN, &rN2);
 
-		if (fp_isfinite(X)) {
+                if (prey == NULL)
+                    break;
 
-			do {
-				if (X2 >= X)
-					break;
+                if (fp_isfinite(X2)) {
 
-				prey = plotDataGet(pl, in_dN, &rN2);
+                    prev_X2 = X2;
+                    prev_Y2 = Y2;
+                }
 
-				if (prey == NULL)
-					break;
+                X2 = (in_cNX < 0) ? id_N2 : prey[in_cNX];
+                Y2 = (in_cNY < 0) ? id_N2 : prey[in_cNY];
 
-				if (fp_isfinite(X2)) {
+                id_N2++;
+            } while (1);
 
-					prev_X2 = X2;
-					prev_Y2 = Y2;
-				}
+            if (prev_X2 + (fval_t) pl->defungap > X2) {
+                if (pl->interpolation != 0 && X2 >= X) {
+                    if (prev_X2 <= X && prev_X2 < X2) {
+                        Qf = (X - prev_X2) / (X2 - prev_X2);
+                        Y = prev_Y2 + (Y2 - prev_Y2) * Qf;
+                    } else {
+                        Y = prev_Y2;
+                    }
+                } else {
+                    Y = Y2;
+                }
+            } else {
+                Y = FP_NAN;
+            }
+        } else {
+            Y = FP_NAN;
+        }
 
-				X2 = (in_cNX < 0) ? id_N2 : prey[in_cNX];
-				Y2 = (in_cNY < 0) ? id_N2 : prey[in_cNY];
+        row[cNY] = Y;
 
-				id_N2++;
-			}
-			while (1);
-
-			if (prev_X2 + (fval_t) pl->defungap > X2) {
-
-				if (		pl->interpolation != 0
-						&& X2 >= X) {
-
-					if (		prev_X2 <= X
-							&& prev_X2 < X2) {
-
-						Qf = (X - prev_X2) / (X2 - prev_X2);
-						Y = prev_Y2 + (Y2 - prev_Y2) * Qf;
-					}
-					else {
-						Y = prev_Y2;
-					}
-				}
-				else {
-					Y = Y2;
-				}
-			}
-			else {
-				Y = FP_NAN;
-			}
-		}
-		else {
-			Y = FP_NAN;
-		}
-
-		row[cNY] = Y;
-
-		id_N++;
-	}
-	while (1);
+        id_N++;
+    } while (1);
 }
 
-static void
-plotDataPolyfit(plot_t *pl, int dN, int cNX, int cNY,
-		double scale_X, double offset_X,
-		double scale_Y, double offset_Y, int N0, int N1)
+static void plotDataPolyfit(plot_t *pl, int dN, int cNX, int cNY,
+        double scale_X, double offset_X, double scale_Y, double offset_Y, int N0, int N1)
 {
-	const fval_t	*row;
+    const fval_t *row;
+    double fval_X, fval_Y, fvec[LSE_FULL_MAX];
+    int N, xN, yN, kN, rN, id_N, job;
 
-	double		fval_X, fval_Y, fvec[LSE_FULL_MAX];
-	int		N, xN, yN, kN, rN, id_N, job;
+    lse_construct(&pl->lsq, LSE_CASCADE_MAX, N1 - N0 + 1, 1);
 
-	lse_construct(&pl->lsq, LSE_CASCADE_MAX, N1 - N0 + 1, 1);
+    xN = plotDataRangeCacheFetch(pl, dN, cNX);
+    yN = plotDataRangeCacheFetch(pl, dN, cNY);
 
-	xN = plotDataRangeCacheFetch(pl, dN, cNX);
-	yN = plotDataRangeCacheFetch(pl, dN, cNY);
+    rN = pl->data[dN].head_N;
+    id_N = pl->data[dN].id_N;
 
-	rN = pl->data[dN].head_N;
-	id_N = pl->data[dN].id_N;
+    do {
+        kN = plotDataChunkN(pl, dN, rN);
+        job = 1;
 
-	do {
-		kN = plotDataChunkN(pl, dN, rN);
-		job = 1;
+        if (xN >= 0 && pl->rcache[xN].chunk[kN].computed != 0) {
+            if (pl->rcache[xN].chunk[kN].finite != 0) {
+                fvec[0] = pl->rcache[xN].chunk[kN].fmin * scale_X + offset_X;
+                fvec[1] = pl->rcache[xN].chunk[kN].fmax * scale_X + offset_X;
 
-		if (xN >= 0 && pl->rcache[xN].chunk[kN].computed != 0) {
+                if (fvec[0] > 1. || fvec[1] < 0.) {
+                    job = 0;
+                }
+            } else {
+                job = 0;
+            }
+        }
 
-			if (pl->rcache[xN].chunk[kN].finite != 0) {
+        if (yN >= 0 && pl->rcache[yN].chunk[kN].computed != 0) {
+            if (pl->rcache[yN].chunk[kN].finite != 0) {
+                fvec[0] = pl->rcache[yN].chunk[kN].fmin * scale_Y + offset_Y;
+                fvec[1] = pl->rcache[yN].chunk[kN].fmax * scale_Y + offset_Y;
 
-				fvec[0] = pl->rcache[xN].chunk[kN].fmin * scale_X + offset_X;
-				fvec[1] = pl->rcache[xN].chunk[kN].fmax * scale_X + offset_X;
+                if (fvec[0] > 1. || fvec[1] < 0.) {
+                    job = 0;
+                }
+            } else {
+                job = 0;
+            }
+        }
 
-				if (fvec[0] > 1. || fvec[1] < 0.) {
+        if (job != 0) {
+            do {
+                if (kN != plotDataChunkN(pl, dN, rN))
+                    break;
 
-					job = 0;
-				}
-			}
-			else {
-				job = 0;
-			}
-		}
+                row = plotDataGet(pl, dN, &rN);
 
-		if (yN >= 0 && pl->rcache[yN].chunk[kN].computed != 0) {
+                if (row == NULL)
+                    break;
 
-			if (pl->rcache[yN].chunk[kN].finite != 0) {
+                fval_X = (cNX < 0) ? id_N : row[cNX];
+                fval_Y = (cNY < 0) ? id_N : row[cNY];
 
-				fvec[0] = pl->rcache[yN].chunk[kN].fmin * scale_Y + offset_Y;
-				fvec[1] = pl->rcache[yN].chunk[kN].fmax * scale_Y + offset_Y;
+                if (fp_isfinite(fval_X) && fp_isfinite(fval_Y)) {
+                    fvec[0] = fval_X * scale_X + offset_X;
+                    fvec[1] = fval_Y * scale_Y + offset_Y;
 
-				if (fvec[0] > 1. || fvec[1] < 0.) {
+                    if (fvec[0] >= 0. && fvec[0] <= 1. && fvec[1] >= 0. && fvec[1] <= 1.) {
+                        fvec[0] = 1.;
 
-					job = 0;
-				}
-			}
-			else {
-				job = 0;
-			}
-		}
+                        for (N = 0; N < N1; ++N)
+                            fvec[N + 1] = fvec[N] * fval_X;
 
-		if (job != 0) {
+                        for (N = 0; N < N1 - N0 + 1; ++N)
+                            fvec[N] = fvec[N + N0];
 
-			do {
-				if (kN != plotDataChunkN(pl, dN, rN))
-					break;
+                        fvec[N1 - N0 + 1] = fval_Y;
 
-				row = plotDataGet(pl, dN, &rN);
+                        lse_insert(&pl->lsq, fvec);
+                    }
+                }
 
-				if (row == NULL)
-					break;
+                id_N++;
+            } while (1);
+        } else {
+            plotDataChunkSkip(pl, dN, &rN, &id_N);
+        }
 
-				fval_X = (cNX < 0) ? id_N : row[cNX];
-				fval_Y = (cNY < 0) ? id_N : row[cNY];
+        if (rN == pl->data[dN].tail_N)
+            break;
+    } while (1);
 
-				if (fp_isfinite(fval_X) && fp_isfinite(fval_Y)) {
-
-					fvec[0] = fval_X * scale_X + offset_X;
-					fvec[1] = fval_Y * scale_Y + offset_Y;
-
-					if (		   fvec[0] >= 0. && fvec[0] <= 1.
-							&& fvec[1] >= 0. && fvec[1] <= 1.) {
-
-						fvec[0] = 1.;
-
-						for (N = 0; N < N1; ++N)
-							fvec[N + 1] = fvec[N] * fval_X;
-
-						for (N = 0; N < N1 - N0 + 1; ++N)
-							fvec[N] = fvec[N + N0];
-
-						fvec[N1 - N0 + 1] = fval_Y;
-
-						lse_insert(&pl->lsq, fvec);
-					}
-				}
-
-				id_N++;
-			}
-			while (1);
-		}
-		else {
-			plotDataChunkSkip(pl, dN, &rN, &id_N);
-		}
-
-		if (rN == pl->data[dN].tail_N)
-			break;
-	}
-	while (1);
-
-	lse_solve(&pl->lsq);
-	lse_std(&pl->lsq);
+    lse_solve(&pl->lsq);
+    lse_std(&pl->lsq);
 }
 
-static void
-plotDataFileCSV(plot_t *pl, int *list_dN, int *list_cN, int len_N, FILE *fd_csv)
+static void plotDataFileCSV(plot_t *pl, int *list_dN, int *list_cN, int len_N, FILE *fd_csv)
 {
-	const read_t	*rd = (const read_t *) pl->ld;
+    const read_t *rd = (const read_t *) pl->ld;
+    char numfmt[PLOT_STRING_MAX];
+    double fval;
+    int N, bN, dN, job;
 
-	char		numfmt[PLOT_STRING_MAX];
+    struct {
+        const fval_t *row;
 
-	double		fval;
-	int		N, bN, dN, job;
+        int rN;
+        int id_N;
+    } local[PLOT_DATASET_MAX];
 
-	struct {
+    for (dN = 0; dN < PLOT_DATASET_MAX; ++dN) {
+        job = 0;
 
-		const fval_t	*row;
+        if (pl->data[dN].column_N != 0) {
+            for (N = 0; N < len_N; ++N) {
+                if (list_dN[N] == dN) {
+                    job = 1;
+                    break;
+                }
+            }
+        }
 
-		int		rN;
-		int		id_N;
-	}
-	local[PLOT_DATASET_MAX];
+        if (job != 0) {
+            local[dN].row = (const fval_t *) 1;
+            local[dN].rN = pl->data[dN].head_N;
+            local[dN].id_N = pl->data[dN].id_N;
+        } else {
+            local[dN].row = NULL;
+        }
+    }
 
-	for (dN = 0; dN < PLOT_DATASET_MAX; ++dN) {
+    do {
+        job = 0;
 
-		job = 0;
+        for (dN = 0; dN < PLOT_DATASET_MAX; ++dN) {
+            if (local[dN].row != NULL) {
+                local[dN].row = plotDataGet(pl, dN, &local[dN].rN);
+            }
 
-		if (pl->data[dN].column_N != 0) {
+            if (local[dN].row != NULL)
+                job = 1;
+        }
 
-			for (N = 0; N < len_N; ++N) {
+        if (job == 0)
+            break;
 
-				if (list_dN[N] == dN) {
+        bN = 0;
 
-					job = 1;
-					break;
-				}
-			}
-		}
+        for (N = 0; N < len_N; ++N) {
+            dN = list_dN[N];
 
-		if (job != 0) {
+            if (local[dN].row != NULL) {
+                fval = (list_cN[N] < 0) ? local[dN].id_N
+                    : local[dN].row[list_cN[N]];
 
-			local[dN].row = (const fval_t *) 1;
-			local[dN].rN = pl->data[dN].head_N;
-			local[dN].id_N = pl->data[dN].id_N;
-		}
-		else {
-			local[dN].row = NULL;
-		}
-	}
+                if (fp_isfinite(fval))
+                    bN++;
+            }
 
-	do {
-		job = 0;
+            if (bN >= 1)
+                break;
+        }
 
-		for (dN = 0; dN < PLOT_DATASET_MAX; ++dN) {
+        if (bN < 1)
+            goto plotDataFileCSV_SKIP;
 
-			if (local[dN].row != NULL) {
+        for (N = 0; N < len_N; ++N) {
+            job = 0;
 
-				local[dN].row = plotDataGet(pl, dN, &local[dN].rN);
-			}
+            dN = list_dN[N];
 
-			if (local[dN].row != NULL)
-				job = 1;
-		}
+            if (local[dN].row != NULL) {
+                fval = (list_cN[N] < 0) ? local[dN].id_N
+                    : local[dN].row[list_cN[N]];
 
-		if (job == 0)
-			break;
+                if (fp_isfinite(fval))
+                    job = 1;
+            }
 
-		bN = 0;
+            if (job != 0) {
+                int fexp = 1;
 
-		for (N = 0; N < len_N; ++N) {
+                if (fval != 0.) {
+                    fexp += (int) floor(log10(fabs(fval)));
+                }
 
-			dN = list_dN[N];
+                if (fexp >= -2 && fexp < pl->fprecision) {
+                    fexp = (fexp < 1) ? 1 : fexp;
 
-			if (local[dN].row != NULL) {
+                    sprintf(numfmt, "%%.%df%%c", pl->fprecision - fexp);
+                } else {
+                    sprintf(numfmt, "%%.%dE%%c", pl->fprecision - 1);
+                }
 
-				fval = (list_cN[N] < 0) ? local[dN].id_N
-					: local[dN].row[list_cN[N]];
+                fprintf(fd_csv, numfmt, fval, rd->mk_text.space[0]);
+            } else {
+                fprintf(fd_csv, "NaN%c", rd->mk_text.space[0]);
+            }
+        }
 
-				if (fp_isfinite(fval))
-					bN++;
-			}
-
-			if (bN >= 1)
-				break;
-		}
-
-		if (bN < 1)
-			goto plotDataFileCSV_SKIP;
-
-		for (N = 0; N < len_N; ++N) {
-
-			job = 0;
-
-			dN = list_dN[N];
-
-			if (local[dN].row != NULL) {
-
-				fval = (list_cN[N] < 0) ? local[dN].id_N
-					: local[dN].row[list_cN[N]];
-
-				if (fp_isfinite(fval))
-					job = 1;
-			}
-
-			if (job != 0) {
-
-				int		fexp = 1;
-
-				if (fval != 0.) {
-
-					fexp += (int) floor(log10(fabs(fval)));
-				}
-
-				if (fexp >= -2 && fexp < pl->fprecision) {
-
-					fexp = (fexp < 1) ? 1 : fexp;
-
-					sprintf(numfmt, "%%.%df%%c", pl->fprecision - fexp);
-				}
-				else {
-					sprintf(numfmt, "%%.%dE%%c", pl->fprecision - 1);
-				}
-
-				fprintf(fd_csv, numfmt, fval, rd->mk_text.space[0]);
-			}
-			else {
-				fprintf(fd_csv, "NaN%c", rd->mk_text.space[0]);
-			}
-		}
-
-		fprintf(fd_csv, "\n");
+        fprintf(fd_csv, "\n");
 
 plotDataFileCSV_SKIP:
 
-		for (dN = 0; dN < PLOT_DATASET_MAX; ++dN) {
-
-			if (local[dN].row != NULL)
-				local[dN].id_N++;
-		}
-	}
-	while (1);
+        for (dN = 0; dN < PLOT_DATASET_MAX; ++dN) {
+            if (local[dN].row != NULL)
+                local[dN].id_N++;
+        }
+    } while (1);
 }
 
-static void
-plotDataSubtractWrite(plot_t *pl, int dN, int sN, int rN_beg, int id_N_beg, int rN_end)
+static void plotDataSubtractWrite(plot_t *pl, int dN, int sN, int rN_beg, int id_N_beg, int rN_end)
 {
-	fval_t		*row, X1, X2, X3, X4;
-	double		scale, offset, value;
-	int		cN, rN, id_N, cNX, cNY, cNT, mode;
+    fval_t *row, X1, X2, X3, X4;
+    double scale, offset, value;
+    int cN, rN, id_N, cNX, cNY, cNT, mode;
+
+    mode = pl->data[dN].sub[sN].busy;
+
+    if (mode != SUBTRACT_FREE) {
+        cN = sN + pl->data[dN].column_N;
+
+        rN = rN_beg;
+        id_N = id_N_beg;
+    }
 
-	mode = pl->data[dN].sub[sN].busy;
+    if (mode == SUBTRACT_TIME_MEDIAN) {
+        /* Do not to calculate HERE */
+    } else if (mode == SUBTRACT_DATA_MEDIAN) {
+        tuple_t mN;
+
+        if (rN_beg == pl->data[dN].head_N) {
+            pl->data[dN].sub[sN].op.median.keep = 0;
+            pl->data[dN].sub[sN].op.median.tail = 0;
+
+            pl->data[dN].sub[sN].op.median.offset = (double)0.;
+            pl->data[dN].sub[sN].op.median.prev[0] = FP_NAN;
+            pl->data[dN].sub[sN].op.median.prev[1] = FP_NAN;
+        }
+
+        cNX = pl->data[dN].sub[sN].op.median.column_X;
+        cNY = pl->data[dN].sub[sN].op.median.column_Y;
+        cNT = pl->data[dN].sub[sN].op.median.column_T;
+
+        offset = pl->data[dN].sub[sN].op.median.offset;
 
-	if (mode != SUBTRACT_FREE) {
+        if (pl->data[dN].sub[sN].op.median.unwrap != UNWRAP_NONE) {
+            X3 = (fval_t) pl->data[dN].sub[sN].op.median.prev[0];
+            X4 = (fval_t) pl->data[dN].sub[sN].op.median.prev[1];
+        }
 
-		cN = sN + pl->data[dN].column_N;
+        do {
+            row = plotDataWrite(pl, dN, &rN);
 
-		rN = rN_beg;
-		id_N = id_N_beg;
-	}
+            if (row == NULL)
+                break;
 
-	if (mode == SUBTRACT_TIME_MEDIAN) {
+            X1 = (cNX < 0) ? id_N : row[cNX];
+            X2 = (cNY < 0) ? id_N : row[cNY];
 
-		/* Do not to calculate HERE */
-	}
-	else if (mode == SUBTRACT_DATA_MEDIAN) {
+            mN = plotDataMedianAdd(pl, dN, sN, X1, X2);
 
-		tuple_t		mN;
+            if (mN.X < 0) {
+                X1 = FP_NAN;
+                X2 = FP_NAN;
+            } else {
+                X1 = pl->data[dN].sub[sN].op.median.window[mN.X].fval;
+                X2 = pl->data[dN].sub[sN].op.median.window[mN.Y].fpay;
+            }
 
-		if (rN_beg == pl->data[dN].head_N) {
+            if (pl->data[dN].sub[sN].op.median.unwrap == UNWRAP_OVERFLOW) {
+                if (X1 + (fval_t) pl->defungap < X3) {
+                    offset += X3 - X1;
 
-			pl->data[dN].sub[sN].op.median.keep = 0;
-			pl->data[dN].sub[sN].op.median.tail = 0;
+                    if (X4 < X3) {
+                        offset += X3 - X4;
+                    }
+                }
 
-			pl->data[dN].sub[sN].op.median.offset = (double) 0.;
-			pl->data[dN].sub[sN].op.median.prev[0] = FP_NAN;
-			pl->data[dN].sub[sN].op.median.prev[1] = FP_NAN;
-		}
+                if (fp_isfinite(X1)) {
+                    X4 = X3;
+                    X3 = X1;
+                }
+            } else if (pl->data[dN].sub[sN].op.median.unwrap == UNWRAP_BURST) {
+                if (X1 < X3) {
+                    X1 = FP_NAN;
+                } else if (X1 - (fval_t) pl->defungap > X3) {
+                    X1 = FP_NAN;
+                } else if (fp_isfinite(X1)) {
+                    X3 = X1;
+                }
+            }
 
-		cNX = pl->data[dN].sub[sN].op.median.column_X;
-		cNY = pl->data[dN].sub[sN].op.median.column_Y;
-		cNT = pl->data[dN].sub[sN].op.median.column_T;
+            row[cNT] = X1 + offset;
+            row[cN] = X2;
 
-		offset = pl->data[dN].sub[sN].op.median.offset;
+            id_N++;
 
-		if (pl->data[dN].sub[sN].op.median.unwrap != UNWRAP_NONE) {
+            if (rN == rN_end)
+                break;
+        } while (1);
 
-			X3 = (fval_t) pl->data[dN].sub[sN].op.median.prev[0];
-			X4 = (fval_t) pl->data[dN].sub[sN].op.median.prev[1];
-		}
+        pl->data[dN].sub[sN].op.median.offset = offset;
 
-		do {
-			row = plotDataWrite(pl, dN, &rN);
+        if (pl->data[dN].sub[sN].op.median.unwrap != UNWRAP_NONE) {
+            pl->data[dN].sub[sN].op.median.prev[0] = (double)X3;
+            pl->data[dN].sub[sN].op.median.prev[1] = (double)X4;
+        }
+    } else if (mode == SUBTRACT_SCALE) {
+        cNX = pl->data[dN].sub[sN].op.scale.column_X;
 
-			if (row == NULL)
-				break;
+        scale = pl->data[dN].sub[sN].op.scale.scale;
+        offset = pl->data[dN].sub[sN].op.scale.offset;
 
-			X1 = (cNX < 0) ? id_N : row[cNX];
-			X2 = (cNY < 0) ? id_N : row[cNY];
+        do {
+            row = plotDataWrite(pl, dN, &rN);
 
-			mN = plotDataMedianAdd(pl, dN, sN, X1, X2);
+            if (row == NULL)
+                break;
 
-			if (mN.X < 0) {
+            X1 = (cNX < 0) ? id_N : row[cNX];
+            X1 = X1 * scale + offset;
 
-				X1 = FP_NAN;
-				X2 = FP_NAN;
-			}
-			else {
-				X1 = pl->data[dN].sub[sN].op.median.window[mN.X].fval;
-				X2 = pl->data[dN].sub[sN].op.median.window[mN.Y].fpay;
-			}
+            row[cN] = X1;
 
-			if (pl->data[dN].sub[sN].op.median.unwrap == UNWRAP_OVERFLOW) {
+            id_N++;
 
-				if (X1 + (fval_t) pl->defungap < X3) {
+            if (rN == rN_end)
+                break;
+        } while (1);
 
-					offset += X3 - X1;
+        pl->data[dN].sub[sN].op.scale.modified = 0;
+    } else if (mode == SUBTRACT_RESAMPLE) {
+        /* Do not to calculate HERE */
+    } else if (mode == SUBTRACT_POLYFIT) {
+        const double *coefs;
+        int N, N0, N1;
 
-					if (X4 < X3) {
+        cNX = pl->data[dN].sub[sN].op.polyfit.column_X;
 
-						offset += X3 - X4;
-					}
-				}
+        N0 = pl->data[dN].sub[sN].op.polyfit.poly_N0;
+        N1 = pl->data[dN].sub[sN].op.polyfit.poly_N1;
+        coefs = pl->data[dN].sub[sN].op.polyfit.coefs;
 
-				if (fp_isfinite(X1)) {
+        do {
+            row = plotDataWrite(pl, dN, &rN);
 
-					X4 = X3;
-					X3 = X1;
-				}
-			}
-			else if (pl->data[dN].sub[sN].op.median.unwrap == UNWRAP_BURST) {
+            if (row == NULL)
+                break;
 
-				if (X1 < X3) {
+            X1 = (cNX < 0) ? id_N : row[cNX];
+            X2 = coefs[N1 - N0];
 
-					X1 = FP_NAN;
-				}
-				else if (X1 - (fval_t) pl->defungap > X3) {
+            for (N = N1 - N0 - 1; N >= 0; --N)
+                X2 = X2 * X1 + coefs[N];
 
-					X1 = FP_NAN;
-				}
-				else if (fp_isfinite(X1)) {
+            for (N = N0 - 1; N >= 0; --N)
+                X2 = X2 * X1;
 
-					X3 = X1;
-				}
-			}
+            row[cN] = X2;
 
-			row[cNT] = X1 + offset;
-			row[cN] = X2;
+            id_N++;
 
-			id_N++;
+            if (rN == rN_end)
+                break;
+        } while (1);
+    } else if (mode == SUBTRACT_BINARY_SUBTRACTION) {
+        cNX = pl->data[dN].sub[sN].op.binary.column_X;
+        cNY = pl->data[dN].sub[sN].op.binary.column_Y;
 
-			if (rN == rN_end)
-				break;
-		}
-		while (1);
+        do {
+            row = plotDataWrite(pl, dN, &rN);
 
-		pl->data[dN].sub[sN].op.median.offset = offset;
+            if (row == NULL)
+                break;
 
-		if (pl->data[dN].sub[sN].op.median.unwrap != UNWRAP_NONE) {
+            X1 = (cNX < 0) ? id_N : row[cNX];
+            X2 = (cNY < 0) ? id_N : row[cNY];
 
-			pl->data[dN].sub[sN].op.median.prev[0] = (double) X3;
-			pl->data[dN].sub[sN].op.median.prev[1] = (double) X4;
-		}
-	}
-	else if (mode == SUBTRACT_SCALE) {
+            row[cN] = X1 - X2;
 
-		cNX = pl->data[dN].sub[sN].op.scale.column_X;
+            id_N++;
 
-		scale = pl->data[dN].sub[sN].op.scale.scale;
-		offset = pl->data[dN].sub[sN].op.scale.offset;
+            if (rN == rN_end)
+                break;
+        } while (1);
+    } else if (mode == SUBTRACT_BINARY_ADDITION) {
+        cNX = pl->data[dN].sub[sN].op.binary.column_X;
+        cNY = pl->data[dN].sub[sN].op.binary.column_Y;
 
-		do {
-			row = plotDataWrite(pl, dN, &rN);
+        do {
+            row = plotDataWrite(pl, dN, &rN);
 
-			if (row == NULL)
-				break;
+            if (row == NULL)
+                break;
 
-			X1 = (cNX < 0) ? id_N : row[cNX];
-			X1 = X1 * scale + offset;
+            X1 = (cNX < 0) ? id_N : row[cNX];
+            X2 = (cNY < 0) ? id_N : row[cNY];
 
-			row[cN] = X1;
+            row[cN] = X1 + X2;
 
-			id_N++;
+            id_N++;
 
-			if (rN == rN_end)
-				break;
-		}
-		while (1);
+            if (rN == rN_end)
+                break;
+        } while (1);
+    } else if (mode == SUBTRACT_BINARY_MULTIPLICATION) {
+        cNX = pl->data[dN].sub[sN].op.binary.column_X;
+        cNY = pl->data[dN].sub[sN].op.binary.column_Y;
 
-		pl->data[dN].sub[sN].op.scale.modified = 0;
-	}
-	else if (mode == SUBTRACT_RESAMPLE) {
+        do {
+            row = plotDataWrite(pl, dN, &rN);
 
-		/* Do not to calculate HERE */
-	}
-	else if (mode == SUBTRACT_POLYFIT) {
+            if (row == NULL)
+                break;
 
-		const double	*coefs;
-		int		N, N0, N1;
+            X1 = (cNX < 0) ? id_N : row[cNX];
+            X2 = (cNY < 0) ? id_N : row[cNY];
 
-		cNX = pl->data[dN].sub[sN].op.polyfit.column_X;
+            row[cN] = X1 * X2;
 
-		N0 = pl->data[dN].sub[sN].op.polyfit.poly_N0;
-		N1 = pl->data[dN].sub[sN].op.polyfit.poly_N1;
-		coefs = pl->data[dN].sub[sN].op.polyfit.coefs;
+            id_N++;
 
-		do {
-			row = plotDataWrite(pl, dN, &rN);
+            if (rN == rN_end)
+                break;
+        } while (1);
+    } else if (mode == SUBTRACT_BINARY_DIVISION) {
+        cNX = pl->data[dN].sub[sN].op.binary.column_X;
+        cNY = pl->data[dN].sub[sN].op.binary.column_Y;
 
-			if (row == NULL)
-				break;
+        do {
+            row = plotDataWrite(pl, dN, &rN);
 
-			X1 = (cNX < 0) ? id_N : row[cNX];
-			X2 = coefs[N1 - N0];
+            if (row == NULL)
+                break;
 
-			for (N = N1 - N0 - 1; N >= 0; --N)
-				X2 = X2 * X1 + coefs[N];
+            X1 = (cNX < 0) ? id_N : row[cNX];
+            X2 = (cNY < 0) ? id_N : row[cNY];
 
-			for (N = N0 - 1; N >= 0; --N)
-				X2 = X2 * X1;
+            row[cN] = X1 / X2;
 
-			row[cN] = X2;
+            id_N++;
 
-			id_N++;
+            if (rN == rN_end)
+                break;
+        } while (1);
+    } else if (mode == SUBTRACT_BINARY_HYPOTENUSE) {
+        cNX = pl->data[dN].sub[sN].op.binary.column_X;
+        cNY = pl->data[dN].sub[sN].op.binary.column_Y;
 
-			if (rN == rN_end)
-				break;
-		}
-		while (1);
-	}
-	else if (mode == SUBTRACT_BINARY_SUBTRACTION) {
+        do {
+            row = plotDataWrite(pl, dN, &rN);
 
-		cNX = pl->data[dN].sub[sN].op.binary.column_X;
-		cNY = pl->data[dN].sub[sN].op.binary.column_Y;
+            if (row == NULL)
+                break;
 
-		do {
-			row = plotDataWrite(pl, dN, &rN);
+            X1 = (cNX < 0) ? id_N : row[cNX];
+            X2 = (cNY < 0) ? id_N : row[cNY];
 
-			if (row == NULL)
-				break;
+            row[cN] = sqrt(X1 * X1 + X2 * X2);
 
-			X1 = (cNX < 0) ? id_N : row[cNX];
-			X2 = (cNY < 0) ? id_N : row[cNY];
+            id_N++;
 
-			row[cN] = X1 - X2;
+            if (rN == rN_end)
+                break;
+        } while (1);
+    } else if (mode == SUBTRACT_FILTER_DIFFERENCE) {
+        if (rN_beg == pl->data[dN].head_N) {
+            pl->data[dN].sub[sN].op.filter.state[0] = FP_NAN;
+            pl->data[dN].sub[sN].op.filter.state[1] = FP_NAN;
+        }
 
-			id_N++;
+        cNX = pl->data[dN].sub[sN].op.filter.column_X;
+        cNY = pl->data[dN].sub[sN].op.filter.column_Y;
 
-			if (rN == rN_end)
-				break;
-		}
-		while (1);
-	}
-	else if (mode == SUBTRACT_BINARY_ADDITION) {
+        X3 = (fval_t) pl->data[dN].sub[sN].op.filter.state[0];
+        X4 = (fval_t) pl->data[dN].sub[sN].op.filter.state[1];
 
-		cNX = pl->data[dN].sub[sN].op.binary.column_X;
-		cNY = pl->data[dN].sub[sN].op.binary.column_Y;
+        do {
+            row = plotDataWrite(pl, dN, &rN);
 
-		do {
-			row = plotDataWrite(pl, dN, &rN);
+            if (row == NULL)
+                break;
 
-			if (row == NULL)
-				break;
+            X1 = (cNX < 0) ? id_N : row[cNX];
+            X2 = (cNY < 0) ? id_N : row[cNY];
 
-			X1 = (cNX < 0) ? id_N : row[cNX];
-			X2 = (cNY < 0) ? id_N : row[cNY];
+            row[cN] = (X2 - X4) / (X1 - X3);
 
-			row[cN] = X1 + X2;
+            X3 = X1;
+            X4 = X2;
 
-			id_N++;
+            id_N++;
 
-			if (rN == rN_end)
-				break;
-		}
-		while (1);
-	}
-	else if (mode == SUBTRACT_BINARY_MULTIPLICATION) {
+            if (rN == rN_end)
+                break;
+        } while (1);
 
-		cNX = pl->data[dN].sub[sN].op.binary.column_X;
-		cNY = pl->data[dN].sub[sN].op.binary.column_Y;
+        pl->data[dN].sub[sN].op.filter.state[0] = (double)X3;
+        pl->data[dN].sub[sN].op.filter.state[1] = (double)X4;
+    } else if (mode == SUBTRACT_FILTER_CUMULATIVE) {
+        if (rN_beg == pl->data[dN].head_N) {
+            pl->data[dN].sub[sN].op.filter.state[0] = FP_NAN;
+            pl->data[dN].sub[sN].op.filter.state[1] = 0.;
+        }
 
-		do {
-			row = plotDataWrite(pl, dN, &rN);
+        cNX = pl->data[dN].sub[sN].op.filter.column_X;
+        cNY = pl->data[dN].sub[sN].op.filter.column_Y;
 
-			if (row == NULL)
-				break;
+        X3 = (fval_t) pl->data[dN].sub[sN].op.filter.state[0];
+        X4 = (fval_t) pl->data[dN].sub[sN].op.filter.state[1];
 
-			X1 = (cNX < 0) ? id_N : row[cNX];
-			X2 = (cNY < 0) ? id_N : row[cNY];
+        do {
+            row = plotDataWrite(pl, dN, &rN);
 
-			row[cN] = X1 * X2;
+            if (row == NULL)
+                break;
 
-			id_N++;
+            X1 = (cNX < 0) ? id_N : row[cNX];
+            X2 = (cNY < 0) ? id_N : row[cNY];
 
-			if (rN == rN_end)
-				break;
-		}
-		while (1);
-	}
-	else if (mode == SUBTRACT_BINARY_DIVISION) {
+            X2 *= X1 - X3;
 
-		cNX = pl->data[dN].sub[sN].op.binary.column_X;
-		cNY = pl->data[dN].sub[sN].op.binary.column_Y;
+            if (fp_isfinite(X2)) {
+                X4 += X2;
+            }
 
-		do {
-			row = plotDataWrite(pl, dN, &rN);
+            X3 = X1;
 
-			if (row == NULL)
-				break;
+            row[cN] = X4;
 
-			X1 = (cNX < 0) ? id_N : row[cNX];
-			X2 = (cNY < 0) ? id_N : row[cNY];
+            id_N++;
 
-			row[cN] = X1 / X2;
+            if (rN == rN_end)
+                break;
+        } while (1);
 
-			id_N++;
+        pl->data[dN].sub[sN].op.filter.state[0] = (double)X3;
+        pl->data[dN].sub[sN].op.filter.state[1] = (double)X4;
+    } else if (mode == SUBTRACT_FILTER_BITFIELD) {
+        unsigned long shift, mask, ulval;
 
-			if (rN == rN_end)
-				break;
-		}
-		while (1);
-	}
-	else if (mode == SUBTRACT_BINARY_HYPOTENUSE) {
+        cNX = pl->data[dN].sub[sN].op.filter.column_Y;
+        ulval = (unsigned long) pl->data[dN].sub[sN].op.filter.value;
 
-		cNX = pl->data[dN].sub[sN].op.binary.column_X;
-		cNY = pl->data[dN].sub[sN].op.binary.column_Y;
+        shift = ulval & 0xFFU;
+        ulval = ulval >> 8;
 
-		do {
-			row = plotDataWrite(pl, dN, &rN);
+        mask = ((1U << (ulval - shift + 1U)) - 1U) << shift;
 
-			if (row == NULL)
-				break;
+        do {
+            row = plotDataWrite(pl, dN, &rN);
 
-			X1 = (cNX < 0) ? id_N : row[cNX];
-			X2 = (cNY < 0) ? id_N : row[cNY];
+            if (row == NULL)
+                break;
 
-			row[cN] = sqrt(X1 * X1 + X2 * X2);
+            X1 = (cNX < 0) ? id_N : row[cNX];
 
-			id_N++;
+            ulval = ((unsigned long) X1 & mask) >> shift;
+            row[cN] = (fval_t) ulval;
 
-			if (rN == rN_end)
-				break;
-		}
-		while (1);
-	}
-	else if (mode == SUBTRACT_FILTER_DIFFERENCE) {
+            id_N++;
 
-		if (rN_beg == pl->data[dN].head_N) {
+            if (rN == rN_end)
+                break;
+        } while (1);
+    } else if (mode == SUBTRACT_FILTER_LOW_PASS) {
+        if (rN_beg == pl->data[dN].head_N) {
+            pl->data[dN].sub[sN].op.filter.state[0] = FP_NAN;
+        }
 
-			pl->data[dN].sub[sN].op.filter.state[0] = FP_NAN;
-			pl->data[dN].sub[sN].op.filter.state[1] = FP_NAN;
-		}
+        cNX = pl->data[dN].sub[sN].op.filter.column_Y;
+        value = pl->data[dN].sub[sN].op.filter.value;
 
-		cNX = pl->data[dN].sub[sN].op.filter.column_X;
-		cNY = pl->data[dN].sub[sN].op.filter.column_Y;
+        X2 = (fval_t) pl->data[dN].sub[sN].op.filter.state[0];
 
-		X3 = (fval_t) pl->data[dN].sub[sN].op.filter.state[0];
-		X4 = (fval_t) pl->data[dN].sub[sN].op.filter.state[1];
+        do {
+            row = plotDataWrite(pl, dN, &rN);
 
-		do {
-			row = plotDataWrite(pl, dN, &rN);
+            if (row == NULL)
+                break;
 
-			if (row == NULL)
-				break;
+            X1 = (cNX < 0) ? id_N : row[cNX];
 
-			X1 = (cNX < 0) ? id_N : row[cNX];
-			X2 = (cNY < 0) ? id_N : row[cNY];
+            if (fp_isfinite(X1)) {
+                if (fp_isfinite(X2)) {
+                    X2 += (X1 - X2) * value;
+                } else {
+                    X2 = X1;
+                }
+            }
 
-			row[cN] = (X2 - X4) / (X1 - X3);
+            row[cN] = X2;
 
-			X3 = X1;
-			X4 = X2;
+            id_N++;
 
-			id_N++;
+            if (rN == rN_end)
+                break;
+        } while (1);
 
-			if (rN == rN_end)
-				break;
-		}
-		while (1);
+        pl->data[dN].sub[sN].op.filter.state[0] = (double)X2;
+    } else if (mode == SUBTRACT_FILTER_MEDIAN) {
+        tuple_t mN;
 
-		pl->data[dN].sub[sN].op.filter.state[0] = (double) X3;
-		pl->data[dN].sub[sN].op.filter.state[1] = (double) X4;
-	}
-	else if (mode == SUBTRACT_FILTER_CUMULATIVE) {
+        if (rN_beg == pl->data[dN].head_N) {
+            pl->data[dN].sub[sN].op.median.keep = 0;
+            pl->data[dN].sub[sN].op.median.tail = 0;
+        }
 
-		if (rN_beg == pl->data[dN].head_N) {
+        cNX = pl->data[dN].sub[sN].op.median.column_Y;
 
-			pl->data[dN].sub[sN].op.filter.state[0] = FP_NAN;
-			pl->data[dN].sub[sN].op.filter.state[1] = 0.;
-		}
+        do {
+            row = plotDataWrite(pl, dN, &rN);
 
-		cNX = pl->data[dN].sub[sN].op.filter.column_X;
-		cNY = pl->data[dN].sub[sN].op.filter.column_Y;
+            if (row == NULL)
+                break;
 
-		X3 = (fval_t) pl->data[dN].sub[sN].op.filter.state[0];
-		X4 = (fval_t) pl->data[dN].sub[sN].op.filter.state[1];
+            X1 = (cNX < 0) ? id_N : row[cNX];
 
-		do {
-			row = plotDataWrite(pl, dN, &rN);
+            mN = plotDataMedianAdd(pl, dN, sN, X1, X1);
 
-			if (row == NULL)
-				break;
+            if (mN.X < 0) {
+                X2 = FP_NAN;
+            } else {
+                X2 = pl->data[dN].sub[sN].op.median.window[mN.X].fval;
+            }
 
-			X1 = (cNX < 0) ? id_N : row[cNX];
-			X2 = (cNY < 0) ? id_N : row[cNY];
+            row[cN] = X2;
 
-			X2 *= X1 - X3;
+            id_N++;
 
-			if (fp_isfinite(X2)) {
+            if (rN == rN_end)
+                break;
+        } while (1);
+    } else if (mode == SUBTRACT_FILTER_DEMULTIPLEX) {
+        if (rN_beg == pl->data[dN].head_N) {
+            pl->data[dN].sub[sN].op.filter.state[0] = FP_NAN;
+        }
 
-				X4 += X2;
-			}
+        cNX = pl->data[dN].sub[sN].op.filter.column_X;
+        cNY = pl->data[dN].sub[sN].op.filter.column_Y;
+        cNT = (int) pl->data[dN].sub[sN].op.filter.value;
 
-			X3 = X1;
+        X3 = (fval_t) pl->data[dN].sub[sN].op.filter.state[0];
 
-			row[cN] = X4;
+        do {
+            row = plotDataWrite(pl, dN, &rN);
 
-			id_N++;
+            if (row == NULL)
+                break;
 
-			if (rN == rN_end)
-				break;
-		}
-		while (1);
+            X1 = (cNX < 0) ? id_N : row[cNX];
+            X2 = (cNY < 0) ? id_N : row[cNY];
 
-		pl->data[dN].sub[sN].op.filter.state[0] = (double) X3;
-		pl->data[dN].sub[sN].op.filter.state[1] = (double) X4;
-	}
-	else if (mode == SUBTRACT_FILTER_BITFIELD) {
+            if ((int) X1 == cNT) {
 
-		unsigned long	shift, mask, ulval;
+                X3 = X2;
+            }
 
-		cNX = pl->data[dN].sub[sN].op.filter.column_Y;
-		ulval = (unsigned long) pl->data[dN].sub[sN].op.filter.value;
+            row[cN] = X3;
 
-		shift = ulval & 0xFFU;
-		ulval = ulval >> 8;
+            id_N++;
 
-		mask = ((1U << (ulval - shift + 1U)) - 1U) << shift;
+            if (rN == rN_end)
+                break;
+        } while (1);
 
-		do {
-			row = plotDataWrite(pl, dN, &rN);
-
-			if (row == NULL)
-				break;
-
-			X1 = (cNX < 0) ? id_N : row[cNX];
-
-			ulval = ((unsigned long) X1 & mask) >> shift;
-			row[cN] = (fval_t) ulval;
-
-			id_N++;
-
-			if (rN == rN_end)
-				break;
-		}
-		while (1);
-	}
-	else if (mode == SUBTRACT_FILTER_LOW_PASS) {
-
-		if (rN_beg == pl->data[dN].head_N) {
-
-			pl->data[dN].sub[sN].op.filter.state[0] = FP_NAN;
-		}
-
-		cNX = pl->data[dN].sub[sN].op.filter.column_Y;
-		value = pl->data[dN].sub[sN].op.filter.value;
-
-		X2 = (fval_t) pl->data[dN].sub[sN].op.filter.state[0];
-
-		do {
-			row = plotDataWrite(pl, dN, &rN);
-
-			if (row == NULL)
-				break;
-
-			X1 = (cNX < 0) ? id_N : row[cNX];
-
-			if (fp_isfinite(X1)) {
-
-				if (fp_isfinite(X2)) {
-
-					X2 += (X1 - X2) * value;
-				}
-				else {
-					X2 = X1;
-				}
-			}
-
-			row[cN] = X2;
-
-			id_N++;
-
-			if (rN == rN_end)
-				break;
-		}
-		while (1);
-
-		pl->data[dN].sub[sN].op.filter.state[0] = (double) X2;
-	}
-	else if (mode == SUBTRACT_FILTER_MEDIAN) {
-
-		tuple_t		mN;
-
-		if (rN_beg == pl->data[dN].head_N) {
-
-			pl->data[dN].sub[sN].op.median.keep = 0;
-			pl->data[dN].sub[sN].op.median.tail = 0;
-		}
-
-		cNX = pl->data[dN].sub[sN].op.median.column_Y;
-
-		do {
-			row = plotDataWrite(pl, dN, &rN);
-
-			if (row == NULL)
-				break;
-
-			X1 = (cNX < 0) ? id_N : row[cNX];
-
-			mN = plotDataMedianAdd(pl, dN, sN, X1, X1);
-
-			if (mN.X < 0) {
-
-				X2 = FP_NAN;
-			}
-			else {
-				X2 = pl->data[dN].sub[sN].op.median.window[mN.X].fval;
-			}
-
-			row[cN] = X2;
-
-			id_N++;
-
-			if (rN == rN_end)
-				break;
-		}
-		while (1);
-	}
-	else if (mode == SUBTRACT_FILTER_DEMULTIPLEX) {
-
-		if (rN_beg == pl->data[dN].head_N) {
-
-			pl->data[dN].sub[sN].op.filter.state[0] = FP_NAN;
-		}
-
-		cNX = pl->data[dN].sub[sN].op.filter.column_X;
-		cNY = pl->data[dN].sub[sN].op.filter.column_Y;
-		cNT = (int) pl->data[dN].sub[sN].op.filter.value;
-
-		X3 = (fval_t) pl->data[dN].sub[sN].op.filter.state[0];
-
-		do {
-			row = plotDataWrite(pl, dN, &rN);
-
-			if (row == NULL)
-				break;
-
-			X1 = (cNX < 0) ? id_N : row[cNX];
-			X2 = (cNY < 0) ? id_N : row[cNY];
-
-			if ((int) X1 == cNT) {
-
-				X3 = X2;
-			}
-
-			row[cN] = X3;
-
-			id_N++;
-
-			if (rN == rN_end)
-				break;
-		}
-		while (1);
-
-		pl->data[dN].sub[sN].op.filter.state[0] = (double) X3;
-	}
+        pl->data[dN].sub[sN].op.filter.state[0] = (double)X3;
+    }
 }
 
-static void
-plotDataSubtractResample(plot_t *pl, int dN, int sN)
+static void plotDataSubtractResample(plot_t *pl, int dN, int sN)
 {
-	int		cNX, cNY, in_dN, in_cNX, in_cNY;
+    int cNX, cNY, in_dN, in_cNX, in_cNY;
 
-	if (pl->data[dN].sub[sN].busy == SUBTRACT_RESAMPLE) {
+    if (pl->data[dN].sub[sN].busy == SUBTRACT_RESAMPLE) {
+        cNX = pl->data[dN].sub[sN].op.resample.column_X;
+        cNY = sN + pl->data[dN].column_N;
 
-		cNX = pl->data[dN].sub[sN].op.resample.column_X;
-		cNY = sN + pl->data[dN].column_N;
+        in_dN = pl->data[dN].sub[sN].op.resample.in_data_N;
+        in_cNX = pl->data[dN].sub[sN].op.resample.in_column_X;
+        in_cNY = pl->data[dN].sub[sN].op.resample.in_column_Y;
 
-		in_dN = pl->data[dN].sub[sN].op.resample.in_data_N;
-		in_cNX = pl->data[dN].sub[sN].op.resample.in_column_X;
-		in_cNY = pl->data[dN].sub[sN].op.resample.in_column_Y;
-
-		plotDataResample(pl, dN, cNX, cNY, in_dN, in_cNX, in_cNY);
-	}
+        plotDataResample(pl, dN, cNX, cNY, in_dN, in_cNX, in_cNY);
+    }
 }
 
-static void
-plotDataSubtractWriteSeq(plot_t *pl, int dN, int rN_beg, int id_N_beg, int rN_end)
+static void plotDataSubtractWriteSeq(plot_t *pl, int dN, int rN_beg, int id_N_beg, int rN_end)
 {
-	int		N;
+    int N;
 
-	for (N = 0; N < PLOT_SUBTRACT; ++N) {
-
-		plotDataSubtractWrite(pl, dN, N, rN_beg, id_N_beg, rN_end);
-	}
+    for (N = 0; N < PLOT_SUBTRACT; ++N) {
+        plotDataSubtractWrite(pl, dN, N, rN_beg, id_N_beg, rN_end);
+    }
 }
 
-static int
-plotDataSubtractResampleSeq(plot_t *pl, int dN)
+static int plotDataSubtractResampleSeq(plot_t *pl, int dN)
 {
-	int		N, linked = 0;
+    int N, linked = 0;
 
-	for (N = 0; N < PLOT_SUBTRACT; ++N) {
+    for (N = 0; N < PLOT_SUBTRACT; ++N) {
+        if (pl->data[dN].sub[N].busy == SUBTRACT_RESAMPLE) {
+            plotDataSubtractResample(pl, dN, N);
 
-		if (pl->data[dN].sub[N].busy == SUBTRACT_RESAMPLE) {
+            linked++;
+        }
+    }
 
-			plotDataSubtractResample(pl, dN, N);
-
-			linked++;
-		}
-	}
-
-	return linked;
+    return linked;
 }
 
 void plotDataSubtractCompute(plot_t *pl, int dN, int sN)
 {
-	int		rN, id_N, rN_end;
+    int rN, id_N, rN_end;
 
-	if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+    if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+        ERROR("Dataset number is out of range\n");
+        return;
+    }
 
-		ERROR("Dataset number is out of range\n");
-		return ;
-	}
+    if (sN < 0 || sN >= PLOT_SUBTRACT) {
+        ERROR("Subtract number %i is out of range\n", sN);
+        return;
+    }
 
-	if (sN < 0 || sN >= PLOT_SUBTRACT) {
+    if (pl->data[dN].sub_paused != 0)
+        return;
 
-		ERROR("Subtract number %i is out of range\n", sN);
-		return ;
-	}
+    rN = pl->data[dN].head_N;
+    id_N = pl->data[dN].id_N;
 
-	if (pl->data[dN].sub_paused != 0)
-		return ;
+    rN_end = pl->data[dN].tail_N;
 
-	rN = pl->data[dN].head_N;
-	id_N = pl->data[dN].id_N;
+    if (rN == rN_end)
+        return;
 
-	rN_end = pl->data[dN].tail_N;
-
-	if (rN == rN_end)
-		return ;
-
-	plotDataSubtractWrite(pl, dN, sN, rN, id_N, rN_end);
-	plotDataSubtractResample(pl, dN, sN);
+    plotDataSubtractWrite(pl, dN, sN, rN, id_N, rN_end);
+    plotDataSubtractResample(pl, dN, sN);
 }
 
 void plotDataSubtractResidual(plot_t *pl, int dN)
 {
-	int		N, lN, rN, id_N, rN_end;
+    int N, lN, rN, id_N, rN_end;
 
-	if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+    if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+        ERROR("Dataset number is out of range\n");
+        return;
+    }
 
-		ERROR("Dataset number is out of range\n");
-		return ;
-	}
+    lN = pl->data[dN].length_N;
 
-	lN = pl->data[dN].length_N;
+    rN = pl->data[dN].sub_N;
+    id_N = pl->data[dN].id_N;
 
-	rN = pl->data[dN].sub_N;
-	id_N = pl->data[dN].id_N;
+    rN_end = pl->data[dN].tail_N;
 
-	rN_end = pl->data[dN].tail_N;
+    if (rN == rN_end)
+        return;
 
-	if (rN == rN_end)
-		return ;
+    N = rN - pl->data[dN].head_N;
+    N = (N < 0) ? N + lN : N;
 
-	N = rN - pl->data[dN].head_N;
-	N = (N < 0) ? N + lN : N;
+    id_N += N;
 
-	id_N += N;
+    plotDataSubtractWriteSeq(pl, dN, rN, id_N, rN_end);
 
-	plotDataSubtractWriteSeq(pl, dN, rN, id_N, rN_end);
-
-	pl->data[dN].sub_N = rN_end;
+    pl->data[dN].sub_N = rN_end;
 }
 
 void plotDataSubtractClean(plot_t *pl)
 {
-	int		dN, N;
+    int dN, N;
 
-	for (dN = 0; dN < PLOT_DATASET_MAX; ++dN) {
-
-		if (pl->data[dN].column_N != 0) {
-
-			for (N = 0; N < PLOT_SUBTRACT; ++N) {
-
-				pl->data[dN].sub[N].busy = SUBTRACT_FREE;
-			}
-		}
-	}
+    for (dN = 0; dN < PLOT_DATASET_MAX; ++dN) {
+        if (pl->data[dN].column_N != 0) {
+            for (N = 0; N < PLOT_SUBTRACT; ++N) {
+                pl->data[dN].sub[N].busy = SUBTRACT_FREE;
+            }
+        }
+    }
 }
 
 void plotDataSubtractPaused(plot_t *pl)
 {
-	int		dN;
+    int dN;
 
-	for (dN = 0; dN < PLOT_DATASET_MAX; ++dN) {
-
-		if (pl->data[dN].column_N != 0) {
-
-			pl->data[dN].sub_paused = 1;
-		}
-	}
+    for (dN = 0; dN < PLOT_DATASET_MAX; ++dN) {
+        if (pl->data[dN].column_N != 0) {
+            pl->data[dN].sub_paused = 1;
+        }
+    }
 }
 
 void plotDataSubtractAlternate(plot_t *pl)
 {
-	int		dN, rN, id_N, rN_end, id_N_end, lCHUNK;
+    int dN, rN, id_N, rN_end, id_N_end, lCHUNK;
 
-	for (dN = 0; dN < PLOT_DATASET_MAX; ++dN) {
+    for (dN = 0; dN < PLOT_DATASET_MAX; ++dN) {
+        if (pl->data[dN].column_N != 0) {
+            rN = pl->data[dN].head_N;
+            id_N = pl->data[dN].id_N;
 
-		if (pl->data[dN].column_N != 0) {
+            if (rN != pl->data[dN].tail_N) {
+                lCHUNK = (1UL << pl->data[dN].chunk_SHIFT);
 
-			rN = pl->data[dN].head_N;
-			id_N = pl->data[dN].id_N;
+                rN_end = rN;
+                id_N_end = id_N;
 
-			if (rN != pl->data[dN].tail_N) {
+                do {
+                    plotDataSkip(pl, dN, &rN_end, &id_N_end, lCHUNK);
+                    plotDataSubtractWriteSeq(pl, dN, rN, id_N, rN_end);
 
-				lCHUNK = (1UL << pl->data[dN].chunk_SHIFT);
+                    rN = rN_end;
+                    id_N = id_N_end;
+                } while (rN != pl->data[dN].tail_N);
 
-				rN_end = rN;
-				id_N_end = id_N;
+                pl->data[dN].sub_N = rN_end;
+            }
 
-				do {
-					plotDataSkip(pl, dN, &rN_end, &id_N_end, lCHUNK);
-					plotDataSubtractWriteSeq(pl, dN, rN, id_N, rN_end);
+            pl->data[dN].sub_paused = 0;
+        }
+    }
 
-					rN = rN_end;
-					id_N = id_N_end;
-				}
-				while (rN != pl->data[dN].tail_N);
+    for (dN = 0; dN < PLOT_DATASET_MAX; ++dN) {
+        if (pl->data[dN].column_N != 0) {
+            if (plotDataSubtractResampleSeq(pl, dN) != 0) {
+                rN = pl->data[dN].head_N;
+                id_N = pl->data[dN].id_N;
 
-				pl->data[dN].sub_N = rN_end;
-			}
+                if (rN != pl->data[dN].tail_N) {
+                    lCHUNK = (1UL << pl->data[dN].chunk_SHIFT);
 
-			pl->data[dN].sub_paused = 0;
-		}
-	}
+                    rN_end = rN;
+                    id_N_end = id_N;
 
-	for (dN = 0; dN < PLOT_DATASET_MAX; ++dN) {
+                    do {
+                        plotDataSkip(pl, dN, &rN_end, &id_N_end, lCHUNK);
+                        plotDataSubtractWriteSeq(pl, dN, rN, id_N, rN_end);
 
-		if (pl->data[dN].column_N != 0) {
+                        rN = rN_end;
+                        id_N = id_N_end;
+                    } while (rN != pl->data[dN].tail_N);
 
-			if (plotDataSubtractResampleSeq(pl, dN) != 0) {
-
-				rN = pl->data[dN].head_N;
-				id_N = pl->data[dN].id_N;
-
-				if (rN != pl->data[dN].tail_N) {
-
-					lCHUNK = (1UL << pl->data[dN].chunk_SHIFT);
-
-					rN_end = rN;
-					id_N_end = id_N;
-
-					do {
-						plotDataSkip(pl, dN, &rN_end, &id_N_end, lCHUNK);
-						plotDataSubtractWriteSeq(pl, dN, rN, id_N, rN_end);
-
-						rN = rN_end;
-						id_N = id_N_end;
-					}
-					while (rN != pl->data[dN].tail_N);
-
-					pl->data[dN].sub_N = rN_end;
-				}
-			}
-		}
-	}
+                    pl->data[dN].sub_N = rN_end;
+                }
+            }
+        }
+    }
 }
 
 void plotDataInsert(plot_t *pl, int dN, const fval_t *row)
 {
-	fval_t		*place;
-	int		cN, lN, hN, tN, kN, jN, sN;
+    fval_t *place;
+    int cN, lN, hN, tN, kN, jN, sN;
 
-	cN = pl->data[dN].column_N;
-	lN = pl->data[dN].length_N;
-	hN = pl->data[dN].head_N;
-	tN = pl->data[dN].tail_N;
+    cN = pl->data[dN].column_N;
+    lN = pl->data[dN].length_N;
+    hN = pl->data[dN].head_N;
+    tN = pl->data[dN].tail_N;
 
-	kN = tN >> pl->data[dN].chunk_SHIFT;
-	jN = tN & pl->data[dN].chunk_MASK;
+    kN = tN >> pl->data[dN].chunk_SHIFT;
+    jN = tN & pl->data[dN].chunk_MASK;
 
-	if (pl->data[dN].lz4_compress != 0) {
+    if (pl->data[dN].lz4_compress != 0) {
+        plotDataChunkWrite(pl, dN, kN);
+    }
 
-		plotDataChunkWrite(pl, dN, kN);
-	}
+    if (pl->rcache_wipe_data_N != dN || pl->rcache_wipe_chunk_N != kN) {
+        plotDataRangeCacheWipe(pl, dN, kN);
 
-	if (		   pl->rcache_wipe_data_N != dN
-			|| pl->rcache_wipe_chunk_N != kN) {
+        pl->rcache_wipe_data_N = dN;
+        pl->rcache_wipe_chunk_N = kN;
+    }
 
-		plotDataRangeCacheWipe(pl, dN, kN);
+    place = pl->data[dN].raw[kN];
 
-		pl->rcache_wipe_data_N = dN;
-		pl->rcache_wipe_chunk_N = kN;
-	}
+    if (place != NULL) {
+        place += (cN + PLOT_SUBTRACT) * jN;
 
-	place = pl->data[dN].raw[kN];
+        memcpy(place, row, cN * sizeof(fval_t));
+        memset(place + cN, 0, PLOT_SUBTRACT * sizeof(fval_t));
 
-	if (place != NULL) {
+        tN = (tN < lN - 1) ? tN + 1 : 0;
 
-		place += (cN + PLOT_SUBTRACT) * jN;
+        if (hN == tN) {
+            pl->data[dN].id_N++;
 
-		memcpy(place, row, cN * sizeof(fval_t));
-		memset(place + cN, 0, PLOT_SUBTRACT * sizeof(fval_t));
+            hN = (hN < lN - 1) ? hN + 1 : 0;
+            pl->data[dN].head_N = hN;
 
-		tN = (tN < lN - 1) ? tN + 1 : 0;
+            sN = pl->data[dN].sub_N;
+            pl->data[dN].sub_N = (sN == tN) ? hN : sN;
+        }
 
-		if (hN == tN) {
-
-			pl->data[dN].id_N++;
-
-			hN = (hN < lN - 1) ? hN + 1 : 0;
-			pl->data[dN].head_N = hN;
-
-			sN = pl->data[dN].sub_N;
-			pl->data[dN].sub_N = (sN == tN) ? hN : sN;
-		}
-
-		pl->data[dN].tail_N = tN;
-	}
+        pl->data[dN].tail_N = tN;
+    }
 }
 
 void plotDataClean(plot_t *pl, int dN)
 {
-	int		N;
+    int N;
 
-	if (pl->data[dN].column_N != 0) {
+    if (pl->data[dN].column_N != 0) {
+        pl->data[dN].column_N = 0;
+        pl->data[dN].length_N = 0;
 
-		pl->data[dN].column_N = 0;
-		pl->data[dN].length_N = 0;
+        if (pl->data[dN].lz4_compress != 0) {
+            for (N = 0; N < PLOT_CHUNK_CACHE; ++N) {
+                if (pl->data[dN].cache[N].raw) {
+                    free(pl->data[dN].cache[N].raw);
 
-		if (pl->data[dN].lz4_compress != 0) {
+                    pl->data[dN].cache[N].raw = NULL;
+                }
+            }
 
-			for (N = 0; N < PLOT_CHUNK_CACHE; ++N) {
+            for (N = 0; N < PLOT_CHUNK_MAX; ++N) {
+                pl->data[dN].raw[N] = NULL;
 
-				if (pl->data[dN].cache[N].raw) {
+                if (pl->data[dN].compress[N].raw != NULL) {
+                    free(pl->data[dN].compress[N].raw);
 
-					free(pl->data[dN].cache[N].raw);
+                    pl->data[dN].compress[N].raw = NULL;
+                }
+            }
 
-					pl->data[dN].cache[N].raw = NULL;
-				}
-			}
+            if (pl->data[dN].lz4_reserved != NULL) {
+                free(pl->data[dN].lz4_reserved);
 
-			for (N = 0; N < PLOT_CHUNK_MAX; ++N) {
+                pl->data[dN].lz4_reserved = NULL;
+            }
+        } else {
+            for (N = 0; N < PLOT_CHUNK_MAX; ++N) {
+                if (pl->data[dN].raw[N] != NULL) {
+                    free(pl->data[dN].raw[N]);
 
-				pl->data[dN].raw[N] = NULL;
+                    pl->data[dN].raw[N] = NULL;
+                }
+            }
+        }
 
-				if (pl->data[dN].compress[N].raw != NULL) {
+        free(pl->data[dN].map - 1);
 
-					free(pl->data[dN].compress[N].raw);
-
-					pl->data[dN].compress[N].raw = NULL;
-				}
-			}
-
-			if (pl->data[dN].lz4_reserved != NULL) {
-
-				free(pl->data[dN].lz4_reserved);
-
-				pl->data[dN].lz4_reserved = NULL;
-			}
-		}
-		else {
-			for (N = 0; N < PLOT_CHUNK_MAX; ++N) {
-
-				if (pl->data[dN].raw[N] != NULL) {
-
-					free(pl->data[dN].raw[N]);
-
-					pl->data[dN].raw[N] = NULL;
-				}
-			}
-		}
-
-		free(pl->data[dN].map - 1);
-
-		pl->data[dN].map = NULL;
-	}
+        pl->data[dN].map = NULL;
+    }
 }
 
-static int
-plotDataRangeCacheGetNode(plot_t *pl, int dN, int cN)
+static int plotDataRangeCacheGetNode(plot_t *pl, int dN, int cN)
 {
-	int		N, xN = -1;
+    int N, xN = -1;
 
-	for (N = 0; N < PLOT_RCACHE_SIZE; ++N) {
+    for (N = 0; N < PLOT_RCACHE_SIZE; ++N) {
+        if (pl->rcache[N].busy != 0 && pl->rcache[N].data_N == dN
+                && pl->rcache[N].column_N == cN) {
+            xN = N;
+            break;
+        }
+    }
 
-		if (		pl->rcache[N].busy != 0
-				&& pl->rcache[N].data_N == dN
-				&& pl->rcache[N].column_N == cN) {
-
-			xN = N;
-			break;
-		}
-	}
-
-	return xN;
+    return xN;
 }
 
 void plotDataRangeCacheClean(plot_t *pl, int dN)
 {
-	int		N;
+    int N;
 
-	for (N = 0; N < PLOT_RCACHE_SIZE; ++N) {
-
-		if (pl->rcache[N].data_N == dN)
-			pl->rcache[N].busy = 0;
-	}
+    for (N = 0; N < PLOT_RCACHE_SIZE; ++N) {
+        if (pl->rcache[N].data_N == dN)
+            pl->rcache[N].busy = 0;
+    }
 }
 
 void plotDataRangeCacheSubtractClean(plot_t *pl)
 {
-	int		N, dN;
+    int N, dN;
 
-	for (N = 0; N < PLOT_RCACHE_SIZE; ++N) {
+    for (N = 0; N < PLOT_RCACHE_SIZE; ++N) {
+        if (pl->rcache[N].busy != 0) {
+            dN = pl->rcache[N].data_N;
 
-		if (pl->rcache[N].busy != 0) {
-
-			dN = pl->rcache[N].data_N;
-
-			if (		dN >= 0 && dN < PLOT_DATASET_MAX
-					&& pl->data[dN].column_N != 0) {
-
-				if (pl->rcache[N].column_N >= pl->data[dN].column_N)
-					pl->rcache[N].busy = 0;
-			}
-		}
-	}
+            if (dN >= 0 && dN < PLOT_DATASET_MAX && pl->data[dN].column_N != 0) {
+                if (pl->rcache[N].column_N >= pl->data[dN].column_N)
+                    pl->rcache[N].busy = 0;
+            }
+        }
+    }
 }
 
 int plotDataRangeCacheFetch(plot_t *pl, int dN, int cN)
 {
-	const fval_t	*row;
+    const fval_t *row;
+    double fval, fmin, fmax, ymin, ymax;
+    int N, xN, rN, id_N, kN;
+    int job, finite, started;
 
-	double		fval, fmin, fmax, ymin, ymax;
-	int		N, xN, rN, id_N, kN;
-	int		job, finite, started;
+    xN = plotDataRangeCacheGetNode(pl, dN, cN);
 
-	xN = plotDataRangeCacheGetNode(pl, dN, cN);
+    if (xN >= 0) {
+        if (pl->rcache[xN].cached != 0)
+            return xN;
+    } else {
+        xN = pl->rcache_ID;
 
-	if (xN >= 0) {
+        pl->rcache_ID = (pl->rcache_ID < PLOT_RCACHE_SIZE - 1)
+            ? pl->rcache_ID + 1 : 0;
 
-		if (pl->rcache[xN].cached != 0)
-			return xN;
-	}
-	else {
-		xN = pl->rcache_ID;
+        for (N = 0; N < PLOT_CHUNK_MAX; ++N) {
+            pl->rcache[xN].chunk[N].computed = 0;
+        }
+    }
 
-		pl->rcache_ID = (pl->rcache_ID < PLOT_RCACHE_SIZE - 1)
-			? pl->rcache_ID + 1 : 0;
+    rN = pl->data[dN].head_N;
+    id_N = pl->data[dN].id_N;
 
-		for (N = 0; N < PLOT_CHUNK_MAX; ++N) {
+    fmin = 0.;
+    fmax = 0.;
 
-			pl->rcache[xN].chunk[N].computed = 0;
-		}
-	}
+    started = 0;
 
-	rN = pl->data[dN].head_N;
-	id_N = pl->data[dN].id_N;
+    do {
+        kN = plotDataChunkN(pl, dN, rN);
 
-	fmin = 0.;
-	fmax = 0.;
+        if (pl->rcache[xN].chunk[kN].computed != 0) {
+            if (kN == plotDataChunkN(pl, dN, pl->data[dN].tail_N)) {
+                job = 1;
 
-	started = 0;
+                finite = pl->rcache[xN].chunk[kN].finite;
+                ymin = pl->rcache[xN].chunk[kN].fmin;
+                ymax = pl->rcache[xN].chunk[kN].fmax;
+            } else {
+                job = 0;
+            }
+        } else {
+            finite = 0;
+            job = 1;
+        }
 
-	do {
-		kN = plotDataChunkN(pl, dN, rN);
+        if (job != 0) {
+            do {
+                if (kN != plotDataChunkN(pl, dN, rN))
+                    break;
 
-		if (pl->rcache[xN].chunk[kN].computed != 0) {
+                row = plotDataGet(pl, dN, &rN);
 
-			if (kN == plotDataChunkN(pl, dN, pl->data[dN].tail_N)) {
+                if (row == NULL)
+                    break;
 
-				job = 1;
+                fval = (cN < 0) ? id_N : row[cN];
 
-				finite = pl->rcache[xN].chunk[kN].finite;
-				ymin = pl->rcache[xN].chunk[kN].fmin;
-				ymax = pl->rcache[xN].chunk[kN].fmax;
-			}
-			else {
-				job = 0;
-			}
-		}
-		else {
-			finite = 0;
-			job = 1;
-		}
+                if (fp_isfinite(fval)) {
+                    if (finite != 0) {
+                        ymin = (fval < ymin) ? fval : ymin;
+                        ymax = (fval > ymax) ? fval : ymax;
+                    } else {
+                        finite = 1;
 
-		if (job != 0) {
+                        ymin = fval;
+                        ymax = fval;
+                    }
+                }
 
-			do {
-				if (kN != plotDataChunkN(pl, dN, rN))
-					break;
+                id_N++;
+            } while (1);
 
-				row = plotDataGet(pl, dN, &rN);
+            pl->rcache[xN].chunk[kN].computed = 1;
+            pl->rcache[xN].chunk[kN].finite = finite;
 
-				if (row == NULL)
-					break;
+            if (finite != 0) {
+                pl->rcache[xN].chunk[kN].fmin = ymin;
+                pl->rcache[xN].chunk[kN].fmax = ymax;
+            }
+        } else {
+            plotDataChunkSkip(pl, dN, &rN, &id_N);
+        }
 
-				fval = (cN < 0) ? id_N : row[cN];
+        if (pl->rcache[xN].chunk[kN].finite != 0) {
+            if (started != 0) {
+                fmin = (pl->rcache[xN].chunk[kN].fmin < fmin)
+                    ? pl->rcache[xN].chunk[kN].fmin : fmin;
 
-				if (fp_isfinite(fval)) {
+                fmax = (pl->rcache[xN].chunk[kN].fmax > fmax)
+                    ? pl->rcache[xN].chunk[kN].fmax : fmax;
+            } else {
+                started = 1;
 
-					if (finite != 0) {
+                fmin = pl->rcache[xN].chunk[kN].fmin;
+                fmax = pl->rcache[xN].chunk[kN].fmax;
+            }
+        }
 
-						ymin = (fval < ymin) ? fval : ymin;
-						ymax = (fval > ymax) ? fval : ymax;
-					}
-					else {
-						finite = 1;
+        if (rN == pl->data[dN].tail_N)
+            break;
+    } while (1);
 
-						ymin = fval;
-						ymax = fval;
-					}
-				}
+    pl->rcache[xN].busy = 1;
+    pl->rcache[xN].data_N = dN;
+    pl->rcache[xN].column_N = cN;
+    pl->rcache[xN].cached = 1;
+    pl->rcache[xN].fmin = fmin;
+    pl->rcache[xN].fmax = fmax;
 
-				id_N++;
-			}
-			while (1);
+    pl->rcache_wipe_data_N = -1;
+    pl->rcache_wipe_chunk_N = -1;
 
-			pl->rcache[xN].chunk[kN].computed = 1;
-			pl->rcache[xN].chunk[kN].finite = finite;
-
-			if (finite != 0) {
-
-				pl->rcache[xN].chunk[kN].fmin = ymin;
-				pl->rcache[xN].chunk[kN].fmax = ymax;
-			}
-		}
-		else {
-			plotDataChunkSkip(pl, dN, &rN, &id_N);
-		}
-
-		if (pl->rcache[xN].chunk[kN].finite != 0) {
-
-			if (started != 0) {
-
-				fmin = (pl->rcache[xN].chunk[kN].fmin < fmin)
-					? pl->rcache[xN].chunk[kN].fmin : fmin;
-
-				fmax = (pl->rcache[xN].chunk[kN].fmax > fmax)
-					? pl->rcache[xN].chunk[kN].fmax : fmax;
-			}
-			else {
-				started = 1;
-
-				fmin = pl->rcache[xN].chunk[kN].fmin;
-				fmax = pl->rcache[xN].chunk[kN].fmax;
-			}
-		}
-
-		if (rN == pl->data[dN].tail_N)
-			break;
-	}
-	while (1);
-
-	pl->rcache[xN].busy = 1;
-	pl->rcache[xN].data_N = dN;
-	pl->rcache[xN].column_N = cN;
-	pl->rcache[xN].cached = 1;
-	pl->rcache[xN].fmin = fmin;
-	pl->rcache[xN].fmax = fmax;
-
-	pl->rcache_wipe_data_N = -1;
-	pl->rcache_wipe_chunk_N = -1;
-
-	return xN;
+    return xN;
 }
 
-static void
-plotDataRangeGet(plot_t *pl, int dN, int cN, double *pmin, double *pmax)
+static void plotDataRangeGet(plot_t *pl, int dN, int cN, double *pmin, double *pmax)
 {
-	int		xN;
+    int xN;
 
-	xN = plotDataRangeCacheFetch(pl, dN, cN);
+    xN = plotDataRangeCacheFetch(pl, dN, cN);
 
-	*pmin = (double) pl->rcache[xN].fmin;
-	*pmax = (double) pl->rcache[xN].fmax;
+    *pmin = (double)pl->rcache[xN].fmin;
+    *pmax = (double)pl->rcache[xN].fmax;
 }
 
-static void
-plotDataRangeCond(plot_t *pl, int dN, int cN, int cN_cond, int *pflag,
-		double scale, double offset, double *pmin, double *pmax)
+static void plotDataRangeCond(plot_t *pl, int dN, int cN, int cN_cond, int *pflag,
+        double scale, double offset, double *pmin, double *pmax)
 {
-	const fval_t	*row;
+    const fval_t *row;
+    double fval, fmin, fmax, fcond, vmin, vmax;
+    int xN, yN, kN, rN, id_N, job, started;
 
-	double		fval, fmin, fmax, fcond, vmin, vmax;
-	int		xN, yN, kN, rN, id_N, job, started;
+    started = *pflag;
+    fmin = *pmin;
+    fmax = *pmax;
 
-	started = *pflag;
-	fmin = *pmin;
-	fmax = *pmax;
+    xN = plotDataRangeCacheFetch(pl, dN, cN_cond);
+    yN = plotDataRangeCacheFetch(pl, dN, cN);
 
-	xN = plotDataRangeCacheFetch(pl, dN, cN_cond);
-	yN = plotDataRangeCacheFetch(pl, dN, cN);
+    if (xN >= 0 && yN >= 0) {
+        vmin = pl->rcache[xN].fmin * scale + offset;
+        vmax = pl->rcache[xN].fmax * scale + offset;
 
-	if (xN >= 0 && yN >= 0) {
+        if (vmin >= 0. && vmin <= 1. && vmax >= 0. && vmax <= 1.) {
+            if (started != 0) {
+                fmin = (pl->rcache[yN].fmin < fmin) ? pl->rcache[yN].fmin : fmin;
 
-		vmin = pl->rcache[xN].fmin * scale + offset;
-		vmax = pl->rcache[xN].fmax * scale + offset;
+                fmax = (pl->rcache[yN].fmax > fmax) ? pl->rcache[yN].fmax : fmax;
+            } else {
+                started = 1;
 
-		if (		   vmin >= 0. && vmin <= 1.
-				&& vmax >= 0. && vmax <= 1.) {
+                fmin = pl->rcache[yN].fmin;
+                fmax = pl->rcache[yN].fmax;
+            }
 
-			if (started != 0) {
+            *pflag = started;
+            *pmin = fmin;
+            *pmax = fmax;
 
-				fmin = (pl->rcache[yN].fmin < fmin)
-					? pl->rcache[yN].fmin : fmin;
+            return;
+        }
+    }
 
-				fmax = (pl->rcache[yN].fmax > fmax)
-					? pl->rcache[yN].fmax : fmax;
-			}
-			else {
-				started = 1;
+    rN = pl->data[dN].head_N;
+    id_N = pl->data[dN].id_N;
 
-				fmin = pl->rcache[yN].fmin;
-				fmax = pl->rcache[yN].fmax;
-			}
+    do {
+        kN = plotDataChunkN(pl, dN, rN);
+        job = 1;
 
-			*pflag = started;
-			*pmin = fmin;
-			*pmax = fmax;
+        if (xN >= 0 && pl->rcache[xN].chunk[kN].computed != 0) {
+            if (pl->rcache[xN].chunk[kN].finite != 0) {
+                vmin = pl->rcache[xN].chunk[kN].fmin * scale + offset;
+                vmax = pl->rcache[xN].chunk[kN].fmax * scale + offset;
 
-			return ;
-		}
-	}
+                if (yN >= 0 && pl->rcache[yN].chunk[kN].computed != 0
+                        && vmin >= 0. && vmin <= 1.
+                        && vmax >= 0. && vmax <= 1.) {
 
-	rN = pl->data[dN].head_N;
-	id_N = pl->data[dN].id_N;
+                    job = 0;
 
-	do {
-		kN = plotDataChunkN(pl, dN, rN);
-		job = 1;
+                    if (pl->rcache[yN].chunk[kN].finite != 0) {
+                        if (started != 0) {
+                            fmin = (pl->rcache[yN].chunk[kN].fmin < fmin)
+                                ? pl->rcache[yN].chunk[kN].fmin : fmin;
 
-		if (xN >= 0 && pl->rcache[xN].chunk[kN].computed != 0) {
+                            fmax = (pl->rcache[yN].chunk[kN].fmax > fmax)
+                                ? pl->rcache[yN].chunk[kN].fmax : fmax;
+                        } else {
+                            started = 1;
 
-			if (pl->rcache[xN].chunk[kN].finite != 0) {
+                            fmin = pl->rcache[yN].chunk[kN].fmin;
+                            fmax = pl->rcache[yN].chunk[kN].fmax;
+                        }
+                    }
+                } else if (vmin > 1. || vmax < 0.) {
+                    job = 0;
+                }
+            } else {
+                job = 0;
+            }
+        }
 
-				vmin = pl->rcache[xN].chunk[kN].fmin * scale + offset;
-				vmax = pl->rcache[xN].chunk[kN].fmax * scale + offset;
+        if (job != 0) {
+            do {
+                if (kN != plotDataChunkN(pl, dN, rN))
+                    break;
 
-				if (yN >= 0	&& pl->rcache[yN].chunk[kN].computed != 0
-						&& vmin >= 0. && vmin <= 1.
-						&& vmax >= 0. && vmax <= 1.) {
+                row = plotDataGet(pl, dN, &rN);
 
-					job = 0;
+                if (row == NULL)
+                    break;
 
-					if (pl->rcache[yN].chunk[kN].finite != 0) {
+                fval = (cN < 0) ? id_N : row[cN];
+                fcond = (cN_cond < 0) ? id_N : row[cN_cond];
 
-						if (started != 0) {
+                fcond = fcond * scale + offset;
 
-							fmin = (pl->rcache[yN].chunk[kN].fmin < fmin)
-								? pl->rcache[yN].chunk[kN].fmin : fmin;
+                if (fcond >= 0. && fcond <= 1.) {
+                    if (fp_isfinite(fval)) {
+                        if (started != 0) {
+                            fmin = (fval < fmin) ? fval : fmin;
+                            fmax = (fval > fmax) ? fval : fmax;
+                        } else {
+                            started = 1;
 
-							fmax = (pl->rcache[yN].chunk[kN].fmax > fmax)
-								? pl->rcache[yN].chunk[kN].fmax : fmax;
-						}
-						else {
-							started = 1;
+                            fmin = fval;
+                            fmax = fval;
+                        }
+                    }
+                }
 
-							fmin = pl->rcache[yN].chunk[kN].fmin;
-							fmax = pl->rcache[yN].chunk[kN].fmax;
-						}
-					}
-				}
-				else if (vmin > 1. || vmax < 0.) {
+                id_N++;
+            } while (1);
+        } else {
+            plotDataChunkSkip(pl, dN, &rN, &id_N);
+        }
 
-					job = 0;
-				}
-			}
-			else {
-				job = 0;
-			}
-		}
+        if (rN == pl->data[dN].tail_N)
+            break;
+    } while (1);
 
-		if (job != 0) {
-
-			do {
-				if (kN != plotDataChunkN(pl, dN, rN))
-					break;
-
-				row = plotDataGet(pl, dN, &rN);
-
-				if (row == NULL)
-					break;
-
-				fval = (cN < 0) ? id_N : row[cN];
-				fcond = (cN_cond < 0) ? id_N : row[cN_cond];
-
-				fcond = fcond * scale + offset;
-
-				if (fcond >= 0. && fcond <= 1.) {
-
-					if (fp_isfinite(fval)) {
-
-						if (started != 0) {
-
-							fmin = (fval < fmin) ? fval : fmin;
-							fmax = (fval > fmax) ? fval : fmax;
-						}
-						else {
-							started = 1;
-
-							fmin = fval;
-							fmax = fval;
-						}
-					}
-				}
-
-				id_N++;
-			}
-			while (1);
-		}
-		else {
-			plotDataChunkSkip(pl, dN, &rN, &id_N);
-		}
-
-		if (rN == pl->data[dN].tail_N)
-			break;
-	}
-	while (1);
-
-	*pflag = started;
-	*pmin = fmin;
-	*pmax = fmax;
+    *pflag = started;
+    *pmin = fmin;
+    *pmax = fmax;
 }
 
-static int
-plotDataRangeAxis(plot_t *pl, int dN, int cN, int aN, double *pmin, double *pmax)
+static int plotDataRangeAxis(plot_t *pl, int dN, int cN, int aN, double *pmin, double *pmax)
 {
-	double		scale, offset, fmin, fmax;
-	int		xN, yN, fN, cN_cond, job, started;
+    double scale, offset, fmin, fmax;
+    int xN, yN, fN, cN_cond, job, started;
 
-	started = 0;
+    started = 0;
 
-	fmin = 0.;
-	fmax = 0.;
+    fmin = 0.;
+    fmax = 0.;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        job = 0;
 
-		job = 0;
+        if (pl->figure[fN].busy != 0 && pl->figure[fN].hidden == 0 && pl->figure[fN].data_N == dN) {
+            if (pl->figure[fN].axis_X == aN && pl->figure[fN].column_Y == cN) {
+                scale = 1.;
+                offset = 0.;
 
-		if (		pl->figure[fN].busy != 0
-				&& pl->figure[fN].hidden == 0
-				&& pl->figure[fN].data_N == dN) {
+                cN_cond = pl->figure[fN].column_X;
+                job = 1;
+            } else if (pl->figure[fN].axis_Y == aN && pl->figure[fN].column_X == cN) {
+                scale = 1.;
+                offset = 0.;
 
-			if (		pl->figure[fN].axis_X == aN
-					&& pl->figure[fN].column_Y == cN) {
+                cN_cond = pl->figure[fN].column_Y;
+                job = 1;
+            }
 
-				scale = 1.;
-				offset = 0.;
+            xN = pl->figure[fN].axis_X;
+            yN = pl->figure[fN].axis_Y;
 
-				cN_cond = pl->figure[fN].column_X;
-				job = 1;
-			}
-			else if (	pl->figure[fN].axis_Y == aN
-					&& pl->figure[fN].column_X == cN) {
+            if (pl->axis[xN].slave != 0 && pl->axis[xN].slave_N == aN && pl->figure[fN].column_Y == cN) {
+                scale = pl->axis[xN].scale;
+                offset = pl->axis[xN].offset;
 
-				scale = 1.;
-				offset = 0.;
+                cN_cond = pl->figure[fN].column_X;
+                job = 1;
+            } else if (pl->axis[yN].slave != 0 && pl->axis[yN].slave_N == aN
+                        && pl->figure[fN].column_X == cN) {
+                scale = pl->axis[yN].scale;
+                offset = pl->axis[yN].offset;
 
-				cN_cond = pl->figure[fN].column_Y;
-				job = 1;
-			}
+                cN_cond = pl->figure[fN].column_Y;
+                job = 1;
+            }
+        }
 
-			xN = pl->figure[fN].axis_X;
-			yN = pl->figure[fN].axis_Y;
+        if (job != 0) {
+            scale *= pl->axis[aN].scale;
+            offset = offset * pl->axis[aN].scale + pl->axis[aN].offset;
 
-			if (		pl->axis[xN].slave != 0
-					&& pl->axis[xN].slave_N == aN
-					&& pl->figure[fN].column_Y == cN) {
+            plotDataRangeCond(pl, dN, cN, cN_cond, &started,
+                    scale, offset, &fmin, &fmax);
+        }
+    }
 
-				scale = pl->axis[xN].scale;
-				offset = pl->axis[xN].offset;
+    *pmin = fmin;
+    *pmax = fmax;
 
-				cN_cond = pl->figure[fN].column_X;
-				job = 1;
-			}
-			else if (	pl->axis[yN].slave != 0
-					&& pl->axis[yN].slave_N == aN
-					&& pl->figure[fN].column_X == cN) {
-
-				scale = pl->axis[yN].scale;
-				offset = pl->axis[yN].offset;
-
-				cN_cond = pl->figure[fN].column_Y;
-				job = 1;
-			}
-		}
-
-		if (job != 0) {
-
-			scale *= pl->axis[aN].scale;
-			offset = offset * pl->axis[aN].scale + pl->axis[aN].offset;
-
-			plotDataRangeCond(pl, dN, cN, cN_cond, &started,
-					scale, offset, &fmin, &fmax);
-		}
-	}
-
-	*pmin = fmin;
-	*pmax = fmax;
-
-	return started;
+    return started;
 }
 
-static const fval_t *
-plotDataSliceGet(plot_t *pl, int dN, int cN, double fdot, int *m_id_N)
+static const fval_t* plotDataSliceGet(plot_t *pl, int dN, int cN, double fdot, int *m_id_N)
 {
-	const fval_t	*row;
+    const fval_t *row;
+    double fval, fbest, fmin, fmax, fneard;
+    int xN, lN, rN, id_N, kN, kN_rep, best_N;
+    int job, started, span;
 
-	double		fval, fbest, fmin, fmax, fneard;
-	int		xN, lN, rN, id_N, kN, kN_rep, best_N;
-	int		job, started, span;
+    xN = plotDataRangeCacheFetch(pl, dN, cN);
 
-	xN = plotDataRangeCacheFetch(pl, dN, cN);
+    rN = pl->data[dN].head_N;
+    id_N = pl->data[dN].id_N;
 
-	rN = pl->data[dN].head_N;
-	id_N = pl->data[dN].id_N;
+    kN_rep = -1;
 
-	kN_rep = -1;
+    started = 0;
+    span = 0;
 
-	started = 0;
-	span = 0;
+    do {
+        kN = plotDataChunkN(pl, dN, rN);
+        job = 1;
 
-	do {
-		kN = plotDataChunkN(pl, dN, rN);
-		job = 1;
+        if (xN >= 0 && pl->rcache[xN].chunk[kN].computed != 0) {
+            if (pl->rcache[xN].chunk[kN].finite != 0) {
+                fmin = pl->rcache[xN].chunk[kN].fmin;
+                fmax = pl->rcache[xN].chunk[kN].fmax;
 
-		if (xN >= 0 && pl->rcache[xN].chunk[kN].computed != 0) {
+                if (fdot < fmin || fdot > fmax) {
+                    job = 0;
 
-			if (pl->rcache[xN].chunk[kN].finite != 0) {
+                    fmin = fabs(fmin - fdot);
+                    fmax = fabs(fmax - fdot);
 
-				fmin = pl->rcache[xN].chunk[kN].fmin;
-				fmax = pl->rcache[xN].chunk[kN].fmax;
+                    if (kN_rep >= 0) {
+                        if (fmin < fneard) {
+                            fneard = fmin;
+                            kN_rep = kN;
+                        }
 
-				if (fdot < fmin || fdot > fmax) {
+                        if (fmax < fneard) {
+                            fneard = fmax;
+                            kN_rep = kN;
+                        }
+                    } else {
+                        fneard = (fmin < fmax) ? fmin : fmax;
+                        kN_rep = kN;
+                    }
+                }
+            } else {
+                job = 0;
+            }
+        }
 
-					job = 0;
+        if (job != 0) {
+            span++;
 
-					fmin = fabs(fmin - fdot);
-					fmax = fabs(fmax - fdot);
+            do {
+                if (kN != plotDataChunkN(pl, dN, rN))
+                    break;
 
-					if (kN_rep >= 0) {
+                row = plotDataGet(pl, dN, &rN);
 
-						if (fmin < fneard) {
+                if (row == NULL)
+                    break;
 
-							fneard = fmin;
-							kN_rep = kN;
-						}
+                fval = (cN < 0) ? id_N : row[cN];
 
-						if (fmax < fneard) {
+                if (fp_isfinite(fval)) {
+                    fval = fabs(fdot - fval);
 
-							fneard = fmax;
-							kN_rep = kN;
-						}
-					}
-					else {
-						fneard = (fmin < fmax)
-							? fmin : fmax;
+                    if (started != 0) {
+                        if (fval < fbest) {
+                            fbest = fval;
+                            best_N = id_N;
+                        }
+                    } else {
+                        started = 1;
 
-						kN_rep = kN;
-					}
-				}
-			}
-			else {
-				job = 0;
-			}
-		}
+                        fbest = fval;
+                        best_N = id_N;
+                    }
+                }
 
-		if (job != 0) {
+                id_N++;
+            } while (1);
 
-			span++;
+            if (span >= PLOT_SLICE_SPAN)
+                break;
+        } else {
+            plotDataChunkSkip(pl, dN, &rN, &id_N);
+        }
 
-			do {
-				if (kN != plotDataChunkN(pl, dN, rN))
-					break;
+        if (rN == pl->data[dN].tail_N)
+            break;
+    } while (1);
 
-				row = plotDataGet(pl, dN, &rN);
+    if (started == 0 && kN_rep >= 0) {
+        rN = pl->data[dN].head_N;
+        id_N = pl->data[dN].id_N;
 
-				if (row == NULL)
-					break;
+        do {
+            kN = plotDataChunkN(pl, dN, rN);
+            job = 1;
 
-				fval = (cN < 0) ? id_N : row[cN];
+            if (kN == kN_rep) {
+                do {
+                    if (kN != plotDataChunkN(pl, dN, rN))
+                        break;
 
-				if (fp_isfinite(fval)) {
+                    row = plotDataGet(pl, dN, &rN);
 
-					fval = fabs(fdot - fval);
+                    if (row == NULL)
+                        break;
 
-					if (started != 0) {
+                    fval = (cN < 0) ? id_N : row[cN];
 
-						if (fval < fbest) {
+                    if (fp_isfinite(fval)) {
+                        fval = fabs(fdot - fval);
 
-							fbest = fval;
-							best_N = id_N;
-						}
-					}
-					else {
-						started = 1;
+                        if (started != 0) {
+                            if (fval < fbest) {
+                                fbest = fval;
+                                best_N = id_N;
+                            }
+                        } else {
+                            started = 1;
 
-						fbest = fval;
-						best_N = id_N;
-					}
-				}
+                            fbest = fval;
+                            best_N = id_N;
+                        }
+                    }
 
-				id_N++;
-			}
-			while (1);
+                    id_N++;
+                } while (1);
+            } else {
+                plotDataChunkSkip(pl, dN, &rN, &id_N);
+            }
 
-			if (span >= PLOT_SLICE_SPAN)
-				break;
-		}
-		else {
-			plotDataChunkSkip(pl, dN, &rN, &id_N);
-		}
+            if (rN == pl->data[dN].tail_N)
+                break;
+        } while (1);
+    }
 
-		if (rN == pl->data[dN].tail_N)
-			break;
-	}
-	while (1);
+    if (started != 0) {
+        *m_id_N = best_N;
 
-	if (		started == 0
-			&& kN_rep >= 0) {
+        lN = pl->data[dN].length_N;
 
-		rN = pl->data[dN].head_N;
-		id_N = pl->data[dN].id_N;
+        rN = pl->data[dN].head_N + (best_N - pl->data[dN].id_N);
+        rN = (rN > lN - 1) ? rN - lN : rN;
 
-		do {
-			kN = plotDataChunkN(pl, dN, rN);
-			job = 1;
+        row = plotDataGet(pl, dN, &rN);
+    } else {
+        row = NULL;
+    }
 
-			if (kN == kN_rep) {
-
-				do {
-					if (kN != plotDataChunkN(pl, dN, rN))
-						break;
-
-					row = plotDataGet(pl, dN, &rN);
-
-					if (row == NULL)
-						break;
-
-					fval = (cN < 0) ? id_N : row[cN];
-
-					if (fp_isfinite(fval)) {
-
-						fval = fabs(fdot - fval);
-
-						if (started != 0) {
-
-							if (fval < fbest) {
-
-								fbest = fval;
-								best_N = id_N;
-							}
-						}
-						else {
-							started = 1;
-
-							fbest = fval;
-							best_N = id_N;
-						}
-					}
-
-					id_N++;
-				}
-				while (1);
-			}
-			else {
-				plotDataChunkSkip(pl, dN, &rN, &id_N);
-			}
-
-			if (rN == pl->data[dN].tail_N)
-				break;
-		}
-		while (1);
-	}
-
-	if (started != 0) {
-
-		*m_id_N = best_N;
-
-		lN = pl->data[dN].length_N;
-
-		rN = pl->data[dN].head_N + (best_N - pl->data[dN].id_N);
-		rN = (rN > lN - 1) ? rN - lN : rN;
-
-		row = plotDataGet(pl, dN, &rN);
-	}
-	else {
-		row = NULL;
-	}
-
-	return row;
+    return row;
 }
 
-static const fval_t *
-plotDataPickGet(plot_t *pl, int dN, int cNX, int cNY,
-		double fdot_X, double fdot_Y,
-		double tol_X, double tol_Y, int *m_id_N)
+static const fval_t* plotDataPickGet(plot_t *pl, int dN, int cNX, int cNY,
+        double fdot_X, double fdot_Y, double tol_X, double tol_Y, int *m_id_N)
 {
-	const fval_t	*row;
+    const fval_t *row;
 
-	double		fval_X, fval_Y, fbest, fmin, fmax;
-	int		xNX, xNY, lN, rN, id_N, kN, best_N;
-	int		job, started, span;
+    double fval_X, fval_Y, fbest, fmin, fmax;
+    int xNX, xNY, lN, rN, id_N, kN, best_N;
+    int job, started, span;
 
-	xNX = plotDataRangeCacheFetch(pl, dN, cNX);
-	xNY = plotDataRangeCacheFetch(pl, dN, cNY);
+    xNX = plotDataRangeCacheFetch(pl, dN, cNX);
+    xNY = plotDataRangeCacheFetch(pl, dN, cNY);
 
-	rN = pl->data[dN].head_N;
-	id_N = pl->data[dN].id_N;
+    rN = pl->data[dN].head_N;
+    id_N = pl->data[dN].id_N;
 
-	started = 0;
-	span = 0;
+    started = 0;
+    span = 0;
 
-	do {
-		kN = plotDataChunkN(pl, dN, rN);
-		job = 1;
+    do {
+        kN = plotDataChunkN(pl, dN, rN);
+        job = 1;
 
-		if (xNX >= 0 && pl->rcache[xNX].chunk[kN].computed != 0) {
+        if (xNX >= 0 && pl->rcache[xNX].chunk[kN].computed != 0) {
+            if (pl->rcache[xNX].chunk[kN].finite != 0) {
+                fmin = pl->rcache[xNX].chunk[kN].fmin;
+                fmax = pl->rcache[xNX].chunk[kN].fmax;
 
-			if (pl->rcache[xNX].chunk[kN].finite != 0) {
+                if (fdot_X < fmin - tol_X || fdot_X > fmax + tol_X) {
+                    job = 0;
+                }
+            } else {
+                job = 0;
+            }
+        }
 
-				fmin = pl->rcache[xNX].chunk[kN].fmin;
-				fmax = pl->rcache[xNX].chunk[kN].fmax;
+        if (xNY >= 0 && pl->rcache[xNY].chunk[kN].computed != 0) {
+            if (pl->rcache[xNY].chunk[kN].finite != 0) {
+                fmin = pl->rcache[xNY].chunk[kN].fmin;
+                fmax = pl->rcache[xNY].chunk[kN].fmax;
 
-				if (		   fdot_X < fmin - tol_X
-						|| fdot_X > fmax + tol_X) {
+                if (fdot_Y < fmin - tol_Y || fdot_Y > fmax + tol_Y) {
+                    job = 0;
+                }
+            } else {
+                job = 0;
+            }
+        }
 
-					job = 0;
-				}
-			}
-			else {
-				job = 0;
-			}
-		}
+        if (job != 0) {
+            span++;
 
-		if (xNY >= 0 && pl->rcache[xNY].chunk[kN].computed != 0) {
+            do {
+                if (kN != plotDataChunkN(pl, dN, rN))
+                    break;
 
-			if (pl->rcache[xNY].chunk[kN].finite != 0) {
+                row = plotDataGet(pl, dN, &rN);
 
-				fmin = pl->rcache[xNY].chunk[kN].fmin;
-				fmax = pl->rcache[xNY].chunk[kN].fmax;
+                if (row == NULL)
+                    break;
 
-				if (		   fdot_Y < fmin - tol_Y
-						|| fdot_Y > fmax + tol_Y) {
+                fval_X = (cNX < 0) ? id_N : row[cNX];
+                fval_Y = (cNY < 0) ? id_N : row[cNY];
 
-					job = 0;
-				}
-			}
-			else {
-				job = 0;
-			}
-		}
+                if (fp_isfinite(fval_X) && fp_isfinite(fval_Y)) {
+                    fval_X = fabs(fdot_X - fval_X);
+                    fval_Y = fabs(fdot_Y - fval_Y);
 
-		if (job != 0) {
+                    if (fval_X < tol_X && fval_Y < tol_Y) {
+                        fval_X /= tol_X;
+                        fval_Y /= tol_Y;
 
-			span++;
+                        fval_X =  fval_X * fval_X
+                            + fval_Y * fval_Y;
 
-			do {
-				if (kN != plotDataChunkN(pl, dN, rN))
-					break;
+                        if (started != 0) {
+                            if (fval_X < fbest) {
+                                fbest = fval_X;
+                                best_N = id_N;
+                            }
+                        } else {
+                            started = 1;
 
-				row = plotDataGet(pl, dN, &rN);
+                            fbest = fval_X;
+                            best_N = id_N;
+                        }
+                    }
+                }
 
-				if (row == NULL)
-					break;
+                id_N++;
+            } while (1);
 
-				fval_X = (cNX < 0) ? id_N : row[cNX];
-				fval_Y = (cNY < 0) ? id_N : row[cNY];
+            if (span >= PLOT_SLICE_SPAN)
+                break;
+        } else {
+            plotDataChunkSkip(pl, dN, &rN, &id_N);
+        }
 
-				if (		   fp_isfinite(fval_X)
-						&& fp_isfinite(fval_Y)) {
+        if (rN == pl->data[dN].tail_N)
+            break;
+    } while (1);
 
-					fval_X = fabs(fdot_X - fval_X);
-					fval_Y = fabs(fdot_Y - fval_Y);
+    if (started != 0) {
+        *m_id_N = best_N;
 
-					if (		   fval_X < tol_X
-							&& fval_Y < tol_Y) {
+        lN = pl->data[dN].length_N;
 
-						fval_X /= tol_X;
-						fval_Y /= tol_Y;
+        rN = pl->data[dN].head_N + (best_N - pl->data[dN].id_N);
+        rN = (rN > lN - 1) ? rN - lN : rN;
 
-						fval_X =  fval_X * fval_X
-							+ fval_Y * fval_Y;
+        row = plotDataGet(pl, dN, &rN);
+    } else {
+        row = NULL;
+    }
 
-						if (started != 0) {
-
-							if (fval_X < fbest) {
-
-								fbest = fval_X;
-								best_N = id_N;
-							}
-						}
-						else {
-							started = 1;
-
-							fbest = fval_X;
-							best_N = id_N;
-						}
-					}
-				}
-
-				id_N++;
-			}
-			while (1);
-
-			if (span >= PLOT_SLICE_SPAN)
-				break;
-		}
-		else {
-			plotDataChunkSkip(pl, dN, &rN, &id_N);
-		}
-
-		if (rN == pl->data[dN].tail_N)
-			break;
-	}
-	while (1);
-
-	if (started != 0) {
-
-		*m_id_N = best_N;
-
-		lN = pl->data[dN].length_N;
-
-		rN = pl->data[dN].head_N + (best_N - pl->data[dN].id_N);
-		rN = (rN > lN - 1) ? rN - lN : rN;
-
-		row = plotDataGet(pl, dN, &rN);
-	}
-	else {
-		row = NULL;
-	}
-
-	return row;
+    return row;
 }
 
-static void
-plotDataErase(plot_t *pl, int dN, int cNX, int cNY,
-		double fmin_X, double fmin_Y,
-		double fmax_X, double fmax_Y)
+static void plotDataErase(plot_t *pl, int dN, int cNX, int cNY,
+        double fmin_X, double fmin_Y, double fmax_X, double fmax_Y)
 {
-	fval_t		*row;
+    fval_t *row;
+    double fval_X, fval_Y, fmin, fmax;
+    int xNX, xNY, rN, id_N, kN, job;
 
-	double		fval_X, fval_Y, fmin, fmax;
-	int		xNX, xNY, rN, id_N, kN, job;
+    xNX = plotDataRangeCacheFetch(pl, dN, cNX);
+    xNY = plotDataRangeCacheFetch(pl, dN, cNY);
 
-	xNX = plotDataRangeCacheFetch(pl, dN, cNX);
-	xNY = plotDataRangeCacheFetch(pl, dN, cNY);
+    rN = pl->data[dN].head_N;
+    id_N = pl->data[dN].id_N;
 
-	rN = pl->data[dN].head_N;
-	id_N = pl->data[dN].id_N;
+    do {
+        kN = plotDataChunkN(pl, dN, rN);
+        job = 1;
 
-	do {
-		kN = plotDataChunkN(pl, dN, rN);
-		job = 1;
+        if (xNX >= 0 && pl->rcache[xNX].chunk[kN].computed != 0) {
+            if (pl->rcache[xNX].chunk[kN].finite != 0) {
+                fmin = pl->rcache[xNX].chunk[kN].fmin;
+                fmax = pl->rcache[xNX].chunk[kN].fmax;
 
-		if (xNX >= 0 && pl->rcache[xNX].chunk[kN].computed != 0) {
+                if (fmax_X < fmin || fmin_X > fmax) {
+                    job = 0;
+                }
+            } else {
+                job = 0;
+            }
+        }
 
-			if (pl->rcache[xNX].chunk[kN].finite != 0) {
+        if (xNY >= 0 && pl->rcache[xNY].chunk[kN].computed != 0) {
+            if (pl->rcache[xNY].chunk[kN].finite != 0) {
+                fmin = pl->rcache[xNY].chunk[kN].fmin;
+                fmax = pl->rcache[xNY].chunk[kN].fmax;
 
-				fmin = pl->rcache[xNX].chunk[kN].fmin;
-				fmax = pl->rcache[xNX].chunk[kN].fmax;
+                if (fmax_Y < fmin || fmin_Y > fmax) {
+                    job = 0;
+                }
+            } else {
+                job = 0;
+            }
+        }
 
-				if (		   fmax_X < fmin
-						|| fmin_X > fmax) {
+        if (job != 0) {
+            do {
+                if (kN != plotDataChunkN(pl, dN, rN))
+                    break;
 
-					job = 0;
-				}
-			}
-			else {
-				job = 0;
-			}
-		}
+                row = plotDataWrite(pl, dN, &rN);
 
-		if (xNY >= 0 && pl->rcache[xNY].chunk[kN].computed != 0) {
+                if (row == NULL)
+                    break;
 
-			if (pl->rcache[xNY].chunk[kN].finite != 0) {
+                fval_X = (cNX < 0) ? id_N : row[cNX];
+                fval_Y = (cNY < 0) ? id_N : row[cNY];
 
-				fmin = pl->rcache[xNY].chunk[kN].fmin;
-				fmax = pl->rcache[xNY].chunk[kN].fmax;
+                if (fp_isfinite(fval_X) && fp_isfinite(fval_Y)) {
+                    if (fval_X > fmin_X && fval_X < fmax_X
+                            && fval_Y > fmin_Y && fval_Y < fmax_Y) {
+                        row[cNX] = FP_NAN;
+                        row[cNY] = FP_NAN;
+                    }
+                }
 
-				if (		   fmax_Y < fmin
-						|| fmin_Y > fmax) {
+                id_N++;
+            } while (1);
+        } else {
+            plotDataChunkSkip(pl, dN, &rN, &id_N);
+        }
 
-					job = 0;
-				}
-			}
-			else {
-				job = 0;
-			}
-		}
-
-		if (job != 0) {
-
-			do {
-				if (kN != plotDataChunkN(pl, dN, rN))
-					break;
-
-				row = plotDataWrite(pl, dN, &rN);
-
-				if (row == NULL)
-					break;
-
-				fval_X = (cNX < 0) ? id_N : row[cNX];
-				fval_Y = (cNY < 0) ? id_N : row[cNY];
-
-				if (		   fp_isfinite(fval_X)
-						&& fp_isfinite(fval_Y)) {
-
-					if (		   fval_X > fmin_X && fval_X < fmax_X
-							&& fval_Y > fmin_Y && fval_Y < fmax_Y) {
-
-						row[cNX] = FP_NAN;
-						row[cNY] = FP_NAN;
-					}
-				}
-
-				id_N++;
-			}
-			while (1);
-		}
-		else {
-			plotDataChunkSkip(pl, dN, &rN, &id_N);
-		}
-
-		if (rN == pl->data[dN].tail_N)
-			break;
-	}
-	while (1);
+        if (rN == pl->data[dN].tail_N)
+            break;
+    } while (1);
 }
 
-static int
-plotDataCompareMatch(plot_t *pl, int dN, int cN1, int cN2)
+static int plotDataCompareMatch(plot_t *pl, int dN, int cN1, int cN2)
 {
-	const fval_t	*row;
+    const fval_t *row;
+    double X, Y;
+    int N, rN, id_N;
 
-	double		X, Y;
-	int		N, rN, id_N;
+    rN = pl->data[dN].head_N;
+    id_N = pl->data[dN].id_N;
 
-	rN = pl->data[dN].head_N;
-	id_N = pl->data[dN].id_N;
+    N = 0;
 
-	N = 0;
+    do {
+        row = plotDataGet(pl, dN, &rN);
 
-	do {
-		row = plotDataGet(pl, dN, &rN);
+        if (row == NULL)
+            break;
 
-		if (row == NULL)
-			break;
+        X = (cN1 < 0) ? id_N : row[cN1];
+        Y = (cN2 < 0) ? id_N : row[cN2];
 
-		X = (cN1 < 0) ? id_N : row[cN1];
-		Y = (cN2 < 0) ? id_N : row[cN2];
+        if (fp_isfinite(X)) {
+            if (fp_isfinite(Y)) {
+                if (X != Y) {
+                    N++;
+                }
+            } else {
+                N++;
+            }
+        } else {
+            if (fp_isfinite(Y)) {
+                N++;
+            }
+        }
 
-		if (fp_isfinite(X)) {
+        if (N >= 1)
+            break;
 
-			if (fp_isfinite(Y)) {
+        id_N++;
+    } while (1);
 
-				if (X != Y) {
-
-					N++;
-				}
-			}
-			else {
-				N++;
-			}
-		}
-		else {
-			if (fp_isfinite(Y)) {
-
-				N++;
-			}
-		}
-
-		if (N >= 1)
-			break;
-
-		id_N++;
-	}
-	while (1);
-
-	return N;
+    return N;
 }
 
 
 void plotAxisLabel(plot_t *pl, int aN, const char *label)
 {
-	if (aN < 0 || aN >= PLOT_AXES_MAX) {
+    if (aN < 0 || aN >= PLOT_AXES_MAX) {
+        ERROR("Axis number is out of range\n");
+        return;
+    }
 
-		ERROR("Axis number is out of range\n");
-		return ;
-	}
+    if (label[0] != 0) {
+        strcpy(pl->axis[aN].label, label);
 
-	if (label[0] != 0) {
-
-		strcpy(pl->axis[aN].label, label);
-
-		pl->axis[aN].compact = (strlen(pl->axis[aN].label) >= 4) ? 0 : 1;
-	}
+        pl->axis[aN].compact = (strlen(pl->axis[aN].label) >= 4) ? 0 : 1;
+    }
 }
 
 int plotAxisRangeGet(plot_t *pl, int aN, double *pmin, double *pmax)
 {
-	double		min, max, fmin, fmax, scale, offset;
-	int		fN, dN, cN, xN, yN, started = 0;
+    double min, max, fmin, fmax, scale, offset;
+    int fN, dN, cN, xN, yN, started = 0;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].busy != 0 && pl->figure[fN].hidden == 0) {
+            dN = pl->figure[fN].data_N;
 
-		if (pl->figure[fN].busy != 0 && pl->figure[fN].hidden == 0) {
+            do {
+                if (pl->figure[fN].axis_X == aN) {
+                    cN = pl->figure[fN].column_X;
+                } else if (pl->figure[fN].axis_Y == aN) {
+                    cN = pl->figure[fN].column_Y;
+                } else
+                    break;
 
-			dN = pl->figure[fN].data_N;
+                plotDataRangeGet(pl, dN, cN, &min, &max);
 
-			do {
-				if (pl->figure[fN].axis_X == aN) {
+                if (started != 0) {
+                    fmin = (min < fmin) ? min : fmin;
+                    fmax = (max > fmax) ? max : fmax;
+                } else {
+                    started = 1;
 
-					cN = pl->figure[fN].column_X;
-				}
-				else if (pl->figure[fN].axis_Y == aN) {
+                    fmin = min;
+                    fmax = max;
+                }
+            } while (0);
 
-					cN = pl->figure[fN].column_Y;
-				}
-				else
-					break;
+            do {
+                xN = pl->figure[fN].axis_X;
+                yN = pl->figure[fN].axis_Y;
 
-				plotDataRangeGet(pl, dN, cN, &min, &max);
+                if (pl->axis[xN].slave != 0 && pl->axis[xN].slave_N == aN) {
+                    cN = pl->figure[fN].column_X;
 
-				if (started != 0) {
+                    scale = pl->axis[xN].scale;
+                    offset = pl->axis[xN].offset;
+                } else if (pl->axis[yN].slave != 0 && pl->axis[yN].slave_N == aN) {
+                    cN = pl->figure[fN].column_Y;
 
-					fmin = (min < fmin) ? min : fmin;
-					fmax = (max > fmax) ? max : fmax;
-				}
-				else {
-					started = 1;
+                    scale = pl->axis[yN].scale;
+                    offset = pl->axis[yN].offset;
+                } else
+                    break;
 
-					fmin = min;
-					fmax = max;
-				}
-			}
-			while (0);
+                plotDataRangeGet(pl, dN, cN, &min, &max);
 
-			do {
-				xN = pl->figure[fN].axis_X;
-				yN = pl->figure[fN].axis_Y;
+                min = min * scale + offset;
+                max = max * scale + offset;
 
-				if (		pl->axis[xN].slave != 0
-						&& pl->axis[xN].slave_N == aN) {
+                if (started != 0) {
+                    fmin = (min < fmin) ? min : fmin;
+                    fmax = (max > fmax) ? max : fmax;
+                } else {
+                    started = 1;
 
-					cN = pl->figure[fN].column_X;
+                    fmin = min;
+                    fmax = max;
+                }
+            } while (0);
+        }
+    }
 
-					scale = pl->axis[xN].scale;
-					offset = pl->axis[xN].offset;
-				}
-				else if (	pl->axis[yN].slave != 0
-						&& pl->axis[yN].slave_N == aN) {
+    *pmin = fmin;
+    *pmax = fmax;
 
-					cN = pl->figure[fN].column_Y;
-
-					scale = pl->axis[yN].scale;
-					offset = pl->axis[yN].offset;
-				}
-				else
-					break;
-
-				plotDataRangeGet(pl, dN, cN, &min, &max);
-
-				min = min * scale + offset;
-				max = max * scale + offset;
-
-				if (started != 0) {
-
-					fmin = (min < fmin) ? min : fmin;
-					fmax = (max > fmax) ? max : fmax;
-				}
-				else {
-					started = 1;
-
-					fmin = min;
-					fmax = max;
-				}
-			}
-			while (0);
-		}
-	}
-
-	*pmin = fmin;
-	*pmax = fmax;
-
-	return started;
+    return started;
 }
 
-static int
-plotAxisRangeCond(plot_t *pl, int aN, int bN, double *pmin, double *pmax)
+static int plotAxisRangeCond(plot_t *pl, int aN, int bN, double *pmin, double *pmax)
 {
-	double		min, max, fmin, fmax, scale, offset;
-	int		fN, dN, cN, xN, yN, nN, started, cond;
+    double min, max, fmin, fmax, scale, offset;
+    int fN, dN, cN, xN, yN, nN, started, cond;
 
-	started = 0;
+    started = 0;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].busy != 0 && pl->figure[fN].hidden == 0) {
 
-		if (pl->figure[fN].busy != 0 && pl->figure[fN].hidden == 0) {
+            dN = pl->figure[fN].data_N;
 
-			dN = pl->figure[fN].data_N;
+            do {
+                if (pl->figure[fN].axis_X == aN) {
+                    cN = pl->figure[fN].column_X;
+                    nN = pl->figure[fN].axis_Y;
+                } else if (pl->figure[fN].axis_Y == aN) {
+                    cN = pl->figure[fN].column_Y;
+                    nN = pl->figure[fN].axis_X;
+                } else
+                    break;
 
-			do {
-				if (pl->figure[fN].axis_X == aN) {
+                if (bN >= 0) {
+                    cond = plotDataRangeAxis(pl, dN, cN, bN, &min, &max);
+                } else {
+                    cond = plotDataRangeAxis(pl, dN, cN, nN, &min, &max);
+                }
 
-					cN = pl->figure[fN].column_X;
-					nN = pl->figure[fN].axis_Y;
-				}
-				else if (pl->figure[fN].axis_Y == aN) {
+                if (cond != 0) {
+                    if (started != 0) {
+                        fmin = (min < fmin) ? min : fmin;
+                        fmax = (max > fmax) ? max : fmax;
+                    } else {
+                        started = 1;
 
-					cN = pl->figure[fN].column_Y;
-					nN = pl->figure[fN].axis_X;
-				}
-				else
-					break;
+                        fmin = min;
+                        fmax = max;
+                    }
+                }
+            } while (0);
 
-				if (bN >= 0) {
+            do {
+                xN = pl->figure[fN].axis_X;
+                yN = pl->figure[fN].axis_Y;
 
-					cond = plotDataRangeAxis(pl, dN, cN, bN, &min, &max);
-				}
-				else {
-					cond = plotDataRangeAxis(pl, dN, cN, nN, &min, &max);
-				}
+                if (pl->axis[xN].slave != 0 && pl->axis[xN].slave_N == aN) {
+                    cN = pl->figure[fN].column_X;
+                    nN = pl->figure[fN].axis_Y;
 
-				if (cond != 0) {
+                    scale = pl->axis[xN].scale;
+                    offset = pl->axis[xN].offset;
+                } else if (pl->axis[yN].slave != 0 && pl->axis[yN].slave_N == aN) {
+                    cN = pl->figure[fN].column_Y;
+                    nN = pl->figure[fN].axis_X;
 
-					if (started != 0) {
-
-						fmin = (min < fmin) ? min : fmin;
-						fmax = (max > fmax) ? max : fmax;
-					}
-					else {
-						started = 1;
-
-						fmin = min;
-						fmax = max;
-					}
-				}
-			}
-			while (0);
-
-			do {
-				xN = pl->figure[fN].axis_X;
-				yN = pl->figure[fN].axis_Y;
-
-				if (		pl->axis[xN].slave != 0
-						&& pl->axis[xN].slave_N == aN) {
-
-					cN = pl->figure[fN].column_X;
-					nN = pl->figure[fN].axis_Y;
-
-					scale = pl->axis[xN].scale;
-					offset = pl->axis[xN].offset;
-				}
-				else if (	pl->axis[yN].slave != 0
-						&& pl->axis[yN].slave_N == aN) {
-
-					cN = pl->figure[fN].column_Y;
-					nN = pl->figure[fN].axis_X;
-
-					scale = pl->axis[yN].scale;
-					offset = pl->axis[yN].offset;
-				}
-				else
-					break;
+                    scale = pl->axis[yN].scale;
+                    offset = pl->axis[yN].offset;
+                } else
+                    break;
 
 
-				if (bN >= 0) {
+                if (bN >= 0) {
+                    cond = plotDataRangeAxis(pl, dN, cN, bN, &min, &max);
+                } else {
+                    cond = plotDataRangeAxis(pl, dN, cN, nN, &min, &max);
+                }
 
-					cond = plotDataRangeAxis(pl, dN, cN, bN, &min, &max);
-				}
-				else {
-					cond = plotDataRangeAxis(pl, dN, cN, nN, &min, &max);
-				}
+                if (cond != 0) {
+                    min = min * scale + offset;
+                    max = max * scale + offset;
 
-				if (cond != 0) {
+                    if (started != 0) {
+                        fmin = (min < fmin) ? min : fmin;
+                        fmax = (max > fmax) ? max : fmax;
+                    } else {
+                        started = 1;
 
-					min = min * scale + offset;
-					max = max * scale + offset;
+                        fmin = min;
+                        fmax = max;
+                    }
+                }
+            } while (0);
+        }
+    }
 
-					if (started != 0) {
+    *pmin = fmin;
+    *pmax = fmax;
 
-						fmin = (min < fmin) ? min : fmin;
-						fmax = (max > fmax) ? max : fmax;
-					}
-					else {
-						started = 1;
-
-						fmin = min;
-						fmax = max;
-					}
-				}
-			}
-			while (0);
-		}
-	}
-
-	*pmin = fmin;
-	*pmax = fmax;
-
-	return started;
+    return started;
 }
 
 void plotAxisScaleManual(plot_t *pl, int aN, double min, double max)
 {
-	if (aN < 0 || aN >= PLOT_AXES_MAX) {
+    if (aN < 0 || aN >= PLOT_AXES_MAX) {
+        ERROR("Axis number is out of range\n");
+        return;
+    }
 
-		ERROR("Axis number is out of range\n");
-		return ;
-	}
+    if (pl->axis[aN].busy == AXIS_FREE)
+        return;
 
-	if (pl->axis[aN].busy == AXIS_FREE)
-		return ;
+    if (pl->axis[aN].slave != 0)
+        return;
 
-	if (pl->axis[aN].slave != 0)
-		return ;
-
-	pl->axis[aN].scale = 1. / (max - min);
-	pl->axis[aN].offset = - min / (max - min);
+    pl->axis[aN].scale = 1. / (max - min);
+    pl->axis[aN].offset = - min / (max - min);
 }
 
 void plotAxisScaleAuto(plot_t *pl, int aN)
 {
-	double		fmin, fmax;
+    double fmin, fmax;
 
-	if (aN < 0 || aN >= PLOT_AXES_MAX) {
+    if (aN < 0 || aN >= PLOT_AXES_MAX) {
+        ERROR("Axis number is out of range\n");
+        return;
+    }
 
-		ERROR("Axis number is out of range\n");
-		return ;
-	}
+    if (pl->axis[aN].busy == AXIS_FREE)
+        return;
 
-	if (pl->axis[aN].busy == AXIS_FREE)
-		return ;
+    if (pl->axis[aN].slave != 0)
+        return;
 
-	if (pl->axis[aN].slave != 0)
-		return ;
+    if (plotAxisRangeGet(pl, aN, &fmin, &fmax) != 0) {
+        if (fmin == fmax) {
+            fmin += (double)- 1.;
+            fmax += (double)+ 1.;
+        }
 
-	if (plotAxisRangeGet(pl, aN, &fmin, &fmax) != 0) {
+        plotAxisScaleManual(pl, aN, fmin, fmax);
 
-		if (fmin == fmax) {
+        if (pl->axis[aN].busy == AXIS_BUSY_X) {
+            fmin = plotAxisConvBackward(pl, aN, pl->viewport.min_x - pl->layout_mark_size);
+            fmax = plotAxisConvBackward(pl, aN, pl->viewport.max_x + pl->layout_mark_size);
 
-			fmin += (double) - 1.;
-			fmax += (double) + 1.;
-		}
+            plotAxisScaleManual(pl, aN, fmin, fmax);
+        } else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
+            fmin = plotAxisConvBackward(pl, aN, pl->viewport.max_y + pl->layout_mark_size);
+            fmax = plotAxisConvBackward(pl, aN, pl->viewport.min_y - pl->layout_mark_size);
 
-		plotAxisScaleManual(pl, aN, fmin, fmax);
+            plotAxisScaleManual(pl, aN, fmin, fmax);
+        }
 
-		if (pl->axis[aN].busy == AXIS_BUSY_X) {
-
-			fmin = plotAxisConvBackward(pl, aN, pl->viewport.min_x - pl->layout_mark_size);
-			fmax = plotAxisConvBackward(pl, aN, pl->viewport.max_x + pl->layout_mark_size);
-
-			plotAxisScaleManual(pl, aN, fmin, fmax);
-		}
-		else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
-
-			fmin = plotAxisConvBackward(pl, aN, pl->viewport.max_y + pl->layout_mark_size);
-			fmax = plotAxisConvBackward(pl, aN, pl->viewport.min_y - pl->layout_mark_size);
-
-			plotAxisScaleManual(pl, aN, fmin, fmax);
-		}
-
-		pl->axis[aN].lock_scale = LOCK_AUTO;
-		pl->axis[aN].lock_tick = 0;
-	}
+        pl->axis[aN].lock_scale = LOCK_AUTO;
+        pl->axis[aN].lock_tick = 0;
+    }
 }
 
 void plotAxisScaleAutoCond(plot_t *pl, int aN, int bN)
 {
-	double		fmin, fmax;
+    double fmin, fmax;
 
-	if (aN < 0 || aN >= PLOT_AXES_MAX) {
+    if (aN < 0 || aN >= PLOT_AXES_MAX) {
+        ERROR("Axis number is out of range\n");
+        return;
+    }
 
-		ERROR("Axis number is out of range\n");
-		return ;
-	}
+    if (bN < -1 || bN >= PLOT_AXES_MAX) {
+        ERROR("Conditional axis number is out of range\n");
+        return;
+    }
 
-	if (bN < -1 || bN >= PLOT_AXES_MAX) {
+    if (pl->axis[aN].busy == AXIS_FREE)
+        return;
 
-		ERROR("Conditional axis number is out of range\n");
-		return ;
-	}
+    if (pl->axis[aN].slave != 0)
+        return;
 
-	if (pl->axis[aN].busy == AXIS_FREE)
-		return ;
+    if (plotAxisRangeCond(pl, aN, bN, &fmin, &fmax) != 0) {
+        if (fmin == fmax) {
+            fmin += (double)- 1.;
+            fmax += (double)+ 1.;
+        }
 
-	if (pl->axis[aN].slave != 0)
-		return ;
+        plotAxisScaleManual(pl, aN, fmin, fmax);
 
-	if (plotAxisRangeCond(pl, aN, bN, &fmin, &fmax) != 0) {
+        if (pl->axis[aN].busy == AXIS_BUSY_X) {
+            fmin = plotAxisConvBackward(pl, aN, pl->viewport.min_x - pl->layout_mark_size);
+            fmax = plotAxisConvBackward(pl, aN, pl->viewport.max_x + pl->layout_mark_size);
 
-		if (fmin == fmax) {
+            plotAxisScaleManual(pl, aN, fmin, fmax);
+        } else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
+            fmin = plotAxisConvBackward(pl, aN, pl->viewport.max_y + pl->layout_mark_size);
+            fmax = plotAxisConvBackward(pl, aN, pl->viewport.min_y - pl->layout_mark_size);
 
-			fmin += (double) - 1.;
-			fmax += (double) + 1.;
-		}
+            plotAxisScaleManual(pl, aN, fmin, fmax);
+        }
 
-		plotAxisScaleManual(pl, aN, fmin, fmax);
-
-		if (pl->axis[aN].busy == AXIS_BUSY_X) {
-
-			fmin = plotAxisConvBackward(pl, aN, pl->viewport.min_x - pl->layout_mark_size);
-			fmax = plotAxisConvBackward(pl, aN, pl->viewport.max_x + pl->layout_mark_size);
-
-			plotAxisScaleManual(pl, aN, fmin, fmax);
-		}
-		else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
-
-			fmin = plotAxisConvBackward(pl, aN, pl->viewport.max_y + pl->layout_mark_size);
-			fmax = plotAxisConvBackward(pl, aN, pl->viewport.min_y - pl->layout_mark_size);
-
-			plotAxisScaleManual(pl, aN, fmin, fmax);
-		}
-
-		pl->axis[aN].lock_scale = LOCK_CONDITION;
-		pl->axis[aN].lock_tick = 0;
-	}
+        pl->axis[aN].lock_scale = LOCK_CONDITION;
+        pl->axis[aN].lock_tick = 0;
+    }
 }
 
 void plotAxisScaleLock(plot_t *pl, int knob)
 {
-	int		aN;
+    int aN;
 
-	for (aN = 0; aN < PLOT_AXES_MAX; ++aN)
-		pl->axis[aN].lock_scale = knob;
+    for (aN = 0; aN < PLOT_AXES_MAX; ++aN)
+        pl->axis[aN].lock_scale = knob;
 }
 
 void plotAxisScaleDefault(plot_t *pl)
 {
-	int		aN, job = 0;
+    int aN, job = 0;
 
-	for (aN = 0; aN < PLOT_AXES_MAX; ++aN) {
+    for (aN = 0; aN < PLOT_AXES_MAX; ++aN) {
+        if (pl->axis[aN].busy != AXIS_FREE) {
+            if (pl->axis[aN].lock_scale == LOCK_AUTO) {
+                plotAxisScaleAuto(pl, aN);
+            } else if (pl->axis[aN].lock_scale == LOCK_CONDITION) {
+                plotAxisScaleAutoCond(pl, aN, -1);
+            }
+        }
 
-		if (pl->axis[aN].busy != AXIS_FREE) {
+        if (pl->axis[aN].busy == AXIS_BUSY_Y
+                && pl->axis[aN].lock_scale == LOCK_STACKED) {
+            job = 1;
+        }
+    }
 
-			if (pl->axis[aN].lock_scale == LOCK_AUTO) {
-
-				plotAxisScaleAuto(pl, aN);
-			}
-			else if (pl->axis[aN].lock_scale == LOCK_CONDITION) {
-
-				plotAxisScaleAutoCond(pl, aN, -1);
-			}
-		}
-
-		if (		pl->axis[aN].busy == AXIS_BUSY_Y
-				&& pl->axis[aN].lock_scale == LOCK_STACKED) {
-
-			job = 1;
-		}
-	}
-
-	if (job != 0) {
-
-		plotAxisScaleStacked(pl, -1);
-	}
+    if (job != 0) {
+        plotAxisScaleStacked(pl, -1);
+    }
 }
 
 void plotAxisScaleZoom(plot_t *pl, int aN, int origin, double zoom)
 {
-	if (aN < 0 || aN >= PLOT_AXES_MAX) {
+    if (aN < 0 || aN >= PLOT_AXES_MAX) {
+        ERROR("Axis number is out of range\n");
+        return;
+    }
 
-		ERROR("Axis number is out of range\n");
-		return ;
-	}
+    if (pl->axis[aN].slave != 0)
+        return;
 
-	if (pl->axis[aN].slave != 0)
-		return ;
+    if (pl->axis[aN].busy == AXIS_BUSY_X) {
+        pl->axis[aN].scale *= zoom;
+        pl->axis[aN].offset = pl->axis[aN].offset * zoom
+            + (double)(pl->viewport.min_x - origin) /
+            (double)(pl->viewport.max_x - pl->viewport.min_x) * (zoom - 1.);
+    } else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
+        pl->axis[aN].scale *= zoom;
+        pl->axis[aN].offset = pl->axis[aN].offset * zoom
+            + (double)(pl->viewport.max_y - origin) /
+            (double)(pl->viewport.min_y - pl->viewport.max_y) * (zoom - 1.);
+    }
 
-	if (pl->axis[aN].busy == AXIS_BUSY_X) {
-
-		pl->axis[aN].scale *= zoom;
-		pl->axis[aN].offset = pl->axis[aN].offset * zoom
-			+ (double) (pl->viewport.min_x - origin) /
-			(double) (pl->viewport.max_x - pl->viewport.min_x) * (zoom - 1.);
-	}
-	else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
-
-		pl->axis[aN].scale *= zoom;
-		pl->axis[aN].offset = pl->axis[aN].offset * zoom
-			+ (double) (pl->viewport.max_y - origin) /
-			(double) (pl->viewport.min_y - pl->viewport.max_y) * (zoom - 1.);
-	}
-
-	pl->axis[aN].lock_scale = LOCK_FREE;
+    pl->axis[aN].lock_scale = LOCK_FREE;
 }
 
 void plotAxisScaleMove(plot_t *pl, int aN, double move)
 {
-	double		span;
+    double span;
 
-	if (aN < 0 || aN >= PLOT_AXES_MAX) {
+    if (aN < 0 || aN >= PLOT_AXES_MAX) {
+        ERROR("Axis number is out of range\n");
+        return;
+    }
 
-		ERROR("Axis number is out of range\n");
-		return ;
-	}
+    if (pl->axis[aN].slave != 0)
+        return;
 
-	if (pl->axis[aN].slave != 0)
-		return ;
+    if (pl->axis[aN].busy == AXIS_BUSY_X) {
+        span = (double)(pl->viewport.max_x - pl->viewport.min_x);
+        pl->axis[aN].offset += move / span;
+    } else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
+        span = (double)(pl->viewport.min_y - pl->viewport.max_y);
+        pl->axis[aN].offset += move / span;
+    }
 
-	if (pl->axis[aN].busy == AXIS_BUSY_X) {
-
-		span = (double) (pl->viewport.max_x - pl->viewport.min_x);
-		pl->axis[aN].offset += move / span;
-	}
-	else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
-
-		span = (double) (pl->viewport.min_y - pl->viewport.max_y);
-		pl->axis[aN].offset += move / span;
-	}
-
-	pl->axis[aN].lock_scale = LOCK_FREE;
+    pl->axis[aN].lock_scale = LOCK_FREE;
 }
 
 void plotAxisScaleEqual(plot_t *pl)
 {
-	double		zoom, aspect_x, aspect_y;
+    double zoom, aspect_x, aspect_y;
 
-	if (pl->on_X < 0 || pl->on_X >= PLOT_AXES_MAX)
-		return ;
+    if (pl->on_X < 0 || pl->on_X >= PLOT_AXES_MAX)
+        return;
 
-	if (pl->on_Y < 0 || pl->on_Y >= PLOT_AXES_MAX)
-		return ;
+    if (pl->on_Y < 0 || pl->on_Y >= PLOT_AXES_MAX)
+        return;
 
-	aspect_x = (double) (pl->viewport.max_x - pl->viewport.min_x);
-	aspect_y = (double) (pl->viewport.max_y - pl->viewport.min_y);
+    aspect_x = (double)(pl->viewport.max_x - pl->viewport.min_x);
+    aspect_y = (double)(pl->viewport.max_y - pl->viewport.min_y);
 
-	if (pl->axis[pl->on_Y].scale < pl->axis[pl->on_X].scale) {
+    if (pl->axis[pl->on_Y].scale < pl->axis[pl->on_X].scale) {
+        zoom = pl->axis[pl->on_Y].scale / pl->axis[pl->on_X].scale;
+        zoom *= aspect_y / aspect_x;
 
-		zoom = pl->axis[pl->on_Y].scale / pl->axis[pl->on_X].scale;
-		zoom *= aspect_y / aspect_x;
+        pl->axis[pl->on_X].offset *= zoom;
+        pl->axis[pl->on_X].offset += (1. - zoom) / 2.;
+        pl->axis[pl->on_X].scale *= zoom;
+    } else {
+        zoom = pl->axis[pl->on_X].scale / pl->axis[pl->on_Y].scale;
+        zoom *= aspect_x / aspect_y;
 
-		pl->axis[pl->on_X].offset *= zoom;
-		pl->axis[pl->on_X].offset += (1. - zoom) / 2.;
-		pl->axis[pl->on_X].scale *= zoom;
-	}
-	else {
-		zoom = pl->axis[pl->on_X].scale / pl->axis[pl->on_Y].scale;
-		zoom *= aspect_x / aspect_y;
+        pl->axis[pl->on_Y].offset *= zoom;
+        pl->axis[pl->on_Y].offset += (1. - zoom) / 2.;
+        pl->axis[pl->on_Y].scale *= zoom;
+    }
 
-		pl->axis[pl->on_Y].offset *= zoom;
-		pl->axis[pl->on_Y].offset += (1. - zoom) / 2.;
-		pl->axis[pl->on_Y].scale *= zoom;
-	}
+    pl->axis[pl->on_X].lock_scale = LOCK_FREE;
+    pl->axis[pl->on_Y].lock_scale = LOCK_FREE;
 
-	pl->axis[pl->on_X].lock_scale = LOCK_FREE;
-	pl->axis[pl->on_Y].lock_scale = LOCK_FREE;
-
-	pl->axis[pl->on_X].lock_tick = 0;
-	pl->axis[pl->on_Y].lock_tick = 0;
+    pl->axis[pl->on_X].lock_tick = 0;
+    pl->axis[pl->on_Y].lock_tick = 0;
 }
 
-static void
-plotAxisGridPairwiseAlign(plot_t *pl, int aN, int bN)
+static void plotAxisGridPairwiseAlign(plot_t *pl, int aN, int bN)
 {
-	double		scale, offset;
+    double scale, offset;
 
-	if (pl->axis[aN].slave != 0)
-		return ;
+    if (pl->axis[aN].slave != 0)
+        return;
 
-	if (aN != bN) {
+    if (aN != bN) {
+        scale = pl->axis[bN].ruler_tih / pl->axis[aN].ruler_tih;
+        offset = pl->axis[bN].ruler_tis - pl->axis[aN].ruler_tis;
 
-		scale = pl->axis[bN].ruler_tih / pl->axis[aN].ruler_tih;
-		offset = pl->axis[bN].ruler_tis - pl->axis[aN].ruler_tis;
+        pl->axis[aN].scale *= scale;
+        pl->axis[aN].offset = pl->axis[aN].offset * scale
+            + offset - pl->axis[aN].ruler_tis * (scale - 1.);
 
-		pl->axis[aN].scale *= scale;
-		pl->axis[aN].offset = pl->axis[aN].offset * scale
-			+ offset - pl->axis[aN].ruler_tis * (scale - 1.);
-
-		pl->axis[aN].lock_scale = LOCK_FREE;
-		pl->axis[aN].lock_tick = 0;
-	}
+        pl->axis[aN].lock_scale = LOCK_FREE;
+        pl->axis[aN].lock_tick = 0;
+    }
 }
 
 void plotAxisScaleGridAlign(plot_t *pl)
 {
-	int		aN;
+    int aN;
 
-	if (pl->on_X < 0 || pl->on_Y < 0)
-		return ;
+    if (pl->on_X < 0 || pl->on_Y < 0)
+        return;
 
-	for (aN = 0; aN < PLOT_AXES_MAX; ++aN) {
+    for (aN = 0; aN < PLOT_AXES_MAX; ++aN) {
+        if (pl->axis[aN].busy == AXIS_BUSY_X) {
+            plotAxisGridPairwiseAlign(pl, aN, pl->on_X);
+        } else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
+            plotAxisGridPairwiseAlign(pl, aN, pl->on_Y);
+        }
+    }
 
-		if (pl->axis[aN].busy == AXIS_BUSY_X) {
+    pl->axis[pl->on_X].lock_scale = LOCK_FREE;
+    pl->axis[pl->on_Y].lock_scale = LOCK_FREE;
 
-			plotAxisGridPairwiseAlign(pl, aN, pl->on_X);
-		}
-		else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
-
-			plotAxisGridPairwiseAlign(pl, aN, pl->on_Y);
-		}
-	}
-
-	pl->axis[pl->on_X].lock_scale = LOCK_FREE;
-	pl->axis[pl->on_Y].lock_scale = LOCK_FREE;
-
-	pl->axis[pl->on_X].lock_tick = 0;
-	pl->axis[pl->on_Y].lock_tick = 0;
+    pl->axis[pl->on_X].lock_tick = 0;
+    pl->axis[pl->on_Y].lock_tick = 0;
 }
 
 void plotAxisScaleGridLock(plot_t *pl, int aN)
 {
-	double		scale, offset, ymin, ymax, fmin, fmax;
-	int		bN;
+    double scale, offset, ymin, ymax, fmin, fmax;
+    int bN;
 
-	if (aN < 0 || aN >= PLOT_AXES_MAX) {
+    if (aN < 0 || aN >= PLOT_AXES_MAX) {
+        ERROR("Axis number is out of range\n");
+        return;
+    }
 
-		ERROR("Axis number is out of range\n");
-		return ;
-	}
+    scale = pl->axis[aN].scale;
+    offset = pl->axis[aN].offset;
 
-	scale = pl->axis[aN].scale;
-	offset = pl->axis[aN].offset;
+    if (pl->axis[aN].slave != 0) {
+        bN = pl->axis[aN].slave_N;
+        scale *= pl->axis[bN].scale;
+        offset = offset * pl->axis[bN].scale + pl->axis[bN].offset;
+    }
 
-	if (pl->axis[aN].slave != 0) {
+    ymin = - offset / scale;
+    ymax = 1. / scale + ymin;
 
-		bN = pl->axis[aN].slave_N;
-		scale *= pl->axis[bN].scale;
-		offset = offset * pl->axis[bN].scale + pl->axis[bN].offset;
-	}
+    if (plotAxisRangeCond(pl, aN, -1, &fmin, &fmax) != 0) {
+        if (fmin == fmax) {
+            fmin += (double)- 1.;
+            fmax += (double)+ 1.;
+        }
 
-	ymin = - offset / scale;
-	ymax = 1. / scale + ymin;
+        if (pl->axis[aN].busy == AXIS_BUSY_X) {
+            fmin = plotAxisConvBackward(pl, aN, plotAxisConvForward(pl, aN, fmin) - pl->layout_mark_size);
+            fmax = plotAxisConvBackward(pl, aN, plotAxisConvForward(pl, aN, fmax) + pl->layout_mark_size);
+        } else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
+            fmin = plotAxisConvBackward(pl, aN, plotAxisConvForward(pl, aN, fmin) + pl->layout_mark_size);
+            fmax = plotAxisConvBackward(pl, aN, plotAxisConvForward(pl, aN, fmax) - pl->layout_mark_size);
+        }
 
-	if (plotAxisRangeCond(pl, aN, -1, &fmin, &fmax) != 0) {
+        ymin = (ymin < fmin) ? (fmin < ymax) ? fmin : ymax : ymin;
+        ymax = (ymax > fmax) ? (fmax > ymin) ? fmax : ymin : ymax;
+    }
 
-		if (fmin == fmax) {
+    pl->axis[aN].lock_tick = 1;
 
-			fmin += (double) - 1.;
-			fmax += (double) + 1.;
-		}
-
-		if (pl->axis[aN].busy == AXIS_BUSY_X) {
-
-			fmin = plotAxisConvBackward(pl, aN, plotAxisConvForward(pl, aN, fmin) - pl->layout_mark_size);
-			fmax = plotAxisConvBackward(pl, aN, plotAxisConvForward(pl, aN, fmax) + pl->layout_mark_size);
-		}
-		else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
-
-			fmin = plotAxisConvBackward(pl, aN, plotAxisConvForward(pl, aN, fmin) + pl->layout_mark_size);
-			fmax = plotAxisConvBackward(pl, aN, plotAxisConvForward(pl, aN, fmax) - pl->layout_mark_size);
-		}
-
-		ymin = (ymin < fmin) ? (fmin < ymax) ? fmin : ymax : ymin;
-		ymax = (ymax > fmax) ? (fmax > ymin) ? fmax : ymin : ymax;
-	}
-
-	pl->axis[aN].lock_tick = 1;
-
-	pl->axis[aN].ruler_min = ymin;
-	pl->axis[aN].ruler_max = ymax;
+    pl->axis[aN].ruler_min = ymin;
+    pl->axis[aN].ruler_max = ymax;
 }
 
 typedef struct {
+    int aN;
+    double yval;
 
-	int		aN;
-	double		yval;
+    double fmin;
+    double fmax;
+} yaxis_t;
 
-	double		fmin;
-	double		fmax;
-}
-yaxis_t;
-
-static int
-plotAxisGetSorted(plot_t *pl, int bN, yaxis_t *map)
+static int plotAxisGetSorted(plot_t *pl, int bN, yaxis_t *map)
 {
-	int		aN, N, job, cond, yN = 0;
+    int aN, N, job, cond, yN = 0;
 
-	for (aN = 0; aN < PLOT_AXES_MAX; ++aN) {
+    for (aN = 0; aN < PLOT_AXES_MAX; ++aN) {
+        if (pl->axis[aN].busy == AXIS_BUSY_Y && pl->axis[aN].slave == 0) {
+            job = 0;
 
-		if (		pl->axis[aN].busy == AXIS_BUSY_Y
-				&& pl->axis[aN].slave == 0) {
+            if (bN >= 0) {
+                job = 1;
+            } else if (pl->axis[aN].lock_scale == LOCK_STACKED) {
+                job = 1;
+            }
 
-			job = 0;
+            if (job != 0) {
+                cond = plotAxisRangeCond(pl, aN, -1, &map[yN].fmin, &map[yN].fmax);
 
-			if (bN >= 0) {
+                if (cond != 0) {
+                    map[yN].aN = aN;
+                    map[yN].yval = plotAxisConvForward(pl, aN,
+                            (map[yN].fmin + map[yN].fmax) / 2.);
 
-				job = 1;
-			}
-			else if (pl->axis[aN].lock_scale == LOCK_STACKED) {
+                    yN++;
+                }
+            }
+        }
+    }
 
-				job = 1;
-			}
+    do {
+        yaxis_t ybackup;
 
-			if (job != 0) {
+        job = 0;
 
-				cond = plotAxisRangeCond(pl, aN, -1, &map[yN].fmin, &map[yN].fmax);
+        for (N = 1; N < yN; ++N) {
+            if (map[N - 1].yval < map[N].yval) {
+                memcpy(&ybackup, &map[N - 1], sizeof(yaxis_t));
+                memcpy(&map[N - 1], &map[N], sizeof(yaxis_t));
+                memcpy(&map[N], &ybackup, sizeof(yaxis_t));
 
-				if (cond != 0) {
+                job = 1;
+            }
+        }
+    } while (job != 0);
 
-					map[yN].aN = aN;
-					map[yN].yval = plotAxisConvForward(pl, aN,
-							(map[yN].fmin + map[yN].fmax) / 2.);
-
-					yN++;
-				}
-			}
-		}
-	}
-
-	do {
-		yaxis_t		ybackup;
-
-		job = 0;
-
-		for (N = 1; N < yN; ++N) {
-
-			if (map[N - 1].yval < map[N].yval) {
-
-				memcpy(&ybackup, &map[N - 1], sizeof(yaxis_t));
-				memcpy(&map[N - 1], &map[N], sizeof(yaxis_t));
-				memcpy(&map[N], &ybackup, sizeof(yaxis_t));
-
-				job = 1;
-			}
-		}
-	}
-	while (job != 0);
-
-	return yN;
+    return yN;
 }
 
 void plotAxisScaleStacked(plot_t *pl, int bN)
 {
-	double		scale, offset, ypad, yself;
-	int		aN, yN, N;
+    double scale, offset, ypad, yself;
+    int aN, yN, N;
 
-	yaxis_t		ymap[PLOT_AXES_MAX];
+    yaxis_t ymap[PLOT_AXES_MAX];
 
-	yN = plotAxisGetSorted(pl, bN, ymap);
+    yN = plotAxisGetSorted(pl, bN, ymap);
 
-	if (yN >= 2) {
+    if (yN >= 2) {
+        scale = 1. / (double)yN;
+        offset = 0.;
 
-		scale = 1. / (double) yN;
-		offset = 0.;
+        for (N = 0; N < yN; ++N) {
+            aN = ymap[N].aN;
 
-		for (N = 0; N < yN; ++N) {
+            if (ymap[N].fmin == ymap[N].fmax) {
+                ymap[N].fmin += (double)- 1.;
+                ymap[N].fmax += (double)+ 1.;
+            }
 
-			aN = ymap[N].aN;
+            ypad = (double)pl->layout_mark_size / (double)
+                (pl->viewport.max_y - pl->viewport.min_y);
 
-			if (ymap[N].fmin == ymap[N].fmax) {
+            ypad *= (ymap[N].fmax - ymap[N].fmin) / (scale - ypad * 2.);
 
-				ymap[N].fmin += (double) - 1.;
-				ymap[N].fmax += (double) + 1.;
-			}
+            ymap[N].fmin += (double)- ypad;
+            ymap[N].fmax += (double)+ ypad;
 
-			ypad = (double) pl->layout_mark_size / (double)
-				(pl->viewport.max_y - pl->viewport.min_y);
+            yself = ymap[N].fmin / (ymap[N].fmax - ymap[N].fmin);
 
-			ypad *= (ymap[N].fmax - ymap[N].fmin) / (scale - ypad * 2.);
+            pl->axis[aN].scale = scale / (ymap[N].fmax - ymap[N].fmin);
+            pl->axis[aN].offset = offset - yself * scale;
 
-			ymap[N].fmin += (double) - ypad;
-			ymap[N].fmax += (double) + ypad;
+            pl->axis[aN].lock_scale = LOCK_STACKED;
+            pl->axis[aN].lock_tick = 1;
 
-			yself = ymap[N].fmin / (ymap[N].fmax - ymap[N].fmin);
+            pl->axis[aN].ruler_min = ymap[N].fmin;
+            pl->axis[aN].ruler_max = ymap[N].fmax;
 
-			pl->axis[aN].scale = scale / (ymap[N].fmax - ymap[N].fmin);
-			pl->axis[aN].offset = offset - yself * scale;
-
-			pl->axis[aN].lock_scale = LOCK_STACKED;
-			pl->axis[aN].lock_tick = 1;
-
-			pl->axis[aN].ruler_min = ymap[N].fmin;
-			pl->axis[aN].ruler_max = ymap[N].fmax;
-
-			offset += scale;
-		}
-	}
-	else {
-		for (N = 0; N < PLOT_AXES_MAX; ++N) {
-
-			if (pl->axis[N].lock_scale == LOCK_STACKED)
-				pl->axis[N].lock_scale = LOCK_FREE;
-		}
-	}
+            offset += scale;
+        }
+    } else {
+        for (N = 0; N < PLOT_AXES_MAX; ++N) {
+            if (pl->axis[N].lock_scale == LOCK_STACKED)
+                pl->axis[N].lock_scale = LOCK_FREE;
+        }
+    }
 }
 
 int plotAxisGetByClick(plot_t *pl, int cur_X, int cur_Y)
 {
-	int		aN, len, rN = -1;
+    int aN, len, rN = -1;
 
-	cur_X = pl->viewport.min_x - pl->layout_border - cur_X;
-	cur_Y = cur_Y - pl->viewport.max_y - pl->layout_border;
+    cur_X = pl->viewport.min_x - pl->layout_border - cur_X;
+    cur_Y = cur_Y - pl->viewport.max_y - pl->layout_border;
 
-	for (aN = 0; aN < PLOT_AXES_MAX; ++aN) {
+    for (aN = 0; aN < PLOT_AXES_MAX; ++aN) {
+        if (pl->axis[aN].busy == AXIS_BUSY_X) {
+            len = pl->layout_ruler_box;
+            len += (pl->axis[aN].compact == 0) ? pl->layout_label_box : 0;
 
-		if (pl->axis[aN].busy == AXIS_BUSY_X) {
+            if (cur_Y < pl->axis[aN].layout_pos + len
+                    && cur_Y > pl->axis[aN].layout_pos) {
+                rN = aN;
+                break;
+            }
+        }
 
-			len = pl->layout_ruler_box;
-			len += (pl->axis[aN].compact == 0) ? pl->layout_label_box : 0;
+        if (pl->axis[aN].busy == AXIS_BUSY_Y) {
+            len = pl->layout_ruler_box;
+            len += (pl->axis[aN].compact == 0) ? pl->layout_label_box : 0;
 
-			if (		cur_Y < pl->axis[aN].layout_pos + len
-					&& cur_Y > pl->axis[aN].layout_pos) {
+            if (cur_X < pl->axis[aN].layout_pos + len
+                    && cur_X > pl->axis[aN].layout_pos) {
+                rN = aN;
+                break;
+            }
+        }
+    }
 
-				rN = aN;
-				break;
-			}
-		}
+    pl->hover_axis = rN;
 
-		if (pl->axis[aN].busy == AXIS_BUSY_Y) {
-
-			len = pl->layout_ruler_box;
-			len += (pl->axis[aN].compact == 0) ? pl->layout_label_box : 0;
-
-			if (		cur_X < pl->axis[aN].layout_pos + len
-					&& cur_X > pl->axis[aN].layout_pos) {
-
-				rN = aN;
-				break;
-			}
-		}
-	}
-
-	pl->hover_axis = rN;
-
-	return rN;
+    return rN;
 }
 
 double plotAxisConvForward(plot_t *pl, int aN, double fval)
 {
-	double		scale, offset, length;
-	int		bN;
+    double scale, offset, length;
+    int bN;
 
-	scale = pl->axis[aN].scale;
-	offset = pl->axis[aN].offset;
+    scale = pl->axis[aN].scale;
+    offset = pl->axis[aN].offset;
 
-	if (pl->axis[aN].slave != 0) {
+    if (pl->axis[aN].slave != 0) {
+        bN = pl->axis[aN].slave_N;
+        scale *= pl->axis[bN].scale;
+        offset = offset * pl->axis[bN].scale + pl->axis[bN].offset;
+    }
 
-		bN = pl->axis[aN].slave_N;
-		scale *= pl->axis[bN].scale;
-		offset = offset * pl->axis[bN].scale + pl->axis[bN].offset;
-	}
+    if (pl->axis[aN].busy == AXIS_BUSY_X) {
+        length = (double)(pl->viewport.max_x - pl->viewport.min_x);
+        scale *= length;
+        offset = offset * length + pl->viewport.min_x;
+    } else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
+        length = (double)(pl->viewport.min_y - pl->viewport.max_y);
+        scale *= length;
+        offset = offset * length + pl->viewport.max_y;
+    }
 
-	if (pl->axis[aN].busy == AXIS_BUSY_X) {
-
-		length = (double) (pl->viewport.max_x - pl->viewport.min_x);
-		scale *= length;
-		offset = offset * length + pl->viewport.min_x;
-	}
-	else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
-
-		length = (double) (pl->viewport.min_y - pl->viewport.max_y);
-		scale *= length;
-		offset = offset * length + pl->viewport.max_y;
-	}
-
-	return fval * scale + offset;
+    return fval * scale + offset;
 }
 
 double plotAxisConvBackward(plot_t *pl, int aN, double xval)
 {
-	double		scale, offset, length;
-	int		bN;
+    double scale, offset, length;
+    int bN;
 
-	scale = pl->axis[aN].scale;
-	offset = pl->axis[aN].offset;
+    scale = pl->axis[aN].scale;
+    offset = pl->axis[aN].offset;
 
-	if (pl->axis[aN].slave != 0) {
+    if (pl->axis[aN].slave != 0) {
+        bN = pl->axis[aN].slave_N;
+        scale *= pl->axis[bN].scale;
+        offset = offset * pl->axis[bN].scale + pl->axis[bN].offset;
+    }
 
-		bN = pl->axis[aN].slave_N;
-		scale *= pl->axis[bN].scale;
-		offset = offset * pl->axis[bN].scale + pl->axis[bN].offset;
-	}
+    if (pl->axis[aN].busy == AXIS_BUSY_X) {
+        length = (double)(pl->viewport.max_x - pl->viewport.min_x);
+        scale *= length;
+        offset = offset * length + pl->viewport.min_x;
+    } else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
+        length = (double)(pl->viewport.min_y - pl->viewport.max_y);
+        scale *= length;
+        offset = offset * length + pl->viewport.max_y;
+    }
 
-	if (pl->axis[aN].busy == AXIS_BUSY_X) {
-
-		length = (double) (pl->viewport.max_x - pl->viewport.min_x);
-		scale *= length;
-		offset = offset * length + pl->viewport.min_x;
-	}
-	else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
-
-		length = (double) (pl->viewport.min_y - pl->viewport.max_y);
-		scale *= length;
-		offset = offset * length + pl->viewport.max_y;
-	}
-
-	return (xval - offset) / scale;
+    return (xval - offset) / scale;
 }
 
 void plotAxisSlave(plot_t *pl, int aN, int bN, double scale, double offset, int action)
 {
-	int		N, base = 0;
+    int N, base = 0;
 
-	if (aN < 0 || aN >= PLOT_AXES_MAX) {
+    if (aN < 0 || aN >= PLOT_AXES_MAX) {
+        ERROR("Slave axis number is out of range\n");
+        return;
+    }
 
-		ERROR("Slave axis number is out of range\n");
-		return ;
-	}
+    if (action == AXIS_SLAVE_DISABLE) {
+        bN = pl->axis[aN].slave_N;
+    }
 
-	if (action == AXIS_SLAVE_DISABLE) {
+    if (bN < 0 || bN >= PLOT_AXES_MAX) {
+        ERROR("Base axis number is out of range\n");
+        return;
+    }
 
-		bN = pl->axis[aN].slave_N;
-	}
+    if (bN == aN) {
+        ERROR("Axes must not be the same\n");
+        return;
+    }
 
-	if (bN < 0 || bN >= PLOT_AXES_MAX) {
+    if (pl->axis[bN].slave != 0) {
+        ERROR("Base axis must not be slave\n");
+        return;
+    }
 
-		ERROR("Base axis number is out of range\n");
-		return ;
-	}
+    for (N = 0; N < PLOT_AXES_MAX; ++N) {
+        if (pl->axis[N].busy != AXIS_FREE && pl->axis[N].slave != 0) {
+            if (pl->axis[N].slave_N == aN) {
+                base = 1;
+                break;
+            }
+        }
+    }
 
-	if (bN == aN) {
+    if (base) {
+        ERROR("The axis is base for another slave\n");
+        return;
+    }
 
-		ERROR("Axes must not be the same\n");
-		return ;
-	}
+    if (action == AXIS_SLAVE_ENABLE) {
+        if (pl->axis[aN].slave == 0) {
+            pl->axis[aN].slave = 1;
+            pl->axis[aN].slave_N = bN;
+            pl->axis[aN].scale = scale;
+            pl->axis[aN].offset = offset;
 
-	if (pl->axis[bN].slave != 0) {
+            pl->on_X = (aN == pl->on_X) ? bN : pl->on_X;
+            pl->on_Y = (aN == pl->on_Y) ? bN : pl->on_Y;
+        }
+    } else if (action == AXIS_SLAVE_HOLD_AS_IS) {
+        if (bN < 0 || bN >= PLOT_AXES_MAX) {
+            ERROR("Base axis number is out of range\n");
+            return;
+        }
 
-		ERROR("Base axis must not be slave\n");
-		return ;
-	}
+        if (pl->axis[aN].slave == 0) {
+            pl->axis[aN].slave = 1;
+            pl->axis[aN].slave_N = bN;
 
-	for (N = 0; N < PLOT_AXES_MAX; ++N) {
+            pl->axis[aN].scale = pl->axis[aN].scale / pl->axis[bN].scale;
+            pl->axis[aN].offset = (pl->axis[aN].offset - pl->axis[bN].offset)
+                / pl->axis[bN].scale;
 
-		if (pl->axis[N].busy != AXIS_FREE
-				&& pl->axis[N].slave != 0) {
+            pl->on_X = (aN == pl->on_X) ? bN : pl->on_X;
+            pl->on_Y = (aN == pl->on_Y) ? bN : pl->on_Y;
+        }
+    } else {
+        if (pl->axis[aN].slave != 0) {
+            pl->axis[aN].slave = 0;
 
-			if (pl->axis[N].slave_N == aN) {
-
-				base = 1;
-				break;
-			}
-		}
-	}
-
-	if (base) {
-
-		ERROR("The axis is base for another slave\n");
-		return ;
-	}
-
-	if (action == AXIS_SLAVE_ENABLE) {
-
-		if (pl->axis[aN].slave == 0) {
-
-			pl->axis[aN].slave = 1;
-			pl->axis[aN].slave_N = bN;
-			pl->axis[aN].scale = scale;
-			pl->axis[aN].offset = offset;
-
-			pl->on_X = (aN == pl->on_X) ? bN : pl->on_X;
-			pl->on_Y = (aN == pl->on_Y) ? bN : pl->on_Y;
-		}
-	}
-	else if (action == AXIS_SLAVE_HOLD_AS_IS) {
-
-		if (bN < 0 || bN >= PLOT_AXES_MAX) {
-
-			ERROR("Base axis number is out of range\n");
-			return ;
-		}
-
-		if (pl->axis[aN].slave == 0) {
-
-			pl->axis[aN].slave = 1;
-			pl->axis[aN].slave_N = bN;
-
-			pl->axis[aN].scale = pl->axis[aN].scale / pl->axis[bN].scale;
-			pl->axis[aN].offset = (pl->axis[aN].offset - pl->axis[bN].offset)
-				/ pl->axis[bN].scale;
-
-			pl->on_X = (aN == pl->on_X) ? bN : pl->on_X;
-			pl->on_Y = (aN == pl->on_Y) ? bN : pl->on_Y;
-		}
-	}
-	else {
-		if (pl->axis[aN].slave != 0) {
-
-			pl->axis[aN].slave = 0;
-
-			pl->axis[aN].scale = pl->axis[aN].scale * pl->axis[bN].scale;
-			pl->axis[aN].offset = pl->axis[aN].offset * pl->axis[bN].scale
-				+ pl->axis[bN].offset;
-		}
-	}
+            pl->axis[aN].scale = pl->axis[aN].scale * pl->axis[bN].scale;
+            pl->axis[aN].offset = pl->axis[aN].offset * pl->axis[bN].scale
+                + pl->axis[bN].offset;
+        }
+    }
 }
 
 void plotAxisRemove(plot_t *pl, int aN)
 {
-	int		N, cN;
+    int N, cN;
 
-	if (aN < 0 || aN >= PLOT_AXES_MAX) {
+    if (aN < 0 || aN >= PLOT_AXES_MAX) {
+        ERROR("Axis number is out of range\n");
+        return;
+    }
 
-		ERROR("Axis number is out of range\n");
-		return ;
-	}
+    if (aN == pl->on_X || aN == pl->on_Y) {
+        ERROR("Unable to remove active axis\n");
+        return;
+    }
 
-	if (aN == pl->on_X || aN == pl->on_Y) {
+    for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+        if (pl->figure[N].busy != 0) {
+            if (pl->figure[N].axis_X == aN) {
+                if (pl->axis[aN].slave != 0) {
+                    cN = plotGetSubtractScale(pl, pl->figure[N].data_N, pl->figure[N].column_X,
+                            pl->axis[aN].scale, pl->axis[aN].offset);
 
-		ERROR("Unable to remove active axis\n");
-		return ;
-	}
+                    if (cN != -1) {
+                        pl->figure[N].column_X = cN;
+                    }
 
-	for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+                    pl->figure[N].axis_X = pl->axis[aN].slave_N;
+                } else {
+                    pl->figure[N].axis_X = pl->on_X;
+                }
+            }
 
-		if (pl->figure[N].busy != 0) {
+            if (pl->figure[N].axis_Y == aN) {
+                if (pl->axis[aN].slave != 0) {
+                    cN = plotGetSubtractScale(pl, pl->figure[N].data_N, pl->figure[N].column_Y,
+                            pl->axis[aN].scale, pl->axis[aN].offset);
 
-			if (pl->figure[N].axis_X == aN) {
+                    if (cN != -1) {
+                        pl->figure[N].column_Y = cN;
+                    }
 
-				if (pl->axis[aN].slave != 0) {
+                    pl->figure[N].axis_Y = pl->axis[aN].slave_N;
+                } else {
+                    pl->figure[N].axis_Y = pl->on_Y;
+                }
+            }
+        }
+    }
 
-					cN = plotGetSubtractScale(pl, pl->figure[N].data_N,
-							pl->figure[N].column_X,
-							pl->axis[aN].scale,
-							pl->axis[aN].offset);
+    for (N = 0; N < PLOT_AXES_MAX; ++N) {
+        if (pl->axis[N].busy != AXIS_FREE && pl->axis[N].slave != 0) {
+            if (pl->axis[N].slave_N == aN) {
+                plotAxisSlave(pl, N, -1, 0., 0., AXIS_SLAVE_DISABLE);
+            }
+        }
+    }
 
-					if (cN != -1) {
-
-						pl->figure[N].column_X = cN;
-					}
-
-					pl->figure[N].axis_X = pl->axis[aN].slave_N;
-				}
-				else {
-					pl->figure[N].axis_X = pl->on_X;
-				}
-			}
-
-			if (pl->figure[N].axis_Y == aN) {
-
-				if (pl->axis[aN].slave != 0) {
-
-					cN = plotGetSubtractScale(pl, pl->figure[N].data_N,
-							pl->figure[N].column_Y,
-							pl->axis[aN].scale,
-							pl->axis[aN].offset);
-
-					if (cN != -1) {
-
-						pl->figure[N].column_Y = cN;
-					}
-
-					pl->figure[N].axis_Y = pl->axis[aN].slave_N;
-				}
-				else {
-					pl->figure[N].axis_Y = pl->on_Y;
-				}
-			}
-		}
-	}
-
-	for (N = 0; N < PLOT_AXES_MAX; ++N) {
-
-		if (pl->axis[N].busy != AXIS_FREE
-				&& pl->axis[N].slave != 0) {
-
-			if (pl->axis[N].slave_N == aN) {
-
-				plotAxisSlave(pl, N, -1, 0., 0., AXIS_SLAVE_DISABLE);
-			}
-		}
-	}
-
-	pl->axis[aN].busy = AXIS_FREE;
-	pl->axis[aN].slave = 0;
-	pl->axis[aN].label[0] = 0;
-	pl->axis[aN].compact = 1;
-	pl->axis[aN].exponential = 0;
+    pl->axis[aN].busy = AXIS_FREE;
+    pl->axis[aN].slave = 0;
+    pl->axis[aN].label[0] = 0;
+    pl->axis[aN].compact = 1;
+    pl->axis[aN].exponential = 0;
 }
 
 void plotFigureAdd(plot_t *pl, int fN, int dN, int nX, int nY, int aX, int aY, const char *label)
 {
-	int		gN;
+    int gN;
 
-	if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+    if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+        ERROR("Figure number is out of range\n");
+        return;
+    }
 
-		ERROR("Figure number is out of range\n");
-		return ;
-	}
+    if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+        ERROR("Dataset number is out of range\n");
+        return;
+    }
 
-	if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+    if (pl->data[dN].column_N < 1) {
+        ERROR("Dataset %i has no DATA\n", dN);
+        return;
+    }
 
-		ERROR("Dataset number is out of range\n");
-		return ;
-	}
+    if (nX < -1 || nX >= pl->data[dN].column_N + PLOT_SUBTRACT) {
+        ERROR("X column number %i is out of range\n", nX);
+        return;
+    }
 
-	if (pl->data[dN].column_N < 1) {
+    if (nY < -1 || nY >= pl->data[dN].column_N + PLOT_SUBTRACT) {
+        ERROR("Y column number %i is out of range\n", nY);
+        return;
+    }
 
-		ERROR("Dataset %i has no DATA\n", dN);
-		return ;
-	}
+    if (aX < 0 || aX >= PLOT_AXES_MAX) {
+        ERROR("X axis number %i is out of range\n", aX);
+        return;
+    }
 
-	if (nX < -1 || nX >= pl->data[dN].column_N + PLOT_SUBTRACT) {
+    if (aY < 0 || aY >= PLOT_AXES_MAX) {
+        ERROR("Y axis number %i is out of range\n", aY);
+        return;
+    }
 
-		ERROR("X column number %i is out of range\n", nX);
-		return ;
-	}
+    if (aX == aY || pl->axis[aX].busy == AXIS_BUSY_Y
+        || pl->axis[aY].busy == AXIS_BUSY_X) {
+        ERROR("Invalid axes mapping %i %i\n", aX, aY);
+        return;
+    }
 
-	if (nY < -1 || nY >= pl->data[dN].column_N + PLOT_SUBTRACT) {
+    pl->draw[fN].sketch = SKETCH_FINISHED;
 
-		ERROR("Y column number %i is out of range\n", nY);
-		return ;
-	}
+    pl->figure[fN].busy = 1;
+    pl->figure[fN].hidden = 0;
+    pl->figure[fN].drawing = pl->default_drawing;
+    pl->figure[fN].width = pl->default_width;
+    pl->figure[fN].data_N = dN;
+    pl->figure[fN].column_X = nX;
+    pl->figure[fN].column_Y = nY;
+    pl->figure[fN].axis_X = aX;
+    pl->figure[fN].axis_Y = aY;
 
-	if (aX < 0 || aX >= PLOT_AXES_MAX) {
+    if (pl->axis[aX].busy == AXIS_FREE) {
+        pl->axis[aX].busy = AXIS_BUSY_X;
+        pl->axis[aX].lock_scale = LOCK_AUTO;
+        pl->axis[aX].compact = 1;
+    }
 
-		ERROR("X axis number %i is out of range\n", aX);
-		return ;
-	}
+    if (pl->axis[aY].busy == AXIS_FREE) {
+        pl->axis[aY].busy = AXIS_BUSY_Y;
+        pl->axis[aY].lock_scale = LOCK_AUTO;
+        pl->axis[aY].compact = 1;
+    }
 
-	if (aY < 0 || aY >= PLOT_AXES_MAX) {
+    gN = pl->data[dN].map[nX];
 
-		ERROR("Y axis number %i is out of range\n", aY);
-		return ;
-	}
+    if (gN != -1) {
+        plotAxisLabel(pl, aX, pl->group[gN].label);
+    }
 
-	if (aX == aY || pl->axis[aX].busy == AXIS_BUSY_Y
-		|| pl->axis[aY].busy == AXIS_BUSY_X) {
+    gN = pl->data[dN].map[nY];
 
-		ERROR("Invalid axes mapping %i %i\n", aX, aY);
-		return ;
-	}
+    if (gN != -1) {
+        plotAxisLabel(pl, aY, pl->group[gN].label);
+    }
 
-	pl->draw[fN].sketch = SKETCH_FINISHED;
+    strcpy(pl->figure[fN].label, label);
 
-	pl->figure[fN].busy = 1;
-	pl->figure[fN].hidden = 0;
-	pl->figure[fN].drawing = pl->default_drawing;
-	pl->figure[fN].width = pl->default_width;
-	pl->figure[fN].data_N = dN;
-	pl->figure[fN].column_X = nX;
-	pl->figure[fN].column_Y = nY;
-	pl->figure[fN].axis_X = aX;
-	pl->figure[fN].axis_Y = aY;
-
-	if (pl->axis[aX].busy == AXIS_FREE) {
-
-		pl->axis[aX].busy = AXIS_BUSY_X;
-		pl->axis[aX].lock_scale = LOCK_AUTO;
-		pl->axis[aX].compact = 1;
-	}
-
-	if (pl->axis[aY].busy == AXIS_FREE) {
-
-		pl->axis[aY].busy = AXIS_BUSY_Y;
-		pl->axis[aY].lock_scale = LOCK_AUTO;
-		pl->axis[aY].compact = 1;
-	}
-
-	gN = pl->data[dN].map[nX];
-
-	if (gN != -1) {
-
-		plotAxisLabel(pl, aX, pl->group[gN].label);
-	}
-
-	gN = pl->data[dN].map[nY];
-
-	if (gN != -1) {
-
-		plotAxisLabel(pl, aY, pl->group[gN].label);
-	}
-
-	strcpy(pl->figure[fN].label, label);
-
-	pl->on_X = (pl->on_X < 0) ? aX : pl->on_X;
-	pl->on_Y = (pl->on_Y < 0) ? aY : pl->on_Y;
+    pl->on_X = (pl->on_X < 0) ? aX : pl->on_X;
+    pl->on_Y = (pl->on_Y < 0) ? aY : pl->on_Y;
 }
 
-static void
-plotDataBoxTextFmt(plot_t *pl, int fN, double val)
+static void plotDataBoxTextFmt(plot_t *pl, int fN, double val)
 {
-	char		tfmt[PLOT_STRING_MAX];
-	char		tbuf[PLOT_STRING_MAX];
+    char tfmt[PLOT_STRING_MAX];
+    char tbuf[PLOT_STRING_MAX];
 
-	int		fexp = 1;
+    int fexp = 1;
 
-	if (val != 0.) {
+    if (val != 0.) {
+        fexp += (int) floor(log10(fabs(val)));
+    }
 
-		fexp += (int) floor(log10(fabs(val)));
-	}
+    if (fexp >= -2 && fexp < pl->fprecision) {
+        fexp = (fexp < 1) ? 1 : fexp;
 
-	if (fexp >= -2 && fexp < pl->fprecision) {
+        sprintf(tfmt, "%% .%df ", pl->fprecision - fexp);
+    } else {
+        sprintf(tfmt, "%% .%dE ", pl->fprecision - 1);
+    }
 
-		fexp = (fexp < 1) ? 1 : fexp;
-
-		sprintf(tfmt, "%% .%df ", pl->fprecision - fexp);
-	}
-	else {
-		sprintf(tfmt, "%% .%dE ", pl->fprecision - 1);
-	}
-
-	sprintf(tbuf, tfmt, val);
-	strcat(pl->data_box_text[fN], tbuf);
+    sprintf(tbuf, tfmt, val);
+    strcat(pl->data_box_text[fN], tbuf);
 }
 
-static void
-plotDataBoxTextHex(plot_t *pl, int fN, double val)
+static void plotDataBoxTextHex(plot_t *pl, int fN, double val)
 {
-	char		tbuf[PLOT_STRING_MAX];
+    char tbuf[PLOT_STRING_MAX];
 
-	sprintf(tbuf, " 0x%08lX", (unsigned long) val);
-	strcat(pl->data_box_text[fN], tbuf);
+    sprintf(tbuf, " 0x%08lX", (unsigned long) val);
+    strcat(pl->data_box_text[fN], tbuf);
 }
 
-static int
-plotCheckColumnLinked(plot_t *pl, int dN, int cN)
+static int plotCheckColumnLinked(plot_t *pl, int dN, int cN)
 {
-	int		sN, fN, dNf, linked = 0;
+    int sN, fN, dNf, linked = 0;
 
-	for (sN = 0; sN < PLOT_SUBTRACT; ++sN) {
+    for (sN = 0; sN < PLOT_SUBTRACT; ++sN) {
+        if (pl->data[dN].sub[sN].busy == SUBTRACT_TIME_MEDIAN) {
+            if (cN == pl->data[dN].sub[sN].op.median.column_X) {
+                linked++;
+            }
+        } else if (pl->data[dN].sub[sN].busy == SUBTRACT_DATA_MEDIAN) {
+            if (cN == pl->data[dN].sub[sN].op.median.column_Y) {
+                linked++;
+            }
+        } else if (pl->data[dN].sub[sN].busy == SUBTRACT_SCALE) {
+            if (cN == pl->data[dN].sub[sN].op.scale.column_X) {
+                linked++;
+            }
+        } else if (pl->data[dN].sub[sN].busy == SUBTRACT_RESAMPLE) {
+            if (cN == pl->data[dN].sub[sN].op.resample.column_X) {
+                linked++;
+            }
+        } else if (pl->data[dN].sub[sN].busy == SUBTRACT_POLYFIT) {
+            if (cN == pl->data[dN].sub[sN].op.polyfit.column_X) {
+                linked++;
+            }
+        } else if (pl->data[dN].sub[sN].busy == SUBTRACT_BINARY_SUBTRACTION
+                || pl->data[dN].sub[sN].busy == SUBTRACT_BINARY_ADDITION
+                || pl->data[dN].sub[sN].busy == SUBTRACT_BINARY_MULTIPLICATION
+                || pl->data[dN].sub[sN].busy == SUBTRACT_BINARY_DIVISION
+                || pl->data[dN].sub[sN].busy == SUBTRACT_BINARY_HYPOTENUSE) {
+            if (cN == pl->data[dN].sub[sN].op.binary.column_X
+                    || cN == pl->data[dN].sub[sN].op.binary.column_Y) {
+                linked++;
+            }
+        } else if (pl->data[dN].sub[sN].busy == SUBTRACT_FILTER_DIFFERENCE
+                || pl->data[dN].sub[sN].busy == SUBTRACT_FILTER_CUMULATIVE) {
+            if (cN == pl->data[dN].sub[sN].op.filter.column_X
+                    || cN == pl->data[dN].sub[sN].op.filter.column_Y) {
+                linked++;
+            }
+        } else if (pl->data[dN].sub[sN].busy == SUBTRACT_FILTER_BITFIELD
+                || pl->data[dN].sub[sN].busy == SUBTRACT_FILTER_LOW_PASS) {
+            if (cN == pl->data[dN].sub[sN].op.filter.column_Y) {
+                linked++;
+            }
+        } else if (pl->data[dN].sub[sN].busy == SUBTRACT_FILTER_MEDIAN) {
+            if (cN == pl->data[dN].sub[sN].op.median.column_Y) {
+                linked++;
+            }
+        } else if (pl->data[dN].sub[sN].busy == SUBTRACT_FILTER_DEMULTIPLEX) {
+            if (cN == pl->data[dN].sub[sN].op.filter.column_X
+                    || cN == pl->data[dN].sub[sN].op.filter.column_Y) {
+                linked++;
+            }
+        }
+    }
 
-		if (pl->data[dN].sub[sN].busy == SUBTRACT_TIME_MEDIAN) {
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].busy != 0) {
+            if (cN == pl->figure[fN].column_X || cN == pl->figure[fN].column_Y) {
+                linked++;
+            }
 
-			if (cN == pl->data[dN].sub[sN].op.median.column_X) {
+            dNf = pl->figure[fN].data_N;
 
-				linked++;
-			}
-		}
-		else if (pl->data[dN].sub[sN].busy == SUBTRACT_DATA_MEDIAN) {
+            for (sN = 0; sN < PLOT_SUBTRACT; ++sN) {
+                if (pl->data[dNf].sub[sN].busy == SUBTRACT_RESAMPLE) {
+                    if (dN == pl->data[dNf].sub[sN].op.resample.in_data_N
+                            && cN == pl->data[dNf].sub[sN].op.resample.in_column_X) {
+                        linked++;
+                    } else if (dN == pl->data[dNf].sub[sN].op.resample.in_data_N
+                            && cN == pl->data[dNf].sub[sN].op.resample.in_column_Y) {
+                        linked++;
+                    }
+                }
+            }
+        }
+    }
 
-			if (cN == pl->data[dN].sub[sN].op.median.column_Y) {
-
-				linked++;
-			}
-		}
-		else if (pl->data[dN].sub[sN].busy == SUBTRACT_SCALE) {
-
-			if (cN == pl->data[dN].sub[sN].op.scale.column_X) {
-
-				linked++;
-			}
-		}
-		else if (pl->data[dN].sub[sN].busy == SUBTRACT_RESAMPLE) {
-
-			if (cN == pl->data[dN].sub[sN].op.resample.column_X) {
-
-				linked++;
-			}
-		}
-		else if (pl->data[dN].sub[sN].busy == SUBTRACT_POLYFIT) {
-
-			if (cN == pl->data[dN].sub[sN].op.polyfit.column_X) {
-
-				linked++;
-			}
-		}
-		else if (	pl->data[dN].sub[sN].busy == SUBTRACT_BINARY_SUBTRACTION
-				|| pl->data[dN].sub[sN].busy == SUBTRACT_BINARY_ADDITION
-				|| pl->data[dN].sub[sN].busy == SUBTRACT_BINARY_MULTIPLICATION
-				|| pl->data[dN].sub[sN].busy == SUBTRACT_BINARY_DIVISION
-				|| pl->data[dN].sub[sN].busy == SUBTRACT_BINARY_HYPOTENUSE) {
-
-			if (		cN == pl->data[dN].sub[sN].op.binary.column_X
-					|| cN == pl->data[dN].sub[sN].op.binary.column_Y) {
-
-				linked++;
-			}
-		}
-		else if (	pl->data[dN].sub[sN].busy == SUBTRACT_FILTER_DIFFERENCE
-				|| pl->data[dN].sub[sN].busy == SUBTRACT_FILTER_CUMULATIVE) {
-
-			if (		cN == pl->data[dN].sub[sN].op.filter.column_X
-					|| cN == pl->data[dN].sub[sN].op.filter.column_Y) {
-
-				linked++;
-			}
-		}
-		else if (	pl->data[dN].sub[sN].busy == SUBTRACT_FILTER_BITFIELD
-				|| pl->data[dN].sub[sN].busy == SUBTRACT_FILTER_LOW_PASS) {
-
-			if (cN == pl->data[dN].sub[sN].op.filter.column_Y) {
-
-				linked++;
-			}
-		}
-		else if (pl->data[dN].sub[sN].busy == SUBTRACT_FILTER_MEDIAN) {
-
-			if (cN == pl->data[dN].sub[sN].op.median.column_Y) {
-
-				linked++;
-			}
-		}
-		else if (pl->data[dN].sub[sN].busy == SUBTRACT_FILTER_DEMULTIPLEX) {
-
-			if (		cN == pl->data[dN].sub[sN].op.filter.column_X
-					|| cN == pl->data[dN].sub[sN].op.filter.column_Y) {
-
-				linked++;
-			}
-		}
-	}
-
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
-
-		if (pl->figure[fN].busy != 0) {
-
-			if (		cN == pl->figure[fN].column_X
-					|| cN == pl->figure[fN].column_Y) {
-
-				linked++;
-			}
-
-			dNf = pl->figure[fN].data_N;
-
-			for (sN = 0; sN < PLOT_SUBTRACT; ++sN) {
-
-				if (pl->data[dNf].sub[sN].busy == SUBTRACT_RESAMPLE) {
-
-					if (		dN == pl->data[dNf].sub[sN].op.resample.in_data_N
-							&& cN == pl->data[dNf].sub[sN].op.resample.in_column_X) {
-
-						linked++;
-					}
-					else if (	dN == pl->data[dNf].sub[sN].op.resample.in_data_N
-							&& cN == pl->data[dNf].sub[sN].op.resample.in_column_Y) {
-
-						linked++;
-					}
-				}
-			}
-		}
-	}
-
-	return linked;
+    return linked;
 }
 
-static void
-plotSubtractGarbage(plot_t *pl, int dN)
+static void plotSubtractGarbage(plot_t *pl, int dN)
 {
-	int		sN, cN, N;
+    int sN, cN, N;
 
-	do {
-		N = 0;
+    do {
+        N = 0;
 
-		for (sN = 0; sN < PLOT_SUBTRACT; ++sN) {
+        for (sN = 0; sN < PLOT_SUBTRACT; ++sN) {
+            if (pl->data[dN].sub[sN].busy != SUBTRACT_FREE) {
+                cN = sN + pl->data[dN].column_N;
 
-			if (pl->data[dN].sub[sN].busy != SUBTRACT_FREE) {
+                if (plotCheckColumnLinked(pl, dN, cN) == 0) {
+                    pl->data[dN].sub[sN].busy = SUBTRACT_FREE;
 
-				cN = sN + pl->data[dN].column_N;
-
-				if (plotCheckColumnLinked(pl, dN, cN) == 0) {
-
-					pl->data[dN].sub[sN].busy = SUBTRACT_FREE;
-
-					N++;
-				}
-			}
-		}
-	}
-	while (N != 0);
+                    N++;
+                }
+            }
+        }
+    } while (N != 0);
 }
 
-static int
-plotSubtractUnclone(plot_t *pl, int dN, int cN)
+static int plotSubtractUnclone(plot_t *pl, int dN, int cN)
 {
-	int		fN, sN, cN1, modified;
+    int fN, sN, cN1, modified;
 
-	sN = cN - pl->data[dN].column_N;
+    sN = cN - pl->data[dN].column_N;
 
-	if (		sN >= 0 && sN < PLOT_SUBTRACT
-			&& pl->data[dN].sub[sN].busy == SUBTRACT_SCALE) {
+    if (sN >= 0 && sN < PLOT_SUBTRACT
+            && pl->data[dN].sub[sN].busy == SUBTRACT_SCALE) {
+        cN1 = pl->data[dN].sub[sN].op.scale.column_X;
+        modified = pl->data[dN].sub[sN].op.scale.modified;
 
-		cN1 = pl->data[dN].sub[sN].op.scale.column_X;
-		modified = pl->data[dN].sub[sN].op.scale.modified;
+        if (modified == 0) {
+            if (pl->data[dN].sub[sN].op.scale.scale == (double)1.
+                    && pl->data[dN].sub[sN].op.scale.offset == (double)0.) {
+                cN = cN1;
+                goto plotSubtractUnclone_END;
+            }
+        }
 
-		if (modified == 0) {
+        for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+            if (pl->figure[fN].busy != 0
+                    && dN == pl->figure[fN].data_N
+                    && cN != pl->figure[fN].column_X) {
+                sN = pl->figure[fN].column_X - pl->data[dN].column_N;
 
-			if (		pl->data[dN].sub[sN].op.scale.scale == (double) 1.
-					&& pl->data[dN].sub[sN].op.scale.offset == (double) 0.) {
+                if (sN >= 0 && sN < PLOT_SUBTRACT
+                        && pl->data[dN].sub[sN].busy == SUBTRACT_SCALE) {
+                    if (cN1 == pl->data[dN].sub[sN].op.scale.column_X
+                            && modified == pl->data[dN].sub[sN].op.scale.modified) {
+                        if (plotDataCompareMatch(pl, dN, cN, pl->figure[fN].column_X) == 0) {
+                            cN = pl->figure[fN].column_X;
+                            goto plotSubtractUnclone_END;
+                        }
+                    }
+                }
+            }
 
-				cN = cN1;
-				goto plotSubtractUnclone_END;
-			}
-		}
+            if (pl->figure[fN].busy != 0
+                    && dN == pl->figure[fN].data_N
+                    && cN != pl->figure[fN].column_Y) {
+                sN = pl->figure[fN].column_Y - pl->data[dN].column_N;
 
-		for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
-
-			if (		pl->figure[fN].busy != 0
-					&& dN == pl->figure[fN].data_N
-					&& cN != pl->figure[fN].column_X) {
-
-				sN = pl->figure[fN].column_X - pl->data[dN].column_N;
-
-				if (		sN >= 0 && sN < PLOT_SUBTRACT
-						&& pl->data[dN].sub[sN].busy == SUBTRACT_SCALE) {
-
-					if (		cN1 == pl->data[dN].sub[sN].op.scale.column_X
-							&& modified == pl->data[dN].sub[sN].op.scale.modified) {
-
-						if (plotDataCompareMatch(pl, dN, cN, pl->figure[fN].column_X) == 0) {
-
-							cN = pl->figure[fN].column_X;
-							goto plotSubtractUnclone_END;
-						}
-					}
-				}
-			}
-
-			if (		pl->figure[fN].busy != 0
-					&& dN == pl->figure[fN].data_N
-					&& cN != pl->figure[fN].column_Y) {
-
-				sN = pl->figure[fN].column_Y - pl->data[dN].column_N;
-
-				if (		sN >= 0 && sN < PLOT_SUBTRACT
-						&& pl->data[dN].sub[sN].busy == SUBTRACT_SCALE) {
-
-					if (		cN1 == pl->data[dN].sub[sN].op.scale.column_X
-							&& modified == pl->data[dN].sub[sN].op.scale.modified) {
-
-						if (plotDataCompareMatch(pl, dN, cN, pl->figure[fN].column_Y) == 0) {
-
-							cN = pl->figure[fN].column_Y;
-							goto plotSubtractUnclone_END;
-						}
-					}
-				}
-			}
-		}
-	}
+                if (sN >= 0 && sN < PLOT_SUBTRACT
+                        && pl->data[dN].sub[sN].busy == SUBTRACT_SCALE) {
+                    if (cN1 == pl->data[dN].sub[sN].op.scale.column_X
+                            && modified == pl->data[dN].sub[sN].op.scale.modified) {
+                        if (plotDataCompareMatch(pl, dN, cN, pl->figure[fN].column_Y) == 0) {
+                            cN = pl->figure[fN].column_Y;
+                            goto plotSubtractUnclone_END;
+                        }
+                    }
+                }
+            }
+        }
+    }
 
 plotSubtractUnclone_END:
 
-	return cN;
+    return cN;
 }
 
 void plotFigureSubtractGarbage(plot_t *pl)
 {
-	int		N, fN, dN, sN, cNX, cNY;
+    int N, fN, dN, sN, cNX, cNY;
 
-	do {
-		N = 0;
+    do {
+        N = 0;
 
-		for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+            if (pl->figure[fN].busy != 0) {
+                dN = pl->figure[fN].data_N;
 
-			if (pl->figure[fN].busy != 0) {
+                cNX = pl->figure[fN].column_X;
+                cNY = pl->figure[fN].column_Y;
 
-				dN = pl->figure[fN].data_N;
+                cNX = plotSubtractUnclone(pl, dN, cNX);
+                cNY = plotSubtractUnclone(pl, dN, cNY);
 
-				cNX = pl->figure[fN].column_X;
-				cNY = pl->figure[fN].column_Y;
+                pl->figure[fN].column_X = cNX;
+                pl->figure[fN].column_Y = cNY;
+            }
+        }
 
-				cNX = plotSubtractUnclone(pl, dN, cNX);
-				cNY = plotSubtractUnclone(pl, dN, cNY);
+        for (sN = 0; sN < PLOT_SUBTRACT; ++sN) {
+            if (pl->data[dN].sub[sN].busy != SUBTRACT_FREE) {
+                cNX = sN + pl->data[dN].column_N;
 
-				pl->figure[fN].column_X = cNX;
-				pl->figure[fN].column_Y = cNY;
-			}
-		}
+                if (plotCheckColumnLinked(pl, dN, cNX) == 0) {
+                    pl->data[dN].sub[sN].busy = SUBTRACT_FREE;
 
-		for (sN = 0; sN < PLOT_SUBTRACT; ++sN) {
-
-			if (pl->data[dN].sub[sN].busy != SUBTRACT_FREE) {
-
-				cNX = sN + pl->data[dN].column_N;
-
-				if (plotCheckColumnLinked(pl, dN, cNX) == 0) {
-
-					pl->data[dN].sub[sN].busy = SUBTRACT_FREE;
-
-					N++;
-				}
-			}
-		}
-	}
-	while (N != 0);
+                    N++;
+                }
+            }
+        }
+    } while (N != 0);
 }
 
 void plotFigureScaleMerge(plot_t *pl)
 {
-	double		scale, offset;
-	int		fN, dN, cN, sN, sNd;
+    double scale, offset;
+    int fN, dN, cN, sN, sNd;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].busy != 0) {
+            dN = pl->figure[fN].data_N;
 
-		if (pl->figure[fN].busy != 0) {
+            cN = pl->figure[fN].column_X;
+            sN = cN - pl->data[dN].column_N;
 
-			dN = pl->figure[fN].data_N;
+            if (sN >= 0 && sN < PLOT_SUBTRACT
+                    && pl->data[dN].sub[sN].busy == SUBTRACT_SCALE) {
+                cN = pl->data[dN].sub[sN].op.scale.column_X;
+                sNd = cN - pl->data[dN].column_N;
 
-			cN = pl->figure[fN].column_X;
-			sN = cN - pl->data[dN].column_N;
+                if (sNd >= 0 && sNd < PLOT_SUBTRACT
+                        && pl->data[dN].sub[sNd].busy == SUBTRACT_SCALE
+                        && plotCheckColumnLinked(pl, dN, cN) < 2) {
+                    scale = pl->data[dN].sub[sNd].op.scale.scale;
+                    offset = pl->data[dN].sub[sNd].op.scale.offset;
 
-			if (		sN >= 0 && sN < PLOT_SUBTRACT
-					&& pl->data[dN].sub[sN].busy == SUBTRACT_SCALE) {
+                    scale *= pl->data[dN].sub[sN].op.scale.scale;
+                    offset = pl->data[dN].sub[sN].op.scale.scale * offset
+                            + pl->data[dN].sub[sN].op.scale.offset;
 
-				cN = pl->data[dN].sub[sN].op.scale.column_X;
-				sNd = cN - pl->data[dN].column_N;
+                    pl->data[dN].sub[sNd].busy = SUBTRACT_FREE;
 
-				if (		sNd >= 0 && sNd < PLOT_SUBTRACT
-						&& pl->data[dN].sub[sNd].busy == SUBTRACT_SCALE
-						&& plotCheckColumnLinked(pl, dN, cN) < 2) {
+                    cN = pl->data[dN].sub[sNd].op.scale.column_X;
 
-					scale = pl->data[dN].sub[sNd].op.scale.scale;
-					offset = pl->data[dN].sub[sNd].op.scale.offset;
+                    pl->data[dN].sub[sN].op.scale.column_X = cN;
+                    pl->data[dN].sub[sN].op.scale.scale = scale;
+                    pl->data[dN].sub[sN].op.scale.offset = offset;
+                }
+            }
 
-					scale *= pl->data[dN].sub[sN].op.scale.scale;
-					offset = pl->data[dN].sub[sN].op.scale.scale * offset
-							+ pl->data[dN].sub[sN].op.scale.offset;
+            cN = pl->figure[fN].column_Y;
+            sN = cN - pl->data[dN].column_N;
 
-					pl->data[dN].sub[sNd].busy = SUBTRACT_FREE;
+            if (sN >= 0 && sN < PLOT_SUBTRACT
+                    && pl->data[dN].sub[sN].busy == SUBTRACT_SCALE) {
+                cN = pl->data[dN].sub[sN].op.scale.column_X;
+                sNd = cN - pl->data[dN].column_N;
 
-					cN = pl->data[dN].sub[sNd].op.scale.column_X;
+                if (sNd >= 0 && sNd < PLOT_SUBTRACT
+                        && pl->data[dN].sub[sNd].busy == SUBTRACT_SCALE
+                        && plotCheckColumnLinked(pl, dN, cN) < 2) {
+                    scale = pl->data[dN].sub[sNd].op.scale.scale;
+                    offset = pl->data[dN].sub[sNd].op.scale.offset;
 
-					pl->data[dN].sub[sN].op.scale.column_X = cN;
-					pl->data[dN].sub[sN].op.scale.scale = scale;
-					pl->data[dN].sub[sN].op.scale.offset = offset;
-				}
-			}
+                    scale *= pl->data[dN].sub[sN].op.scale.scale;
+                    offset = pl->data[dN].sub[sN].op.scale.scale * offset
+                            + pl->data[dN].sub[sN].op.scale.offset;
 
-			cN = pl->figure[fN].column_Y;
-			sN = cN - pl->data[dN].column_N;
+                    pl->data[dN].sub[sNd].busy = SUBTRACT_FREE;
 
-			if (		sN >= 0 && sN < PLOT_SUBTRACT
-					&& pl->data[dN].sub[sN].busy == SUBTRACT_SCALE) {
+                    cN = pl->data[dN].sub[sNd].op.scale.column_X;
 
-				cN = pl->data[dN].sub[sN].op.scale.column_X;
-				sNd = cN - pl->data[dN].column_N;
-
-				if (		sNd >= 0 && sNd < PLOT_SUBTRACT
-						&& pl->data[dN].sub[sNd].busy == SUBTRACT_SCALE
-						&& plotCheckColumnLinked(pl, dN, cN) < 2) {
-
-					scale = pl->data[dN].sub[sNd].op.scale.scale;
-					offset = pl->data[dN].sub[sNd].op.scale.offset;
-
-					scale *= pl->data[dN].sub[sN].op.scale.scale;
-					offset = pl->data[dN].sub[sN].op.scale.scale * offset
-							+ pl->data[dN].sub[sN].op.scale.offset;
-
-					pl->data[dN].sub[sNd].busy = SUBTRACT_FREE;
-
-					cN = pl->data[dN].sub[sNd].op.scale.column_X;
-
-					pl->data[dN].sub[sN].op.scale.column_X = cN;
-					pl->data[dN].sub[sN].op.scale.scale = scale;
-					pl->data[dN].sub[sN].op.scale.offset = offset;
-				}
-			}
-		}
-	}
+                    pl->data[dN].sub[sN].op.scale.column_X = cN;
+                    pl->data[dN].sub[sN].op.scale.scale = scale;
+                    pl->data[dN].sub[sN].op.scale.offset = offset;
+                }
+            }
+        }
+    }
 }
 
 void plotFigureRemove(plot_t *pl, int fN)
 {
-	int		N, aN, on_X = 1, on_Y = 1;
+    int N, aN, on_X = 1, on_Y = 1;
 
-	if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+    if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+        ERROR("Figure number is out of range\n");
+        return;
+    }
 
-		ERROR("Figure number is out of range\n");
-		return ;
-	}
+    for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+        if (pl->figure[N].busy != 0 && N != fN) {
+            if (pl->figure[N].axis_X == pl->figure[fN].axis_X)
+                on_X = 0;
 
-	for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+            if (pl->figure[N].axis_Y == pl->figure[fN].axis_Y)
+                on_Y = 0;
+        }
+    }
 
-		if (pl->figure[N].busy != 0 && N != fN) {
+    pl->figure[fN].busy = 0;
 
-			if (pl->figure[N].axis_X == pl->figure[fN].axis_X)
-				on_X = 0;
+    if (on_X != 0) {
+        aN = pl->figure[fN].axis_X;
 
-			if (pl->figure[N].axis_Y == pl->figure[fN].axis_Y)
-				on_Y = 0;
-		}
-	}
+        if (pl->on_X == aN) {
+            for (N = 0; N < PLOT_AXES_MAX; ++N) {
+                if (N != aN && pl->axis[N].busy == AXIS_BUSY_X && pl->axis[N].slave == 0) {
+                    pl->on_X = N;
+                    break;
+                }
+            }
+        }
 
-	pl->figure[fN].busy = 0;
+        if (pl->on_X != aN) {
+            plotAxisRemove(pl, aN);
+        }
+    }
 
-	if (on_X != 0) {
+    if (on_Y != 0) {
+        aN = pl->figure[fN].axis_Y;
 
-		aN = pl->figure[fN].axis_X;
+        if (pl->on_Y == aN) {
+            for (N = 0; N < PLOT_AXES_MAX; ++N) {
+                if (N != aN && pl->axis[N].busy == AXIS_BUSY_Y && pl->axis[N].slave == 0) {
+                    pl->on_Y = N;
+                    break;
+                }
+            }
+        }
 
-		if (pl->on_X == aN) {
+        if (pl->on_Y != aN) {
+            plotAxisRemove(pl, aN);
+        }
+    }
 
-			for (N = 0; N < PLOT_AXES_MAX; ++N) {
-
-				if (N != aN && pl->axis[N].busy == AXIS_BUSY_X
-						&& pl->axis[N].slave == 0) {
-
-					pl->on_X = N;
-					break;
-				}
-			}
-		}
-
-		if (pl->on_X != aN) {
-
-			plotAxisRemove(pl, aN);
-		}
-	}
-
-	if (on_Y != 0) {
-
-		aN = pl->figure[fN].axis_Y;
-
-		if (pl->on_Y == aN) {
-
-			for (N = 0; N < PLOT_AXES_MAX; ++N) {
-
-				if (N != aN && pl->axis[N].busy == AXIS_BUSY_Y
-						&& pl->axis[N].slave == 0) {
-
-					pl->on_Y = N;
-					break;
-				}
-			}
-		}
-
-		if (pl->on_Y != aN) {
-
-			plotAxisRemove(pl, aN);
-		}
-	}
-
-	plotSubtractGarbage(pl, pl->figure[fN].data_N);
+    plotSubtractGarbage(pl, pl->figure[fN].data_N);
 }
 
 void plotFigureGarbage(plot_t *pl, int dN)
 {
-	int		fN;
+    int fN;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
-
-		if (		pl->figure[fN].busy != 0
-				&& pl->figure[fN].data_N == dN) {
-
-			plotFigureRemove(pl, fN);
-		}
-	}
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].busy != 0 && pl->figure[fN].data_N == dN) {
+            plotFigureRemove(pl, fN);
+        }
+    }
 }
 
 void plotFigureMoveAxes(plot_t *pl, int fN)
 {
-	int		N, aN, rX = 1, rY = 1;
+    int N, aN, rX = 1, rY = 1;
 
-	if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+    if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+        ERROR("Figure number is out of range\n");
+        return;
+    }
 
-		ERROR("Figure number is out of range\n");
-		return ;
-	}
+    if (pl->on_X < 0 || pl->on_X >= PLOT_AXES_MAX)
+        return;
 
-	if (pl->on_X < 0 || pl->on_X >= PLOT_AXES_MAX)
-		return ;
+    if (pl->on_Y < 0 || pl->on_Y >= PLOT_AXES_MAX)
+        return;
 
-	if (pl->on_Y < 0 || pl->on_Y >= PLOT_AXES_MAX)
-		return ;
+    for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+        if (pl->figure[N].busy != 0 && N != fN) {
+            if (pl->figure[N].axis_X == pl->figure[fN].axis_X)
+                rX = 0;
 
-	for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+            if (pl->figure[N].axis_Y == pl->figure[fN].axis_Y)
+                rY = 0;
+        }
+    }
 
-		if (pl->figure[N].busy != 0 && N != fN) {
+    if (pl->figure[fN].axis_X != pl->on_X) {
+        aN = pl->figure[fN].axis_X;
+        pl->figure[fN].axis_X = pl->on_X;
 
-			if (pl->figure[N].axis_X == pl->figure[fN].axis_X)
-				rX = 0;
+        if (rX != 0) {
+            plotAxisRemove(pl, aN);
+        }
+    }
 
-			if (pl->figure[N].axis_Y == pl->figure[fN].axis_Y)
-				rY = 0;
-		}
-	}
+    if (pl->figure[fN].axis_Y != pl->on_Y) {
+        aN = pl->figure[fN].axis_Y;
+        pl->figure[fN].axis_Y = pl->on_Y;
 
-	if (pl->figure[fN].axis_X != pl->on_X) {
-
-		aN = pl->figure[fN].axis_X;
-		pl->figure[fN].axis_X = pl->on_X;
-
-		if (rX != 0) {
-
-			plotAxisRemove(pl, aN);
-		}
-	}
-
-	if (pl->figure[fN].axis_Y != pl->on_Y) {
-
-		aN = pl->figure[fN].axis_Y;
-		pl->figure[fN].axis_Y = pl->on_Y;
-
-		if (rY != 0) {
-
-			plotAxisRemove(pl, aN);
-		}
-	}
+        if (rY != 0) {
+            plotAxisRemove(pl, aN);
+        }
+    }
 }
 
-static int
-plotGetFreeAxis(plot_t *pl)
+static int plotGetFreeAxis(plot_t *pl)
 {
-	int		N, aN = -1;
+    int N, aN = -1;
 
-	for (N = 0; N < PLOT_AXES_MAX; ++N) {
+    for (N = 0; N < PLOT_AXES_MAX; ++N) {
+        if (pl->axis[N].busy == AXIS_FREE) {
+            aN = N;
+            break;
+        }
+    }
 
-		if (pl->axis[N].busy == AXIS_FREE) {
-
-			aN = N;
-			break;
-		}
-	}
-
-	return aN;
+    return aN;
 }
 
 void plotFigureMakeIndividualAxes(plot_t *pl, int fN)
 {
-	int		N, aN, rX = 1, rY = 1;
+    int N, aN, rX = 1, rY = 1;
 
-	if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+    if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+        ERROR("Figure number is out of range\n");
+        return;
+    }
 
-		ERROR("Figure number is out of range\n");
-		return ;
-	}
+    for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+        if (pl->figure[N].busy != 0 && N != fN) {
+            if (pl->figure[N].axis_X == pl->figure[fN].axis_X)
+                rX = 0;
 
-	for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+            if (pl->figure[N].axis_Y == pl->figure[fN].axis_Y)
+                rY = 0;
+        }
+    }
 
-		if (pl->figure[N].busy != 0 && N != fN) {
+    if (rX == 0) {
+        aN = plotGetFreeAxis(pl);
 
-			if (pl->figure[N].axis_X == pl->figure[fN].axis_X)
-				rX = 0;
+        if (aN != -1) {
+            N = pl->figure[fN].axis_X;
 
-			if (pl->figure[N].axis_Y == pl->figure[fN].axis_Y)
-				rY = 0;
-		}
-	}
+            pl->axis[aN].busy = AXIS_BUSY_X;
+            pl->figure[fN].axis_X = aN;
 
-	if (rX == 0) {
+            plotAxisScaleAuto(pl, aN);
+            plotAxisLabel(pl, aN, pl->axis[N].label);
+        } else {
+            ERROR("Unable to get free axis on X\n");
+            return;
+        }
+    }
 
-		aN = plotGetFreeAxis(pl);
+    if (rY == 0) {
+        aN = plotGetFreeAxis(pl);
 
-		if (aN != -1) {
+        if (aN != -1) {
+            N = pl->figure[fN].axis_Y;
 
-			N = pl->figure[fN].axis_X;
+            pl->axis[aN].busy = AXIS_BUSY_Y;
+            pl->figure[fN].axis_Y = aN;
 
-			pl->axis[aN].busy = AXIS_BUSY_X;
-			pl->figure[fN].axis_X = aN;
-
-			plotAxisScaleAuto(pl, aN);
-			plotAxisLabel(pl, aN, pl->axis[N].label);
-		}
-		else {
-			ERROR("Unable to get free axis on X\n");
-			return ;
-		}
-	}
-
-	if (rY == 0) {
-
-		aN = plotGetFreeAxis(pl);
-
-		if (aN != -1) {
-
-			N = pl->figure[fN].axis_Y;
-
-			pl->axis[aN].busy = AXIS_BUSY_Y;
-			pl->figure[fN].axis_Y = aN;
-
-			plotAxisScaleAuto(pl, aN);
-			plotAxisLabel(pl, aN, pl->axis[N].label);
-		}
-		else {
-			ERROR("Unable to get free axis on Y\n");
-			return ;
-		}
-	}
+            plotAxisScaleAuto(pl, aN);
+            plotAxisLabel(pl, aN, pl->axis[N].label);
+        } else {
+            ERROR("Unable to get free axis on Y\n");
+            return;
+        }
+    }
 }
 
 void plotFigureExchange(plot_t *pl, int fN_1, int fN_2)
 {
-	unsigned char	figbackup[sizeof(pl->figure[0])];
+    unsigned char figbackup[sizeof(pl->figure[0])];
 
-	if (fN_1 < 0 || fN_1 >= PLOT_FIGURE_MAX) {
+    if (fN_1 < 0 || fN_1 >= PLOT_FIGURE_MAX) {
+        ERROR("Figure number is out of range\n");
+        return;
+    }
 
-		ERROR("Figure number is out of range\n");
-		return ;
-	}
+    if (fN_2 < 0 || fN_2 >= PLOT_FIGURE_MAX) {
+        ERROR("Figure number (exchange) is out of range\n");
+        return;
+    }
 
-	if (fN_2 < 0 || fN_2 >= PLOT_FIGURE_MAX) {
-
-		ERROR("Figure number (exchange) is out of range\n");
-		return ;
-	}
-
-	memcpy(figbackup, &pl->figure[fN_2], sizeof(pl->figure[0]));
-	memcpy(&pl->figure[fN_2], &pl->figure[fN_1], sizeof(pl->figure[0]));
-	memcpy(&pl->figure[fN_1], figbackup, sizeof(pl->figure[0]));
+    memcpy(figbackup, &pl->figure[fN_2], sizeof(pl->figure[0]));
+    memcpy(&pl->figure[fN_2], &pl->figure[fN_1], sizeof(pl->figure[0]));
+    memcpy(&pl->figure[fN_1], figbackup, sizeof(pl->figure[0]));
 }
 
 int plotFigureSelected(plot_t *pl)
 {
-	int		fN, N = 0;
+    int fN, N = 0;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].busy != 0 && pl->figure[fN].hidden == 0) {
+            N++;
+        }
+    }
 
-		if (		pl->figure[fN].busy != 0
-				&& pl->figure[fN].hidden == 0) {
-
-			N++;
-		}
-	}
-
-	return N;
+    return N;
 }
 
 int plotFigureAnother(plot_t *pl, int fN)
 {
-	int		fN_any, N = 0;
+    int fN_any, N = 0;
 
-	for (fN_any = 0; fN_any < PLOT_FIGURE_MAX; ++fN_any) {
+    for (fN_any = 0; fN_any < PLOT_FIGURE_MAX; ++fN_any) {
+        if (fN != fN_any && pl->figure[fN_any].busy != 0
+                && pl->figure[fN_any].hidden == 0) {
+            N++;
+        }
+    }
 
-		if (		fN != fN_any && pl->figure[fN_any].busy != 0
-				&& pl->figure[fN_any].hidden == 0) {
-
-			N++;
-		}
-	}
-
-	return N;
+    return N;
 }
 
 int plotFigureAnyData(plot_t *pl)
 {
-	int		fN, dN = 0;
+    int fN, dN = 0;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].busy != 0 && pl->figure[fN].hidden == 0) {
+            dN = pl->figure[fN].data_N;
+            break;
+        }
+    }
 
-		if (		pl->figure[fN].busy != 0
-				&& pl->figure[fN].hidden == 0) {
-
-			dN = pl->figure[fN].data_N;
-			break;
-		}
-	}
-
-	return dN;
+    return dN;
 }
 
 int plotFigureHaveData(plot_t *pl, int dN)
 {
-	int		fN, N = 0;
+    int fN, N = 0;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].busy != 0 && pl->figure[fN].data_N == dN) {
+            N++;
+        }
+    }
 
-		if (		pl->figure[fN].busy != 0
-				&& pl->figure[fN].data_N == dN) {
-
-			N++;
-		}
-	}
-
-	return N;
+    return N;
 }
 
-static int
-plotGetSubtractTimeMedianByMatch(plot_t *pl, int dN, int cNX, int length, int unwrap)
+static int plotGetSubtractTimeMedianByMatch(plot_t *pl, int dN, int cNX, int length, int unwrap)
 {
-	int		sN, rN = -1;
+    int sN, rN = -1;
 
-	for (sN = 0; sN < PLOT_SUBTRACT; ++sN) {
+    for (sN = 0; sN < PLOT_SUBTRACT; ++sN) {
+        if (pl->data[dN].sub[sN].busy == SUBTRACT_TIME_MEDIAN
+                && pl->data[dN].sub[sN].op.median.column_X == cNX
+                && pl->data[dN].sub[sN].op.median.length == length
+                && pl->data[dN].sub[sN].op.median.unwrap == unwrap) {
+            rN = sN;
+            break;
+        }
+    }
 
-		if (		pl->data[dN].sub[sN].busy == SUBTRACT_TIME_MEDIAN
-				&& pl->data[dN].sub[sN].op.median.column_X == cNX
-				&& pl->data[dN].sub[sN].op.median.length == length
-				&& pl->data[dN].sub[sN].op.median.unwrap == unwrap) {
-
-			rN = sN;
-			break;
-		}
-	}
-
-	return rN;
+    return rN;
 }
 
-static int
-plotGetSubtractScaleByMatch(plot_t *pl, int dN, int cN, double scale, double offset)
+static int plotGetSubtractScaleByMatch(plot_t *pl, int dN, int cN, double scale, double offset)
 {
-	int		sN, rN = -1;
+    int sN, rN = -1;
 
-	for (sN = 0; sN < PLOT_SUBTRACT; ++sN) {
+    for (sN = 0; sN < PLOT_SUBTRACT; ++sN) {
+        if (pl->data[dN].sub[sN].busy == SUBTRACT_SCALE
+                && pl->data[dN].sub[sN].op.scale.column_X == cN
+                && pl->data[dN].sub[sN].op.scale.scale == scale
+                && pl->data[dN].sub[sN].op.scale.offset == offset) {
+            rN = sN;
+            break;
+        }
+    }
 
-		if (		pl->data[dN].sub[sN].busy == SUBTRACT_SCALE
-				&& pl->data[dN].sub[sN].op.scale.column_X == cN
-				&& pl->data[dN].sub[sN].op.scale.scale == scale
-				&& pl->data[dN].sub[sN].op.scale.offset == offset) {
-
-			rN = sN;
-			break;
-		}
-	}
-
-	return rN;
+    return rN;
 }
 
 static int
 plotGetFreeSubtract(plot_t *pl, int dN)
 {
-	int		sN, rN = -1;
+    int sN, rN = -1;
 
-	for (sN = 0; sN < PLOT_SUBTRACT; ++sN) {
+    for (sN = 0; sN < PLOT_SUBTRACT; ++sN) {
+        if (pl->data[dN].sub[sN].busy == 0) {
+            rN = sN;
+            break;
+        }
+    }
 
-		if (pl->data[dN].sub[sN].busy == 0) {
-
-			rN = sN;
-			break;
-		}
-	}
-
-	return rN;
+    return rN;
 }
 
 tuple_t plotGetSubtractTimeMedian(plot_t *pl, int dN, int cNX, int cNY, int length, int unwrap, int opdata)
 {
-	tuple_t		uN = { -1, -1 };
-	int		sNX, sNY;
+    tuple_t uN = { -1, -1 };
+    int sNX, sNY;
 
-	if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+    if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+        ERROR("Dataset number is out of range\n");
+        return uN;
+    }
 
-		ERROR("Dataset number is out of range\n");
-		return uN;
-	}
+    if (length < 1 || length > PLOT_MEDIAN_MAX) {
+        ERROR("Median length %i is out of range\n", length);
+        return uN;
+    }
 
-	if (length < 1 || length > PLOT_MEDIAN_MAX) {
+    sNX = plotGetSubtractTimeMedianByMatch(pl, dN, cNX, length, unwrap);
 
-		ERROR("Median length %i is out of range\n", length);
-		return uN;
-	}
+    if (sNX < 0) {
+        sNX = plotGetFreeSubtract(pl, dN);
 
-	sNX = plotGetSubtractTimeMedianByMatch(pl, dN, cNX, length, unwrap);
+        if (sNX < 0) {
+            ERROR("Unable to get free subtract\n");
+            return uN;
+        }
 
-	if (sNX < 0) {
+        pl->data[dN].sub[sNX].busy = SUBTRACT_TIME_MEDIAN;
+        pl->data[dN].sub[sNX].op.median.column_X = cNX;
+        pl->data[dN].sub[sNX].op.median.length = length;
+        pl->data[dN].sub[sNX].op.median.unwrap = unwrap;
+        pl->data[dN].sub[sNX].op.median.opdata = 0;
+    }
 
-		sNX = plotGetFreeSubtract(pl, dN);
+    sNY = plotGetFreeSubtract(pl, dN);
 
-		if (sNX < 0) {
+    if (sNY < 0) {
+        ERROR("Unable to get free subtract\n");
+        return uN;
+    }
 
-			ERROR("Unable to get free subtract\n");
-			return uN;
-		}
+    pl->data[dN].sub[sNY].busy = SUBTRACT_DATA_MEDIAN;
+    pl->data[dN].sub[sNY].op.median.column_X = cNX;
+    pl->data[dN].sub[sNY].op.median.column_Y = cNY;
+    pl->data[dN].sub[sNY].op.median.column_T = sNX + pl->data[dN].column_N;
+    pl->data[dN].sub[sNY].op.median.length = length;
+    pl->data[dN].sub[sNY].op.median.unwrap = unwrap;
+    pl->data[dN].sub[sNY].op.median.opdata = opdata;
 
-		pl->data[dN].sub[sNX].busy = SUBTRACT_TIME_MEDIAN;
-		pl->data[dN].sub[sNX].op.median.column_X = cNX;
-		pl->data[dN].sub[sNX].op.median.length = length;
-		pl->data[dN].sub[sNX].op.median.unwrap = unwrap;
-		pl->data[dN].sub[sNX].op.median.opdata = 0;
-	}
+    plotDataSubtractCompute(pl, dN, sNY);
 
-	sNY = plotGetFreeSubtract(pl, dN);
+    uN.X = sNX + pl->data[dN].column_N;
+    uN.Y = sNY + pl->data[dN].column_N;
 
-	if (sNY < 0) {
-
-		ERROR("Unable to get free subtract\n");
-		return uN;
-	}
-
-	pl->data[dN].sub[sNY].busy = SUBTRACT_DATA_MEDIAN;
-	pl->data[dN].sub[sNY].op.median.column_X = cNX;
-	pl->data[dN].sub[sNY].op.median.column_Y = cNY;
-	pl->data[dN].sub[sNY].op.median.column_T = sNX + pl->data[dN].column_N;
-	pl->data[dN].sub[sNY].op.median.length = length;
-	pl->data[dN].sub[sNY].op.median.unwrap = unwrap;
-	pl->data[dN].sub[sNY].op.median.opdata = opdata;
-
-	plotDataSubtractCompute(pl, dN, sNY);
-
-	uN.X = sNX + pl->data[dN].column_N;
-	uN.Y = sNY + pl->data[dN].column_N;
-
-	return uN;
+    return uN;
 }
 
 int plotGetSubtractScale(plot_t *pl, int dN, int cN, double scale, double offset)
 {
-	int		sN;
+    int sN;
 
-	if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+    if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+        ERROR("Dataset number is out of range\n");
+        return -1;
+    }
 
-		ERROR("Dataset number is out of range\n");
-		return -1;
-	}
+    sN = plotGetSubtractScaleByMatch(pl, dN, cN, scale, offset);
 
-	sN = plotGetSubtractScaleByMatch(pl, dN, cN, scale, offset);
+    if (sN < 0) {
+        sN = cN - pl->data[dN].column_N;
 
-	if (sN < 0) {
+        if (sN >= 0 && sN < PLOT_SUBTRACT
+                && pl->data[dN].sub[sN].busy == SUBTRACT_SCALE
+                && plotCheckColumnLinked(pl, dN, cN) < 2) {
+            offset = scale * pl->data[dN].sub[sN].op.scale.offset + offset;
+            scale *= pl->data[dN].sub[sN].op.scale.scale;
 
-		sN = cN - pl->data[dN].column_N;
+            pl->data[dN].sub[sN].op.scale.scale = scale;
+            pl->data[dN].sub[sN].op.scale.offset = offset;
+        } else {
+            sN = plotGetFreeSubtract(pl, dN);
 
-		if (		sN >= 0 && sN < PLOT_SUBTRACT
-				&& pl->data[dN].sub[sN].busy == SUBTRACT_SCALE
-				&& plotCheckColumnLinked(pl, dN, cN) < 2) {
+            if (sN < 0) {
+                ERROR("Unable to get free subtract\n");
+                return -1;
+            }
 
-			offset = scale * pl->data[dN].sub[sN].op.scale.offset + offset;
-			scale *= pl->data[dN].sub[sN].op.scale.scale;
+            pl->data[dN].sub[sN].busy = SUBTRACT_SCALE;
+            pl->data[dN].sub[sN].op.scale.column_X = cN;
+            pl->data[dN].sub[sN].op.scale.modified = 0;
+            pl->data[dN].sub[sN].op.scale.scale = scale;
+            pl->data[dN].sub[sN].op.scale.offset = offset;
+        }
 
-			pl->data[dN].sub[sN].op.scale.scale = scale;
-			pl->data[dN].sub[sN].op.scale.offset = offset;
-		}
-		else {
-			sN = plotGetFreeSubtract(pl, dN);
+        plotDataSubtractCompute(pl, dN, sN);
+    }
 
-			if (sN < 0) {
+    cN = sN + pl->data[dN].column_N;
 
-				ERROR("Unable to get free subtract\n");
-				return -1;
-			}
-
-			pl->data[dN].sub[sN].busy = SUBTRACT_SCALE;
-			pl->data[dN].sub[sN].op.scale.column_X = cN;
-			pl->data[dN].sub[sN].op.scale.modified = 0;
-			pl->data[dN].sub[sN].op.scale.scale = scale;
-			pl->data[dN].sub[sN].op.scale.offset = offset;
-		}
-
-		plotDataSubtractCompute(pl, dN, sN);
-	}
-
-	cN = sN + pl->data[dN].column_N;
-
-	return cN;
+    return cN;
 }
 
-static int
-plotGetSubtractClone(plot_t *pl, int dN, int cN)
+static int plotGetSubtractClone(plot_t *pl, int dN, int cN)
 {
-	int		sN, modified = 0;
+    int sN, modified = 0;
 
-	sN = cN - pl->data[dN].column_N;
+    sN = cN - pl->data[dN].column_N;
 
-	if (		sN >= 0 && sN < PLOT_SUBTRACT
-			&& pl->data[dN].sub[sN].busy == SUBTRACT_SCALE) {
+    if (sN >= 0 && sN < PLOT_SUBTRACT
+            && pl->data[dN].sub[sN].busy == SUBTRACT_SCALE) {
+        modified = pl->data[dN].sub[sN].op.scale.modified;
+    }
 
-		modified = pl->data[dN].sub[sN].op.scale.modified;
-	}
+    sN = plotGetFreeSubtract(pl, dN);
 
-	sN = plotGetFreeSubtract(pl, dN);
+    if (sN < 0) {
+        ERROR("Unable to get free subtract\n");
+        return -1;
+    }
 
-	if (sN < 0) {
+    pl->data[dN].sub[sN].busy = SUBTRACT_SCALE;
+    pl->data[dN].sub[sN].op.scale.column_X = cN;
+    pl->data[dN].sub[sN].op.scale.modified = modified;
+    pl->data[dN].sub[sN].op.scale.scale = (double)1.;
+    pl->data[dN].sub[sN].op.scale.offset = (double)0.;
 
-		ERROR("Unable to get free subtract\n");
-		return -1;
-	}
+    plotDataSubtractCompute(pl, dN, sN);
 
-	pl->data[dN].sub[sN].busy = SUBTRACT_SCALE;
-	pl->data[dN].sub[sN].op.scale.column_X = cN;
-	pl->data[dN].sub[sN].op.scale.modified = modified;
-	pl->data[dN].sub[sN].op.scale.scale = (double) 1.;
-	pl->data[dN].sub[sN].op.scale.offset = (double) 0.;
+    cN = sN + pl->data[dN].column_N;
 
-	plotDataSubtractCompute(pl, dN, sN);
-
-	cN = sN + pl->data[dN].column_N;
-
-	return cN;
+    return cN;
 }
 
 int plotGetSubtractResample(plot_t *pl, int dN, int cNX, int in_dN, int in_cNX, int in_cNY)
 {
-	int		sN, cN;
+    int sN, cN;
 
-	if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+    if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+        ERROR("Dataset number is out of range\n");
+        return -1;
+    }
 
-		ERROR("Dataset number is out of range\n");
-		return -1;
-	}
+    sN = plotGetFreeSubtract(pl, dN);
 
-	sN = plotGetFreeSubtract(pl, dN);
+    if (sN < 0) {
+        ERROR("Unable to get free subtract\n");
+        return -1;
+    }
 
-	if (sN < 0) {
+    pl->data[dN].sub[sN].busy = SUBTRACT_RESAMPLE;
+    pl->data[dN].sub[sN].op.resample.column_X = cNX;
+    pl->data[dN].sub[sN].op.resample.in_data_N = in_dN;
+    pl->data[dN].sub[sN].op.resample.in_column_X = in_cNX;
+    pl->data[dN].sub[sN].op.resample.in_column_Y = in_cNY;
 
-		ERROR("Unable to get free subtract\n");
-		return -1;
-	}
+    plotDataSubtractCompute(pl, dN, sN);
 
-	pl->data[dN].sub[sN].busy = SUBTRACT_RESAMPLE;
-	pl->data[dN].sub[sN].op.resample.column_X = cNX;
-	pl->data[dN].sub[sN].op.resample.in_data_N = in_dN;
-	pl->data[dN].sub[sN].op.resample.in_column_X = in_cNX;
-	pl->data[dN].sub[sN].op.resample.in_column_Y = in_cNY;
+    cN = sN + pl->data[dN].column_N;
 
-	plotDataSubtractCompute(pl, dN, sN);
-
-	cN = sN + pl->data[dN].column_N;
-
-	return cN;
+    return cN;
 }
 
 int plotGetSubtractBinary(plot_t *pl, int dN, int opSUB, int cN1, int cN2)
 {
-	int		sN, cN;
+    int sN, cN;
 
-	if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+    if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+        ERROR("Dataset number is out of range\n");
+        return -1;
+    }
 
-		ERROR("Dataset number is out of range\n");
-		return -1;
-	}
+    if (cN1 < -1 || cN1 >= pl->data[dN].column_N + PLOT_SUBTRACT) {
+        ERROR("Column number %i is out of range\n", cN1);
+        return -1;
+    }
 
-	if (cN1 < -1 || cN1 >= pl->data[dN].column_N + PLOT_SUBTRACT) {
+    if (cN2 < -1 || cN2 >= pl->data[dN].column_N + PLOT_SUBTRACT) {
+        ERROR("Column number %i is out of range\n", cN2);
+        return -1;
+    }
 
-		ERROR("Column number %i is out of range\n", cN1);
-		return -1;
-	}
+    sN = plotGetFreeSubtract(pl, dN);
 
-	if (cN2 < -1 || cN2 >= pl->data[dN].column_N + PLOT_SUBTRACT) {
+    if (sN < 0) {
+        ERROR("Unable to get free subtract\n");
+        return -1;
+    }
 
-		ERROR("Column number %i is out of range\n", cN2);
-		return -1;
-	}
+    pl->data[dN].sub[sN].busy = opSUB;
+    pl->data[dN].sub[sN].op.binary.column_X = cN1;
+    pl->data[dN].sub[sN].op.binary.column_Y = cN2;
 
-	sN = plotGetFreeSubtract(pl, dN);
+    plotDataSubtractCompute(pl, dN, sN);
 
-	if (sN < 0) {
+    cN = sN + pl->data[dN].column_N;
 
-		ERROR("Unable to get free subtract\n");
-		return -1;
-	}
-
-	pl->data[dN].sub[sN].busy = opSUB;
-	pl->data[dN].sub[sN].op.binary.column_X = cN1;
-	pl->data[dN].sub[sN].op.binary.column_Y = cN2;
-
-	plotDataSubtractCompute(pl, dN, sN);
-
-	cN = sN + pl->data[dN].column_N;
-
-	return cN;
+    return cN;
 }
 
 int plotGetSubtractFilter(plot_t *pl, int dN, int cNX, int cNY, int opSUB, double value)
 {
-	int		sN;
+    int sN;
 
-	if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+    if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+        ERROR("Dataset number is out of range\n");
+        return -1;
+    }
 
-		ERROR("Dataset number is out of range\n");
-		return -1;
-	}
+    if (cNX < -1 || cNX >= pl->data[dN].column_N + PLOT_SUBTRACT) {
+        ERROR("Column number %i is out of range\n", cNX);
+        return -1;
+    }
 
-	if (cNX < -1 || cNX >= pl->data[dN].column_N + PLOT_SUBTRACT) {
+    if (cNY < -1 || cNY >= pl->data[dN].column_N + PLOT_SUBTRACT) {
+        ERROR("Column number %i is out of range\n", cNY);
+        return -1;
+    }
 
-		ERROR("Column number %i is out of range\n", cNX);
-		return -1;
-	}
+    sN = plotGetFreeSubtract(pl, dN);
 
-	if (cNY < -1 || cNY >= pl->data[dN].column_N + PLOT_SUBTRACT) {
+    if (sN < 0) {
+        ERROR("Unable to get free subtract\n");
+        return -1;
+    }
 
-		ERROR("Column number %i is out of range\n", cNY);
-		return -1;
-	}
+    pl->data[dN].sub[sN].busy = opSUB;
+    pl->data[dN].sub[sN].op.filter.column_X = cNX;
+    pl->data[dN].sub[sN].op.filter.column_Y = cNY;
+    pl->data[dN].sub[sN].op.filter.value = value;
 
-	sN = plotGetFreeSubtract(pl, dN);
+    plotDataSubtractCompute(pl, dN, sN);
 
-	if (sN < 0) {
+    cNY = sN + pl->data[dN].column_N;
 
-		ERROR("Unable to get free subtract\n");
-		return -1;
-	}
-
-	pl->data[dN].sub[sN].busy = opSUB;
-	pl->data[dN].sub[sN].op.filter.column_X = cNX;
-	pl->data[dN].sub[sN].op.filter.column_Y = cNY;
-	pl->data[dN].sub[sN].op.filter.value = value;
-
-	plotDataSubtractCompute(pl, dN, sN);
-
-	cNY = sN + pl->data[dN].column_N;
-
-	return cNY;
+    return cNY;
 }
 
 int plotGetSubtractMedian(plot_t *pl, int dN, int cN, int opSUB, int length)
 {
-	int		sN;
+    int sN;
 
-	if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+    if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+        ERROR("Dataset number is out of range\n");
+        return -1;
+    }
 
-		ERROR("Dataset number is out of range\n");
-		return -1;
-	}
+    if (cN < -1 || cN >= pl->data[dN].column_N + PLOT_SUBTRACT) {
+        ERROR("Column number %i is out of range\n", cN);
+        return -1;
+    }
 
-	if (cN < -1 || cN >= pl->data[dN].column_N + PLOT_SUBTRACT) {
+    if (length < 1 || length > PLOT_MEDIAN_MAX) {
+        ERROR("Median length %i is out of range\n", length);
+        return -1;
+    }
 
-		ERROR("Column number %i is out of range\n", cN);
-		return -1;
-	}
+    sN = plotGetFreeSubtract(pl, dN);
 
-	if (length < 1 || length > PLOT_MEDIAN_MAX) {
+    if (sN < 0) {
+        ERROR("Unable to get free subtract\n");
+        return -1;
+    }
 
-		ERROR("Median length %i is out of range\n", length);
-		return -1;
-	}
+    pl->data[dN].sub[sN].busy = opSUB;
+    pl->data[dN].sub[sN].op.median.column_Y = cN;
+    pl->data[dN].sub[sN].op.median.length = length;
+    pl->data[dN].sub[sN].op.median.unwrap = 0;
+    pl->data[dN].sub[sN].op.median.opdata = 0;
 
-	sN = plotGetFreeSubtract(pl, dN);
+    plotDataSubtractCompute(pl, dN, sN);
 
-	if (sN < 0) {
+    cN = sN + pl->data[dN].column_N;
 
-		ERROR("Unable to get free subtract\n");
-		return -1;
-	}
-
-	pl->data[dN].sub[sN].busy = opSUB;
-	pl->data[dN].sub[sN].op.median.column_Y = cN;
-	pl->data[dN].sub[sN].op.median.length = length;
-	pl->data[dN].sub[sN].op.median.unwrap = 0;
-	pl->data[dN].sub[sN].op.median.opdata = 0;
-
-	plotDataSubtractCompute(pl, dN, sN);
-
-	cN = sN + pl->data[dN].column_N;
-
-	return cN;
+    return cN;
 }
 
 int plotGetFreeFigure(plot_t *pl)
 {
-	int		N, fN = -1;
+    int N, fN = -1;
 
-	for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+    for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+        if (pl->figure[N].busy == 0) {
+            fN = N;
+            break;
+        }
+    }
 
-		if (pl->figure[N].busy == 0) {
-
-			fN = N;
-			break;
-		}
-	}
-
-	return fN;
+    return fN;
 }
 
 int plotFigureSubtractGetMedianConfig(plot_t *pl, int fN, int *length, int *unwrap, int *opdata)
 {
-	int		dN, cN, sN;
+    int dN, cN, sN;
 
-	if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+    if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+        ERROR("Figure number is out of range\n");
+        return -1;
+    }
 
-		ERROR("Figure number is out of range\n");
-		return -1;
-	}
+    dN = pl->figure[fN].data_N;
+    cN = pl->figure[fN].column_Y;
 
-	dN = pl->figure[fN].data_N;
-	cN = pl->figure[fN].column_Y;
+    sN = cN - pl->data[dN].column_N;
 
-	sN = cN - pl->data[dN].column_N;
+    if (sN >= 0 && sN < PLOT_SUBTRACT
+            && pl->data[dN].sub[sN].busy == SUBTRACT_DATA_MEDIAN) {
+        *length = pl->data[dN].sub[sN].op.median.length;
+        *unwrap = pl->data[dN].sub[sN].op.median.unwrap;
+        *opdata = pl->data[dN].sub[sN].op.median.opdata;
 
-	if (		sN >= 0 && sN < PLOT_SUBTRACT
-			&& pl->data[dN].sub[sN].busy == SUBTRACT_DATA_MEDIAN) {
+        return sN;
+    }
 
-		*length = pl->data[dN].sub[sN].op.median.length;
-		*unwrap = pl->data[dN].sub[sN].op.median.unwrap;
-		*opdata = pl->data[dN].sub[sN].op.median.opdata;
-
-		return sN;
-	}
-
-	return -1;
+    return -1;
 }
 
 void plotFigureSubtractTimeMedian(plot_t *pl, int fN, int length, int unwrap, int opdata)
 {
-	tuple_t		uN;
-	int		dN, cNX, cNY, sN;
+    tuple_t uN;
+    int dN, cNX, cNY, sN;
 
-	if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+    if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+        ERROR("Figure number is out of range\n");
+        return;
+    }
 
-		ERROR("Figure number is out of range\n");
-		return ;
-	}
+    dN = pl->figure[fN].data_N;
+    cNX = pl->figure[fN].column_X;
+    cNY = pl->figure[fN].column_Y;
 
-	dN = pl->figure[fN].data_N;
-	cNX = pl->figure[fN].column_X;
-	cNY = pl->figure[fN].column_Y;
+    if (length < 1) {
+        sN = cNY - pl->data[dN].column_N;
 
-	if (length < 1) {
+        if (sN >= 0 && sN < PLOT_SUBTRACT
+                && pl->data[dN].sub[sN].busy == SUBTRACT_DATA_MEDIAN) {
+            cNX = pl->data[dN].sub[sN].op.median.column_X;
+            cNY = pl->data[dN].sub[sN].op.median.column_Y;
 
-		sN = cNY - pl->data[dN].column_N;
+            pl->figure[fN].column_X = cNX;
+            pl->figure[fN].column_Y = cNY;
 
-		if (		sN >= 0 && sN < PLOT_SUBTRACT
-				&& pl->data[dN].sub[sN].busy == SUBTRACT_DATA_MEDIAN) {
+            plotSubtractGarbage(pl, dN);
+        }
+    } else {
+        sN = cNY - pl->data[dN].column_N;
 
-			cNX = pl->data[dN].sub[sN].op.median.column_X;
-			cNY = pl->data[dN].sub[sN].op.median.column_Y;
+        if (sN >= 0 && sN < PLOT_SUBTRACT
+                && pl->data[dN].sub[sN].busy == SUBTRACT_DATA_MEDIAN) {
+            if (pl->data[dN].sub[sN].op.median.length != length
+                    || pl->data[dN].sub[sN].op.median.unwrap != unwrap
+                    || pl->data[dN].sub[sN].op.median.opdata != opdata) {
+                cNX = pl->data[dN].sub[sN].op.median.column_X;
+                cNY = pl->data[dN].sub[sN].op.median.column_Y;
 
-			pl->figure[fN].column_X = cNX;
-			pl->figure[fN].column_Y = cNY;
+                pl->figure[fN].column_X = cNX;
+                pl->figure[fN].column_Y = cNY;
 
-			plotSubtractGarbage(pl, dN);
-		}
-	}
-	else {
-		sN = cNY - pl->data[dN].column_N;
+                plotSubtractGarbage(pl, dN);
 
-		if (		sN >= 0 && sN < PLOT_SUBTRACT
-				&& pl->data[dN].sub[sN].busy == SUBTRACT_DATA_MEDIAN) {
+                uN = plotGetSubtractTimeMedian(pl, dN, cNX, cNY, length, unwrap, opdata);
 
-			if (		pl->data[dN].sub[sN].op.median.length != length
-					|| pl->data[dN].sub[sN].op.median.unwrap != unwrap
-					|| pl->data[dN].sub[sN].op.median.opdata != opdata) {
+                if (uN.X != -1) {
+                    pl->figure[fN].column_X = uN.X;
+                    pl->figure[fN].column_Y = uN.Y;
+                }
+            }
+        } else {
+            uN = plotGetSubtractTimeMedian(pl, dN, cNX, cNY, length, unwrap, opdata);
 
-				cNX = pl->data[dN].sub[sN].op.median.column_X;
-				cNY = pl->data[dN].sub[sN].op.median.column_Y;
-
-				pl->figure[fN].column_X = cNX;
-				pl->figure[fN].column_Y = cNY;
-
-				plotSubtractGarbage(pl, dN);
-
-				uN = plotGetSubtractTimeMedian(pl, dN, cNX, cNY, length, unwrap, opdata);
-
-				if (uN.X != -1) {
-
-					pl->figure[fN].column_X = uN.X;
-					pl->figure[fN].column_Y = uN.Y;
-				}
-			}
-		}
-		else {
-			uN = plotGetSubtractTimeMedian(pl, dN, cNX, cNY, length, unwrap, opdata);
-
-			if (uN.X != -1) {
-
-				pl->figure[fN].column_X = uN.X;
-				pl->figure[fN].column_Y = uN.Y;
-			}
-		}
-	}
+            if (uN.X != -1) {
+                pl->figure[fN].column_X = uN.X;
+                pl->figure[fN].column_Y = uN.Y;
+            }
+        }
+    }
 }
 
 void plotFigureSubtractScale(plot_t *pl, int fN, int aBUSY, double scale, double offset)
 {
-	int		dN, cN;
+    int dN, cN;
 
-	if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+    if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+        ERROR("Figure number is out of range\n");
+        return;
+    }
 
-		ERROR("Figure number is out of range\n");
-		return ;
-	}
+    dN = pl->figure[fN].data_N;
 
-	dN = pl->figure[fN].data_N;
+    if (aBUSY == AXIS_BUSY_X) {
+        cN = plotGetSubtractScale(pl, dN, pl->figure[fN].column_X, scale, offset);
 
-	if (aBUSY == AXIS_BUSY_X) {
+        if (cN != -1) {
+            pl->figure[fN].column_X = cN;
+        }
+    } else if (aBUSY == AXIS_BUSY_Y) {
+        cN = plotGetSubtractScale(pl, dN, pl->figure[fN].column_Y, scale, offset);
 
-		cN = plotGetSubtractScale(pl, dN, pl->figure[fN].column_X, scale, offset);
-
-		if (cN != -1) {
-
-			pl->figure[fN].column_X = cN;
-		}
-	}
-	else if (aBUSY == AXIS_BUSY_Y) {
-
-		cN = plotGetSubtractScale(pl, dN, pl->figure[fN].column_Y, scale, offset);
-
-		if (cN != -1) {
-
-			pl->figure[fN].column_Y = cN;
-		}
-	}
+        if (cN != -1) {
+            pl->figure[fN].column_Y = cN;
+        }
+    }
 }
 
-static int
-plotFigureSubtractAdd(plot_t *pl, int fN, int fN_1, int fN_2, int opSUB)
+static int plotFigureSubtractAdd(plot_t *pl, int fN, int fN_1, int fN_2, int opSUB)
 {
-	const char	*label_1, *label_2, *delim;
-	int		dN, aNX, aNY, cNX, cNY;
+    const char *label_1, *label_2, *delim;
+    int dN, aNX, aNY, cNX, cNY;
 
-	dN = pl->figure[fN_1].data_N;
+    dN = pl->figure[fN_1].data_N;
 
-	cNX = pl->figure[fN_1].column_X;
-	aNX = pl->figure[fN_1].axis_X;
+    cNX = pl->figure[fN_1].column_X;
+    aNX = pl->figure[fN_1].axis_X;
 
-	if (aNX != pl->figure[fN_2].axis_X) {
+    if (aNX != pl->figure[fN_2].axis_X) {
+        ERROR("Both figures must be on the same axis on X\n");
+        return 0;
+    }
 
-		ERROR("Both figures must be on the same axis on X\n");
-		return 0;
-	}
+    if (dN != pl->figure[fN_2].data_N
+            || cNX != pl->figure[fN_2].column_X) {
+        cNY = plotGetSubtractResample(pl, dN, cNX,
+                pl->figure[fN_2].data_N,
+                pl->figure[fN_2].column_X,
+                pl->figure[fN_2].column_Y);
 
-	if (		dN != pl->figure[fN_2].data_N
-			|| cNX != pl->figure[fN_2].column_X) {
+        if (cNY < 0) {
+            ERROR("Unable to get resample subtract\n");
+            return 0;
+        }
+    } else {
+        cNY = pl->figure[fN_2].column_Y;
+    }
 
-		cNY = plotGetSubtractResample(pl, dN, cNX,
-				pl->figure[fN_2].data_N,
-				pl->figure[fN_2].column_X,
-				pl->figure[fN_2].column_Y);
+    cNY = plotGetSubtractBinary(pl, dN, opSUB, pl->figure[fN_1].column_Y, cNY);
 
-		if (cNY < 0) {
+    if (cNY < 0) {
+        return 0;
+    }
 
-			ERROR("Unable to get resample subtract\n");
-			return 0;
-		}
-	}
-	else {
-		cNY = pl->figure[fN_2].column_Y;
-	}
+    aNY = plotGetFreeAxis(pl);
 
-	cNY = plotGetSubtractBinary(pl, dN, opSUB, pl->figure[fN_1].column_Y, cNY);
+    if (aNY != -1) {
+        pl->axis[aNY].busy = AXIS_BUSY_Y;
+        plotAxisLabel(pl, aNY, pl->axis[pl->figure[fN_1].axis_Y].label);
+    } else {
+        aNY = pl->figure[fN_1].axis_Y;
+    }
 
-	if (cNY < 0) {
+    plotFigureAdd(pl, fN, dN, cNX, cNY, aNX, aNY, "");
 
-		return 0;
-	}
+    label_1 = pl->figure[fN_1].label;
+    label_2 = pl->figure[fN_2].label;
 
-	aNY = plotGetFreeAxis(pl);
+    delim = strrchr(label_1, ' ');
+    label_1 = (delim != NULL) ? delim + 1 : label_1;
 
-	if (aNY != -1) {
+    delim = strrchr(label_2, ' ');
+    label_2 = (delim != NULL) ? delim + 1 : label_2;
 
-		pl->axis[aNY].busy = AXIS_BUSY_Y;
-		plotAxisLabel(pl, aNY, pl->axis[pl->figure[fN_1].axis_Y].label);
-	}
-	else {
-		aNY = pl->figure[fN_1].axis_Y;
-	}
+    if (opSUB == SUBTRACT_BINARY_SUBTRACTION) {
+        sprintf(pl->figure[fN].label, "R: %.35s - %.35s", label_1, label_2);
+    } else if (opSUB == SUBTRACT_BINARY_ADDITION) {
+        sprintf(pl->figure[fN].label, "A: %.35s + %.35s", label_1, label_2);
+    } else if (opSUB == SUBTRACT_BINARY_MULTIPLICATION) {
+        sprintf(pl->figure[fN].label, "X: %.35s * %.35s", label_1, label_2);
+    } else if (opSUB == SUBTRACT_BINARY_DIVISION) {
+        sprintf(pl->figure[fN].label, "N: %.35s / %.35s", label_1, label_2);
+    } else if (opSUB == SUBTRACT_BINARY_HYPOTENUSE) {
+        sprintf(pl->figure[fN].label, "H: %.35s ~ %.35s", label_1, label_2);
+    }
 
-	plotFigureAdd(pl, fN, dN, cNX, cNY, aNX, aNY, "");
+    pl->figure[fN].drawing = pl->figure[fN_1].drawing;
+    pl->figure[fN].width = pl->figure[fN_1].width;
 
-	label_1 = pl->figure[fN_1].label;
-	label_2 = pl->figure[fN_2].label;
-
-	delim = strrchr(label_1, ' ');
-	label_1 = (delim != NULL) ? delim + 1 : label_1;
-
-	delim = strrchr(label_2, ' ');
-	label_2 = (delim != NULL) ? delim + 1 : label_2;
-
-	if (opSUB == SUBTRACT_BINARY_SUBTRACTION) {
-
-		sprintf(pl->figure[fN].label, "R: %.35s - %.35s", label_1, label_2);
-	}
-	else if (opSUB == SUBTRACT_BINARY_ADDITION) {
-
-		sprintf(pl->figure[fN].label, "A: %.35s + %.35s", label_1, label_2);
-	}
-	else if (opSUB == SUBTRACT_BINARY_MULTIPLICATION) {
-
-		sprintf(pl->figure[fN].label, "X: %.35s * %.35s", label_1, label_2);
-	}
-	else if (opSUB == SUBTRACT_BINARY_DIVISION) {
-
-		sprintf(pl->figure[fN].label, "N: %.35s / %.35s", label_1, label_2);
-	}
-	else if (opSUB == SUBTRACT_BINARY_HYPOTENUSE) {
-
-		sprintf(pl->figure[fN].label, "H: %.35s ~ %.35s", label_1, label_2);
-	}
-
-	pl->figure[fN].drawing = pl->figure[fN_1].drawing;
-	pl->figure[fN].width = pl->figure[fN_1].width;
-
-	return AXIS_BUSY_Y;
+    return AXIS_BUSY_Y;
 }
 
 void plotFigureSubtractFilter(plot_t *pl, int fN, int opSUB, double value)
 {
-	int		fN_lpf, dN, cNX, cNY, aN;
+    int fN_lpf, dN, cNX, cNY, aN;
 
-	if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+    if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+        ERROR("Figure number is out of range\n");
+        return;
+    }
 
-		ERROR("Figure number is out of range\n");
-		return ;
-	}
+    dN = pl->figure[fN].data_N;
+    cNX = pl->figure[fN].column_X;
+    cNY = pl->figure[fN].column_Y;
 
-	dN = pl->figure[fN].data_N;
-	cNX = pl->figure[fN].column_X;
-	cNY = pl->figure[fN].column_Y;
+    fN_lpf = plotGetFreeFigure(pl);
 
-	fN_lpf = plotGetFreeFigure(pl);
+    if (fN_lpf < 0) {
+        ERROR("Unable to get free figure to subtract\n");
+        return;
+    }
 
-	if (fN_lpf < 0) {
+    if (opSUB == SUBTRACT_FILTER_MEDIAN) {
+        cNY = plotGetSubtractMedian(pl, dN, cNY, opSUB, (int) value);
+    } else {
+        cNY = plotGetSubtractFilter(pl, dN, cNX, cNY, opSUB, value);
+    }
 
-		ERROR("Unable to get free figure to subtract\n");
-		return ;
-	}
+    if (cNY < 0) {
+        return;
+    }
 
-	if (opSUB == SUBTRACT_FILTER_MEDIAN) {
+    if (opSUB == SUBTRACT_FILTER_LOW_PASS
+            || opSUB == SUBTRACT_FILTER_MEDIAN) {
+        aN = pl->figure[fN].axis_Y;
+    } else {
+        aN = plotGetFreeAxis(pl);
 
-		cNY = plotGetSubtractMedian(pl, dN, cNY, opSUB, (int) value);
-	}
-	else {
-		cNY = plotGetSubtractFilter(pl, dN, cNX, cNY, opSUB, value);
-	}
+        if (aN != -1) {
+            pl->axis[aN].busy = AXIS_BUSY_Y;
+            plotAxisLabel(pl, aN, pl->axis[pl->figure[fN].axis_Y].label);
+        } else {
+            aN = pl->figure[fN].axis_Y;
+        }
+    }
 
-	if (cNY < 0) {
+    plotFigureAdd(pl, fN_lpf, dN, cNX, cNY, pl->figure[fN].axis_X, aN, "");
 
-		return ;
-	}
+    if (opSUB == SUBTRACT_FILTER_DIFFERENCE) {
+        sprintf(pl->figure[fN_lpf].label, "D: %.75s", pl->figure[fN].label);
+    } else if (opSUB == SUBTRACT_FILTER_CUMULATIVE) {
+        sprintf(pl->figure[fN_lpf].label, "I: %.75s", pl->figure[fN].label);
+    } else if (opSUB == SUBTRACT_FILTER_BITFIELD) {
+        int argi[2] = { 0, (int) value };
 
-	if (		opSUB == SUBTRACT_FILTER_LOW_PASS
-			|| opSUB == SUBTRACT_FILTER_MEDIAN) {
+        argi[0] = argi[1] & 0xFFU;
+        argi[1] = argi[1] >> 8;
 
-		aN = pl->figure[fN].axis_Y;
-	}
-	else {
-		aN = plotGetFreeAxis(pl);
+        if (argi[0] == argi[1]) {
+            sprintf(pl->figure[fN_lpf].label, "B(%d): %.75s",
+                    (int) argi[0], pl->figure[fN].label);
+        } else {
+            sprintf(pl->figure[fN_lpf].label, "B(%d-%d): %.75s",
+                    (int) argi[0], (int) argi[1], pl->figure[fN].label);
+        }
+    } else if (opSUB == SUBTRACT_FILTER_LOW_PASS) {
+        sprintf(pl->figure[fN_lpf].label, "L(%.2E): %.75s",
+                value, pl->figure[fN].label);
+    } else if (opSUB == SUBTRACT_FILTER_MEDIAN) {
+        sprintf(pl->figure[fN_lpf].label, "M(%d): %.75s",
+                (int) value, pl->figure[fN].label);
+    }
 
-		if (aN != -1) {
+    pl->figure[fN_lpf].drawing = pl->figure[fN].drawing;
+    pl->figure[fN_lpf].width = pl->figure[fN].width;
 
-			pl->axis[aN].busy = AXIS_BUSY_Y;
-			plotAxisLabel(pl, aN, pl->axis[pl->figure[fN].axis_Y].label);
-		}
-		else {
-			aN = pl->figure[fN].axis_Y;
-		}
-	}
+    if (opSUB == SUBTRACT_FILTER_LOW_PASS) {
+        /* Do nothing */
+    } else {
+        plotAxisScaleAutoCond(pl, pl->figure[fN_lpf].axis_Y, pl->figure[fN_lpf].axis_X);
 
-	plotFigureAdd(pl, fN_lpf, dN, cNX, cNY, pl->figure[fN].axis_X, aN, "");
+        pl->on_X = pl->figure[fN_lpf].axis_X;
+        pl->on_Y = pl->figure[fN_lpf].axis_Y;
 
-	if (opSUB == SUBTRACT_FILTER_DIFFERENCE) {
+        if (pl->axis[pl->on_X].slave != 0) {
+            pl->on_X = pl->axis[pl->on_X].slave_N;
+        }
 
-		sprintf(pl->figure[fN_lpf].label, "D: %.75s", pl->figure[fN].label);
-	}
-	else if (opSUB == SUBTRACT_FILTER_CUMULATIVE) {
-
-		sprintf(pl->figure[fN_lpf].label, "I: %.75s", pl->figure[fN].label);
-	}
-	else if (opSUB == SUBTRACT_FILTER_BITFIELD) {
-
-		int	argi[2] = { 0, (int) value };
-
-		argi[0] = argi[1] & 0xFFU;
-		argi[1] = argi[1] >> 8;
-
-		if (argi[0] == argi[1]) {
-
-			sprintf(pl->figure[fN_lpf].label, "B(%d): %.75s",
-					(int) argi[0], pl->figure[fN].label);
-		}
-		else {
-			sprintf(pl->figure[fN_lpf].label, "B(%d-%d): %.75s",
-					(int) argi[0], (int) argi[1], pl->figure[fN].label);
-		}
-	}
-	else if (opSUB == SUBTRACT_FILTER_LOW_PASS) {
-
-		sprintf(pl->figure[fN_lpf].label, "L(%.2E): %.75s",
-				value, pl->figure[fN].label);
-	}
-	else if (opSUB == SUBTRACT_FILTER_MEDIAN) {
-
-		sprintf(pl->figure[fN_lpf].label, "M(%d): %.75s",
-				(int) value, pl->figure[fN].label);
-	}
-
-	pl->figure[fN_lpf].drawing = pl->figure[fN].drawing;
-	pl->figure[fN_lpf].width = pl->figure[fN].width;
-
-	if (opSUB == SUBTRACT_FILTER_LOW_PASS) {
-
-		/* Do nothing */
-	}
-	else {
-		plotAxisScaleAutoCond(pl, pl->figure[fN_lpf].axis_Y, pl->figure[fN_lpf].axis_X);
-
-		pl->on_X = pl->figure[fN_lpf].axis_X;
-		pl->on_Y = pl->figure[fN_lpf].axis_Y;
-
-		if (pl->axis[pl->on_X].slave != 0) {
-
-			pl->on_X = pl->axis[pl->on_X].slave_N;
-		}
-
-		if (pl->axis[pl->on_Y].slave != 0) {
-
-			pl->on_Y = pl->axis[pl->on_Y].slave_N;
-		}
-	}
+        if (pl->axis[pl->on_Y].slave != 0) {
+            pl->on_Y = pl->axis[pl->on_Y].slave_N;
+        }
+    }
 }
 
 void plotFigureSubtractDemux(plot_t *pl, int fN, int opSUB, int N)
 {
-	int		dN, cN, cN1, sN, fN_dem;
+    int dN, cN, cN1, sN, fN_dem;
 
-	if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+    if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+        ERROR("Figure number is out of range\n");
+        return;
+    }
 
-		ERROR("Figure number is out of range\n");
-		return ;
-	}
+    dN = pl->figure[fN].data_N;
+    cN = pl->figure[fN].column_Y;
 
-	dN = pl->figure[fN].data_N;
-	cN = pl->figure[fN].column_Y;
+    for (fN_dem = 0; fN_dem < PLOT_FIGURE_MAX; ++fN_dem) {
+        if (fN_dem != fN && pl->figure[fN_dem].busy != 0
+                && pl->figure[fN_dem].hidden == 0
+                && dN == pl->figure[fN_dem].data_N) {
+            cN1 = pl->figure[fN_dem].column_Y;
+            sN = cN1 - pl->data[dN].column_N;
 
-	for (fN_dem = 0; fN_dem < PLOT_FIGURE_MAX; ++fN_dem) {
+            if (sN >= 0 && sN < PLOT_SUBTRACT
+                    && pl->data[dN].sub[sN].busy == opSUB
+                    && pl->data[dN].sub[sN].op.filter.column_X == cN) {
+                pl->data[dN].sub[sN].op.filter.value = (double)N;
 
-		if (		fN_dem != fN && pl->figure[fN_dem].busy != 0
-				&& pl->figure[fN_dem].hidden == 0
-				&& dN == pl->figure[fN_dem].data_N) {
+                plotDataSubtractCompute(pl, dN, sN);
 
-			cN1 = pl->figure[fN_dem].column_Y;
-			sN = cN1 - pl->data[dN].column_N;
+                if (opSUB == SUBTRACT_FILTER_DEMULTIPLEX) {
+                    char labelbuf[PLOT_STRING_MAX], *label;
 
-			if (		sN >= 0 && sN < PLOT_SUBTRACT
-					&& pl->data[dN].sub[sN].busy == opSUB
-					&& pl->data[dN].sub[sN].op.filter.column_X == cN) {
+                    label = strchr(pl->figure[fN_dem].label, ' ');
+                    label = (*label != 0) ? label + 1 : label;
 
-				pl->data[dN].sub[sN].op.filter.value = (double) N;
+                    strcpy(labelbuf, label);
 
-				plotDataSubtractCompute(pl, dN, sN);
+                    sprintf(pl->figure[fN_dem].label,
+                            "U(%d): %.75s", N, labelbuf);
+                }
+            } else {
+                cN1 = plotGetSubtractFilter(pl, dN, cN, cN1, opSUB, (double)N);
 
-				if (opSUB == SUBTRACT_FILTER_DEMULTIPLEX) {
+                if (cN1 < 0) return;
 
-					char		labelbuf[PLOT_STRING_MAX], *label;
+                pl->figure[fN_dem].column_Y = cN1;
 
-					label = strchr(pl->figure[fN_dem].label, ' ');
-					label = (*label != 0) ? label + 1 : label;
+                if (opSUB == SUBTRACT_FILTER_DEMULTIPLEX) {
+                    char labelbuf[PLOT_STRING_MAX];
 
-					strcpy(labelbuf, label);
+                    strcpy(labelbuf, pl->figure[fN_dem].label);
 
-					sprintf(pl->figure[fN_dem].label,
-							"U(%d): %.75s", N, labelbuf);
-				}
-			}
-			else {
-				cN1 = plotGetSubtractFilter(pl, dN, cN, cN1, opSUB, (double) N);
-
-				if (cN1 < 0) {
-
-					return ;
-				}
-
-				pl->figure[fN_dem].column_Y = cN1;
-
-				if (opSUB == SUBTRACT_FILTER_DEMULTIPLEX) {
-
-					char		labelbuf[PLOT_STRING_MAX];
-
-					strcpy(labelbuf, pl->figure[fN_dem].label);
-
-					sprintf(pl->figure[fN_dem].label,
-							"U(%d): %.75s", N, labelbuf);
-				}
-			}
-		}
-	}
+                    sprintf(pl->figure[fN_dem].label, "U(%d): %.75s", N, labelbuf);
+                }
+            }
+        }
+    }
 }
 
 void plotFigureSubtractClean(plot_t *pl, int fN, int opSUB)
 {
-	int		dN, cN, cN1, sN, fN_dem;
+    int dN, cN, cN1, sN, fN_dem;
 
-	if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+    if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+        ERROR("Figure number is out of range\n");
+        return;
+    }
 
-		ERROR("Figure number is out of range\n");
-		return ;
-	}
+    dN = pl->figure[fN].data_N;
+    cN = pl->figure[fN].column_Y;
 
-	dN = pl->figure[fN].data_N;
-	cN = pl->figure[fN].column_Y;
+    for (fN_dem = 0; fN_dem < PLOT_FIGURE_MAX; ++fN_dem) {
+        if (fN_dem != fN && pl->figure[fN_dem].busy != 0
+                && pl->figure[fN_dem].hidden == 0
+                && dN == pl->figure[fN_dem].data_N) {
+            cN1 = pl->figure[fN_dem].column_Y;
+            sN = cN1 - pl->data[dN].column_N;
 
-	for (fN_dem = 0; fN_dem < PLOT_FIGURE_MAX; ++fN_dem) {
+            if (sN >= 0 && sN < PLOT_SUBTRACT
+                    && pl->data[dN].sub[sN].busy == opSUB
+                    && pl->data[dN].sub[sN].op.filter.column_X == cN) {
+                pl->data[dN].sub[sN].busy = SUBTRACT_FREE;
 
-		if (		fN_dem != fN && pl->figure[fN_dem].busy != 0
-				&& pl->figure[fN_dem].hidden == 0
-				&& dN == pl->figure[fN_dem].data_N) {
+                cN1 = pl->data[dN].sub[sN].op.filter.column_Y;
+                pl->figure[fN_dem].column_Y = cN1;
 
-			cN1 = pl->figure[fN_dem].column_Y;
-			sN = cN1 - pl->data[dN].column_N;
+                if (opSUB == SUBTRACT_FILTER_DEMULTIPLEX) {
+                    char labelbuf[PLOT_STRING_MAX], *label;
 
-			if (		sN >= 0 && sN < PLOT_SUBTRACT
-					&& pl->data[dN].sub[sN].busy == opSUB
-					&& pl->data[dN].sub[sN].op.filter.column_X == cN) {
+                    label = strchr(pl->figure[fN_dem].label, ' ');
+                    label = (*label != 0) ? label + 1 : label;
 
-				pl->data[dN].sub[sN].busy = SUBTRACT_FREE;
-
-				cN1 = pl->data[dN].sub[sN].op.filter.column_Y;
-				pl->figure[fN_dem].column_Y = cN1;
-
-				if (opSUB == SUBTRACT_FILTER_DEMULTIPLEX) {
-
-					char		labelbuf[PLOT_STRING_MAX], *label;
-
-					label = strchr(pl->figure[fN_dem].label, ' ');
-					label = (*label != 0) ? label + 1 : label;
-
-					strcpy(labelbuf, label);
-					strcpy(pl->figure[fN_dem].label, labelbuf);
-				}
-			}
-		}
-	}
+                    strcpy(labelbuf, label);
+                    strcpy(pl->figure[fN_dem].label, labelbuf);
+                }
+            }
+        }
+    }
 }
 
-static void
-plotFigureSubtractBinaryLinked(plot_t *pl, int fN, int opSUB, int fNP[2])
+static void plotFigureSubtractBinaryLinked(plot_t *pl, int fN, int opSUB, int fNP[2])
 {
-	int		dN, dN1, sN, sE, cN, cN1, fN_1, fN_2;
+    int dN, dN1, sN, sE, cN, cN1, fN_1, fN_2;
 
-	dN = pl->figure[fN].data_N;
-	sN = pl->figure[fN].column_Y - pl->data[dN].column_N;
+    dN = pl->figure[fN].data_N;
+    sN = pl->figure[fN].column_Y - pl->data[dN].column_N;
 
-	fN_1 = -1;
-	fN_2 = -1;
+    fN_1 = -1;
+    fN_2 = -1;
 
-	if (		sN >= 0 && sN < PLOT_SUBTRACT
-			&& pl->data[dN].sub[sN].busy == opSUB) {
+    if (sN >= 0 && sN < PLOT_SUBTRACT
+            && pl->data[dN].sub[sN].busy == opSUB) {
+        cN = pl->data[dN].sub[sN].op.binary.column_X;
+        sE = cN - pl->data[dN].column_N;
 
-		cN = pl->data[dN].sub[sN].op.binary.column_X;
-		sE = cN - pl->data[dN].column_N;
+        dN1 = dN;
+        cN1 = cN;
 
-		dN1 = dN;
-		cN1 = cN;
+        if (sE >= 0 && sE < PLOT_SUBTRACT
+                && pl->data[dN].sub[sE].busy == SUBTRACT_RESAMPLE) {
+            dN1 = pl->data[dN].sub[sE].op.resample.in_data_N;
+            cN1 = pl->data[dN].sub[sE].op.resample.in_column_Y;
+        }
 
-		if (		sE >= 0 && sE < PLOT_SUBTRACT
-				&& pl->data[dN].sub[sE].busy == SUBTRACT_RESAMPLE) {
+        for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+            if (pl->figure[fN].busy != 0) {
+                if (dN == pl->figure[fN].data_N && cN == pl->figure[fN].column_Y) {
+                    fN_1 = fN;
+                    break;
+                }
 
-			dN1 = pl->data[dN].sub[sE].op.resample.in_data_N;
-			cN1 = pl->data[dN].sub[sE].op.resample.in_column_Y;
-		}
+                if (dN1 == pl->figure[fN].data_N && cN1 == pl->figure[fN].column_Y) {
+                    fN_1 = fN;
+                    break;
+                }
+            }
+        }
 
-		for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        cN = pl->data[dN].sub[sN].op.binary.column_Y;
+        sE = cN - pl->data[dN].column_N;
 
-			if (pl->figure[fN].busy != 0) {
+        dN1 = dN;
+        cN1 = cN;
 
-				if (		dN == pl->figure[fN].data_N
-						&& cN == pl->figure[fN].column_Y) {
+        if (sE >= 0 && sE < PLOT_SUBTRACT
+                && pl->data[dN].sub[sE].busy == SUBTRACT_RESAMPLE) {
+            dN1 = pl->data[dN].sub[sE].op.resample.in_data_N;
+            cN1 = pl->data[dN].sub[sE].op.resample.in_column_Y;
+        }
 
-					fN_1 = fN;
-					break;
-				}
+        for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+            if (fN != fN_1 && pl->figure[fN].busy != 0) {
+                if (dN == pl->figure[fN].data_N && cN == pl->figure[fN].column_Y) {
+                    fN_2 = fN;
+                    break;
+                }
 
-				if (		dN1 == pl->figure[fN].data_N
-						&& cN1 == pl->figure[fN].column_Y) {
+                if (dN1 == pl->figure[fN].data_N && cN1 == pl->figure[fN].column_Y) {
+                    fN_2 = fN;
+                    break;
+                }
+            }
+        }
+    }
 
-					fN_1 = fN;
-					break;
-				}
-			}
-		}
-
-		cN = pl->data[dN].sub[sN].op.binary.column_Y;
-		sE = cN - pl->data[dN].column_N;
-
-		dN1 = dN;
-		cN1 = cN;
-
-		if (		sE >= 0 && sE < PLOT_SUBTRACT
-				&& pl->data[dN].sub[sE].busy == SUBTRACT_RESAMPLE) {
-
-			dN1 = pl->data[dN].sub[sE].op.resample.in_data_N;
-			cN1 = pl->data[dN].sub[sE].op.resample.in_column_Y;
-		}
-
-		for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
-
-			if (		fN != fN_1
-					&& pl->figure[fN].busy != 0) {
-
-				if (		dN == pl->figure[fN].data_N
-						&& cN == pl->figure[fN].column_Y) {
-
-					fN_2 = fN;
-					break;
-				}
-
-				if (		dN1 == pl->figure[fN].data_N
-						&& cN1 == pl->figure[fN].column_Y) {
-
-					fN_2 = fN;
-					break;
-				}
-			}
-		}
-	}
-
-	fNP[0] = fN_1;
-	fNP[1] = fN_2;
+    fNP[0] = fN_1;
+    fNP[1] = fN_2;
 }
 
 void plotFigureSubtractSwitch(plot_t *pl, int opSUB)
 {
-	int		fN, fN_1, fN_2, fNQ[2], rBUSY, N = 0;
+    int fN, fN_1, fN_2, fNQ[2], rBUSY, N = 0;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].busy != 0 && pl->figure[fN].hidden == 0) {
+            if (N < 2) {
+                fNQ[N] = fN;
+            }
 
-		if (		pl->figure[fN].busy != 0
-				&& pl->figure[fN].hidden == 0) {
+            N++;
+        }
+    }
 
-			if (N < 2) {
+    if (N == 1) {
+        fN = fNQ[0];
 
-				fNQ[N] = fN;
-			}
+        plotFigureSubtractBinaryLinked(pl, fN, opSUB, fNQ);
 
-			N++;
-		}
-	}
+        fN_1 = fNQ[0];
+        fN_2 = fNQ[1];
 
-	if (N == 1) {
+        if (fN_1 != -1 && fN_2 != -1) {
+            pl->figure[fN].hidden = 1;
 
-		fN = fNQ[0];
+            pl->figure[fN_1].hidden = 0;
+            pl->figure[fN_2].hidden = 0;
 
-		plotFigureSubtractBinaryLinked(pl, fN, opSUB, fNQ);
+            pl->on_X = pl->figure[fN_1].axis_X;
+            pl->on_Y = pl->figure[fN_1].axis_Y;
+        }
+    } else if (N == 2) {
+        fN_1 = fNQ[0];
+        fN_2 = fNQ[1];
 
-		fN_1 = fNQ[0];
-		fN_2 = fNQ[1];
+        fN = -1;
 
-		if (fN_1 != -1 && fN_2 != -1) {
+        for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+            if (pl->figure[N].busy != 0) {
+                plotFigureSubtractBinaryLinked(pl, N, opSUB, fNQ);
 
-			pl->figure[fN].hidden = 1;
+                if (fNQ[0] == fN_1 && fNQ[1] == fN_2) {
+                    fN = N;
+                    break;
+                }
 
-			pl->figure[fN_1].hidden = 0;
-			pl->figure[fN_2].hidden = 0;
+                if (fNQ[0] == fN_2 && fNQ[1] == fN_1) {
+                    fN = N;
+                    break;
+                }
+            }
+        }
 
-			pl->on_X = pl->figure[fN_1].axis_X;
-			pl->on_Y = pl->figure[fN_1].axis_Y;
-		}
-	}
-	else if (N == 2) {
+        if (fN != -1) {
+            pl->figure[fN].hidden = 0;
 
-		fN_1 = fNQ[0];
-		fN_2 = fNQ[1];
+            pl->figure[fN_1].hidden = 1;
+            pl->figure[fN_2].hidden = 1;
 
-		fN = -1;
+            if (pl->figure[fN].axis_X == pl->figure[fN_1].axis_X
+                    && pl->figure[fN].axis_X == pl->figure[fN_2].axis_X) {
+                plotAxisScaleAutoCond(pl, pl->figure[fN].axis_Y, pl->figure[fN].axis_X);
+            } else if (pl->figure[fN].axis_Y == pl->figure[fN_1].axis_Y
+                    && pl->figure[fN].axis_Y == pl->figure[fN_2].axis_Y) {
+                plotAxisScaleAutoCond(pl, pl->figure[fN].axis_X, pl->figure[fN].axis_Y);
+            }
 
-		for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+            pl->on_X = pl->figure[fN].axis_X;
+            pl->on_Y = pl->figure[fN].axis_Y;
+        } else {
+            fN = plotGetFreeFigure(pl);
 
-			if (pl->figure[N].busy != 0) {
+            if (fN < 0) {
+                ERROR("Unable to get free figure to subtract\n");
+                return;
+            }
 
-				plotFigureSubtractBinaryLinked(pl, N, opSUB, fNQ);
+            rBUSY = plotFigureSubtractAdd(pl, fN, fN_1, fN_2, opSUB);
 
-				if (fNQ[0] == fN_1 && fNQ[1] == fN_2) {
+            if (rBUSY != 0) {
+                pl->figure[fN_1].hidden = 1;
+                pl->figure[fN_2].hidden = 1;
 
-					fN = N;
-					break;
-				}
+                if (rBUSY == AXIS_BUSY_X) {
+                    plotAxisScaleAutoCond(pl, pl->figure[fN].axis_X, pl->figure[fN].axis_Y);
+                } else if (rBUSY == AXIS_BUSY_Y) {
+                    plotAxisScaleAutoCond(pl, pl->figure[fN].axis_Y, pl->figure[fN].axis_X);
+                } else {
+                    plotAxisScaleAuto(pl, pl->figure[fN].axis_X);
+                    plotAxisScaleAuto(pl, pl->figure[fN].axis_Y);
+                }
 
-				if (fNQ[0] == fN_2 && fNQ[1] == fN_1) {
+                pl->on_X = pl->figure[fN].axis_X;
+                pl->on_Y = pl->figure[fN].axis_Y;
+            }
+        }
+    }
 
-					fN = N;
-					break;
-				}
-			}
-		}
+    if (pl->axis[pl->on_X].slave != 0) {
+        pl->on_X = pl->axis[pl->on_X].slave_N;
+    }
 
-		if (fN != -1) {
-
-			pl->figure[fN].hidden = 0;
-
-			pl->figure[fN_1].hidden = 1;
-			pl->figure[fN_2].hidden = 1;
-
-			if (		pl->figure[fN].axis_X == pl->figure[fN_1].axis_X
-					&& pl->figure[fN].axis_X == pl->figure[fN_2].axis_X) {
-
-				plotAxisScaleAutoCond(pl, pl->figure[fN].axis_Y,
-						pl->figure[fN].axis_X);
-			}
-			else if (	pl->figure[fN].axis_Y == pl->figure[fN_1].axis_Y
-					&& pl->figure[fN].axis_Y == pl->figure[fN_2].axis_Y) {
-
-				plotAxisScaleAutoCond(pl, pl->figure[fN].axis_X,
-						pl->figure[fN].axis_Y);
-			}
-
-			pl->on_X = pl->figure[fN].axis_X;
-			pl->on_Y = pl->figure[fN].axis_Y;
-		}
-		else {
-			fN = plotGetFreeFigure(pl);
-
-			if (fN < 0) {
-
-				ERROR("Unable to get free figure to subtract\n");
-				return ;
-			}
-
-			rBUSY = plotFigureSubtractAdd(pl, fN, fN_1, fN_2, opSUB);
-
-			if (rBUSY != 0) {
-
-				pl->figure[fN_1].hidden = 1;
-				pl->figure[fN_2].hidden = 1;
-
-				if (rBUSY == AXIS_BUSY_X) {
-
-					plotAxisScaleAutoCond(pl, pl->figure[fN].axis_X,
-							pl->figure[fN].axis_Y);
-				}
-				else if (rBUSY == AXIS_BUSY_Y) {
-
-					plotAxisScaleAutoCond(pl, pl->figure[fN].axis_Y,
-							pl->figure[fN].axis_X);
-				}
-				else {
-					plotAxisScaleAuto(pl, pl->figure[fN].axis_X);
-					plotAxisScaleAuto(pl, pl->figure[fN].axis_Y);
-				}
-
-				pl->on_X = pl->figure[fN].axis_X;
-				pl->on_Y = pl->figure[fN].axis_Y;
-			}
-		}
-	}
-
-	if (pl->axis[pl->on_X].slave != 0) {
-
-		pl->on_X = pl->axis[pl->on_X].slave_N;
-	}
-
-	if (pl->axis[pl->on_Y].slave != 0) {
-
-		pl->on_Y = pl->axis[pl->on_Y].slave_N;
-	}
+    if (pl->axis[pl->on_Y].slave != 0) {
+        pl->on_Y = pl->axis[pl->on_Y].slave_N;
+    }
 }
 
 void plotTotalSubtractResample(plot_t *pl, int dN, double tmin, double tmax)
 {
-	double		scale, offset;
-	int		N, cNX, cNY;
+    double scale, offset;
+    int N, cNX, cNY;
 
-	if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+    if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+        ERROR("Dataset number is out of range\n");
+        return;
+    }
 
-		ERROR("Dataset number is out of range\n");
-		return ;
-	}
+    if (pl->data[dN].column_N < 1) {
+        ERROR("Dataset %i is not allocated\n", dN);
+        return;
+    }
 
-	if (pl->data[dN].column_N < 1) {
+    for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+        if (pl->figure[N].busy != 0 && pl->figure[N].hidden == 0) {
+            if (pl->figure[N].axis_X != pl->on_X) {
+                ERROR("All figures must be on the active axis on X\n");
+                return;
+            }
+        }
+    }
 
-		ERROR("Dataset %i is not allocated\n", dN);
-		return ;
-	}
+    N = plotDataLength(pl, dN);
 
-	for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+    scale = (tmax - tmin) / (double)(N - 1);
+    offset = tmin;
 
-		if (		pl->figure[N].busy != 0
-				&& pl->figure[N].hidden == 0) {
+    cNX = plotGetSubtractScale(pl, dN, -1, scale, offset);
 
-			if (pl->figure[N].axis_X != pl->on_X) {
+    if (cNX < 0) return;
 
-				ERROR("All figures must be on the active axis on X\n");
-				return ;
-			}
-		}
-	}
+    for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+        if (pl->figure[N].busy != 0 && pl->figure[N].hidden == 0) {
+            if (dN != pl->figure[N].data_N || cNX != pl->figure[N].column_X) {
+                cNY = plotGetSubtractResample(pl, dN, cNX, pl->figure[N].data_N,
+                        pl->figure[N].column_X, pl->figure[N].column_Y);
 
-	N = plotDataLength(pl, dN);
+                if (cNY < 0) {
+                    ERROR("Unable to get resample subtract\n");
+                    return;
+                }
 
-	scale = (tmax - tmin) / (double) (N - 1);
-	offset = tmin;
-
-	cNX = plotGetSubtractScale(pl, dN, -1, scale, offset);
-
-	if (cNX < 0)
-		return ;
-
-	for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
-
-		if (		pl->figure[N].busy != 0
-				&& pl->figure[N].hidden == 0) {
-
-			if (		dN != pl->figure[N].data_N
-					|| cNX != pl->figure[N].column_X) {
-
-				cNY = plotGetSubtractResample(pl, dN, cNX,
-						pl->figure[N].data_N,
-						pl->figure[N].column_X,
-						pl->figure[N].column_Y);
-
-				if (cNY < 0) {
-
-					ERROR("Unable to get resample subtract\n");
-					return ;
-				}
-
-				pl->figure[N].data_N = dN;
-				pl->figure[N].column_X = cNX;
-				pl->figure[N].column_Y = cNY;
-			}
-		}
-	}
+                pl->figure[N].data_N = dN;
+                pl->figure[N].column_X = cNX;
+                pl->figure[N].column_Y = cNY;
+            }
+        }
+    }
 }
 
 int plotDataBoxPolyfit(plot_t *pl, int fN)
 {
-	int		N, dN, sN, N0, N1;
-	double		*coefs, std;
+    int N, dN, sN, N0, N1;
+    double *coefs, std;
 
-	if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+    if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+        ERROR("Figure number is out of range\n");
+        return 0;
+    }
 
-		ERROR("Figure number is out of range\n");
-		return 0;
-	}
+    dN = pl->figure[fN].data_N;
+    sN = pl->figure[fN].column_Y - pl->data[dN].column_N;
 
-	dN = pl->figure[fN].data_N;
-	sN = pl->figure[fN].column_Y - pl->data[dN].column_N;
+    if (sN < 0 || sN >= PLOT_SUBTRACT) {
+        return 0;
+    } else if (pl->data[dN].sub[sN].busy != SUBTRACT_POLYFIT) {
+        return 0;
+    }
 
-	if (sN < 0 || sN >= PLOT_SUBTRACT) {
+    N0 = pl->data[dN].sub[sN].op.polyfit.poly_N0;
+    N1 = pl->data[dN].sub[sN].op.polyfit.poly_N1;
 
-		return 0;
-	}
-	else if (pl->data[dN].sub[sN].busy != SUBTRACT_POLYFIT) {
+    coefs = pl->data[dN].sub[sN].op.polyfit.coefs;
+    std = pl->data[dN].sub[sN].op.polyfit.std;
 
-		return 0;
-	}
+    for (N = 0; N < PLOT_DATA_BOX_MAX; ++N) {
+        pl->data_box_text[N][0] = 0;
 
-	N0 = pl->data[dN].sub[sN].op.polyfit.poly_N0;
-	N1 = pl->data[dN].sub[sN].op.polyfit.poly_N1;
+        if (N == 0 && N1 == 0) {
+            sprintf(pl->data_box_text[N], " [%i] = ", N);
+            plotDataBoxTextFmt(pl, N, coefs[N]);
+        } else if (N < N1 - N0 + 1) {
+            char sfmt[PLOT_STRING_MAX];
 
-	coefs = pl->data[dN].sub[sN].op.polyfit.coefs;
-	std = pl->data[dN].sub[sN].op.polyfit.std;
+            sprintf(sfmt, " [%%i] = %% .%iE ", pl->fprecision - 1);
+            sprintf(pl->data_box_text[N], sfmt, N + N0, coefs[N]);
+        } else if (N == N1 - N0 + 1) {
+            sprintf(pl->data_box_text[N], " STD = ");
+            plotDataBoxTextFmt(pl, N, std);
+        }
+    }
 
-	for (N = 0; N < PLOT_DATA_BOX_MAX; ++N) {
+    if (pl->data_box_on != DATA_BOX_POLYFIT) {
+        pl->data_box_on = DATA_BOX_POLYFIT;
+        pl->data_box_X = pl->viewport.max_x;
+        pl->data_box_Y = 0;
+    }
 
-		pl->data_box_text[N][0] = 0;
-
-		if (N == 0 && N1 == 0) {
-
-			sprintf(pl->data_box_text[N], " [%i] = ", N);
-			plotDataBoxTextFmt(pl, N, coefs[N]);
-		}
-		else if (N < N1 - N0 + 1) {
-
-			char		sfmt[PLOT_STRING_MAX];
-
-			sprintf(sfmt, " [%%i] = %% .%iE ", pl->fprecision - 1);
-			sprintf(pl->data_box_text[N], sfmt, N + N0, coefs[N]);
-		}
-		else if (N == N1 - N0 + 1) {
-
-			sprintf(pl->data_box_text[N], " STD = ");
-			plotDataBoxTextFmt(pl, N, std);
-		}
-	}
-
-	if (pl->data_box_on != DATA_BOX_POLYFIT) {
-
-		pl->data_box_on = DATA_BOX_POLYFIT;
-		pl->data_box_X = pl->viewport.max_x;
-		pl->data_box_Y = 0;
-	}
-
-	return 1;
+    return 1;
 }
 
 void plotFigureSubtractPolyfit(plot_t *pl, int fN, int N0, int N1)
 {
-	int		N, fN_pol, dN, sN, cN, aN, bN;
-	double		scale_X, offset_X, scale_Y, offset_Y;
+    int N, fN_pol, dN, sN, cN, aN, bN;
+    double scale_X, offset_X, scale_Y, offset_Y;
 
-	if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+    if (fN < 0 || fN >= PLOT_FIGURE_MAX) {
+        ERROR("Figure number is out of range\n");
+        return;
+    }
 
-		ERROR("Figure number is out of range\n");
-		return ;
-	}
+    if (N0 < 0 || N0 > N1) {
+        ERROR("Polynomial base %i is out of range\n", N0);
+        return;
+    }
 
-	if (N0 < 0 || N0 > N1) {
+    if (N1 < 0 || N1 > PLOT_POLYFIT_MAX) {
+        ERROR("Polynomial degree %i is out of range\n", N1);
+        return;
+    }
 
-		ERROR("Polynomial base %i is out of range\n", N0);
-		return ;
-	}
+    fN_pol = plotGetFreeFigure(pl);
 
-	if (N1 < 0 || N1 > PLOT_POLYFIT_MAX) {
+    if (fN_pol < 0) {
+        ERROR("Unable to get free figure to subtract\n");
+        return;
+    }
 
-		ERROR("Polynomial degree %i is out of range\n", N1);
-		return ;
-	}
+    dN = pl->figure[fN].data_N;
+    sN = plotGetFreeSubtract(pl, dN);
 
-	fN_pol = plotGetFreeFigure(pl);
+    if (sN < 0) {
+        ERROR("Unable to get free subtract\n");
+        return;
+    }
 
-	if (fN_pol < 0) {
+    aN = pl->figure[fN].axis_X;
 
-		ERROR("Unable to get free figure to subtract\n");
-		return ;
-	}
+    scale_X = pl->axis[aN].scale;
+    offset_X = pl->axis[aN].offset;
 
-	dN = pl->figure[fN].data_N;
-	sN = plotGetFreeSubtract(pl, dN);
+    if (pl->axis[aN].slave != 0) {
+        bN = pl->axis[aN].slave_N;
+        scale_X *= pl->axis[bN].scale;
+        offset_X = offset_X * pl->axis[bN].scale + pl->axis[bN].offset;
+    }
 
-	if (sN < 0) {
+    aN = pl->figure[fN].axis_Y;
 
-		ERROR("Unable to get free subtract\n");
-		return ;
-	}
+    scale_Y = pl->axis[aN].scale;
+    offset_Y = pl->axis[aN].offset;
 
-	aN = pl->figure[fN].axis_X;
+    if (pl->axis[aN].slave != 0) {
+        bN = pl->axis[aN].slave_N;
+        scale_Y *= pl->axis[bN].scale;
+        offset_Y = offset_X * pl->axis[bN].scale + pl->axis[bN].offset;
+    }
 
-	scale_X = pl->axis[aN].scale;
-	offset_X = pl->axis[aN].offset;
+    plotDataPolyfit(pl, dN, pl->figure[fN].column_X, pl->figure[fN].column_Y,
+            scale_X, offset_X, scale_Y, offset_Y, N0, N1);
 
-	if (pl->axis[aN].slave != 0) {
+    pl->data[dN].sub[sN].busy = SUBTRACT_POLYFIT;
+    pl->data[dN].sub[sN].op.polyfit.column_X = pl->figure[fN].column_X;
+    pl->data[dN].sub[sN].op.polyfit.column_Y = pl->figure[fN].column_Y;
+    pl->data[dN].sub[sN].op.polyfit.poly_N0 = N0;
+    pl->data[dN].sub[sN].op.polyfit.poly_N1 = N1;
 
-		bN = pl->axis[aN].slave_N;
-		scale_X *= pl->axis[bN].scale;
-		offset_X = offset_X * pl->axis[bN].scale + pl->axis[bN].offset;
-	}
+    for (N = 0; N < N1 - N0 + 1; ++N) {
+        pl->data[dN].sub[sN].op.polyfit.coefs[N] = pl->lsq.sol.m[N];
+    }
 
-	aN = pl->figure[fN].axis_Y;
+    pl->data[dN].sub[sN].op.polyfit.std = pl->lsq.std.m[0];
 
-	scale_Y = pl->axis[aN].scale;
-	offset_Y = pl->axis[aN].offset;
+    plotDataSubtractCompute(pl, dN, sN);
 
-	if (pl->axis[aN].slave != 0) {
+    cN = sN + pl->data[dN].column_N;
+    aN = pl->figure[fN].axis_Y;
 
-		bN = pl->axis[aN].slave_N;
-		scale_Y *= pl->axis[bN].scale;
-		offset_Y = offset_X * pl->axis[bN].scale + pl->axis[bN].offset;
-	}
+    plotFigureAdd(pl, fN_pol, dN, pl->figure[fN].column_X, cN, pl->figure[fN].axis_X, aN, "");
 
-	plotDataPolyfit(pl, dN, pl->figure[fN].column_X, pl->figure[fN].column_Y,
-			scale_X, offset_X, scale_Y, offset_Y, N0, N1);
+    sprintf(pl->figure[fN_pol].label, "P: %.75s", pl->figure[fN].label);
 
-	pl->data[dN].sub[sN].busy = SUBTRACT_POLYFIT;
-	pl->data[dN].sub[sN].op.polyfit.column_X = pl->figure[fN].column_X;
-	pl->data[dN].sub[sN].op.polyfit.column_Y = pl->figure[fN].column_Y;
-	pl->data[dN].sub[sN].op.polyfit.poly_N0 = N0;
-	pl->data[dN].sub[sN].op.polyfit.poly_N1 = N1;
+    pl->figure[fN_pol].drawing = pl->figure[fN].drawing;
+    pl->figure[fN_pol].width = pl->figure[fN].width;
 
-	for (N = 0; N < N1 - N0 + 1; ++N) {
-
-		pl->data[dN].sub[sN].op.polyfit.coefs[N] = pl->lsq.sol.m[N];
-	}
-
-	pl->data[dN].sub[sN].op.polyfit.std = pl->lsq.std.m[0];
-
-	plotDataSubtractCompute(pl, dN, sN);
-
-	cN = sN + pl->data[dN].column_N;
-	aN = pl->figure[fN].axis_Y;
-
-	plotFigureAdd(pl, fN_pol, dN, pl->figure[fN].column_X, cN,
-			pl->figure[fN].axis_X, aN, "");
-
-	sprintf(pl->figure[fN_pol].label, "P: %.75s", pl->figure[fN].label);
-
-	pl->figure[fN_pol].drawing = pl->figure[fN].drawing;
-	pl->figure[fN_pol].width = pl->figure[fN].width;
-
-	plotDataBoxPolyfit(pl, fN_pol);
+    plotDataBoxPolyfit(pl, fN_pol);
 }
 
-static void
-plotLabelFusedCSV(plot_t *pl, char *label, const char *name, const char *unit)
+static void plotLabelFusedCSV(plot_t *pl, char *label, const char *name, const char *unit)
 {
-	const read_t	*rd = (const read_t *) pl->ld;
+    const read_t *rd = (const read_t *) pl->ld;
+    const char *s;
+    char *l = label;
+    int n;
 
-	const char	*s;
-	char		*l = label;
-	int		n;
+    s = strrchr(name, ' ');
+    s = (s != NULL) ? s + 1 : name;
+    n = 0;
 
-	s = strrchr(name, ' ');
-	s = (s != NULL) ? s + 1 : name;
-	n = 0;
+    while (*s != 0) {
+        if (*s == '@') break;
 
-	while (*s != 0) {
+        *l++ = (strchr(rd->mk_text.space, *s) == NULL) ? *s : '_';
 
-		if (*s == '@')
-			break;
+        ++s;
+        ++n;
 
-		*l++ = (strchr(rd->mk_text.space, *s) == NULL) ? *s : '_';
+        if (n >= 50) break;
+    }
 
-		++s;
-		++n;
+    s = unit;
+    n = 0;
 
-		if (n >= 50)
-			break;
-	}
+    if (*s != 0) {
+        *l++ = '@';
+    }
 
-	s = unit;
-	n = 0;
+    while (*s != 0) {
+        if (*s == '@') break;
 
-	if (*s != 0) {
+        *l++ = (strchr(rd->mk_text.space, *s) == NULL) ? *s : '_';
 
-		*l++ = '@';
-	}
+        ++s;
+        ++n;
 
-	while (*s != 0) {
+        if (n >= 20) break;
+    }
 
-		if (*s == '@')
-			break;
-
-		*l++ = (strchr(rd->mk_text.space, *s) == NULL) ? *s : '_';
-
-		++s;
-		++n;
-
-		if (n >= 20)
-			break;
-	}
-
-	*l = 0;
+    *l = 0;
 }
 
-#define PLOT_CSV_COLUMN_MAX		(PLOT_FIGURE_MAX * 2)
+#define PLOT_CSV_COLUMN_MAX (PLOT_FIGURE_MAX * 2)
 
 int plotFigureExportCSV(plot_t *pl, const char *file)
 {
-	int		list_dN[PLOT_CSV_COLUMN_MAX];
-	int		list_cN[PLOT_CSV_COLUMN_MAX];
-	int		list_fN[PLOT_CSV_COLUMN_MAX];
+    int list_dN[PLOT_CSV_COLUMN_MAX];
+    int list_cN[PLOT_CSV_COLUMN_MAX];
+    int list_fN[PLOT_CSV_COLUMN_MAX];
+    int N, fN, aN, job, len_N = 0;
 
-	int		N, fN, aN, job, len_N = 0;
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].busy != 0 && pl->figure[fN].hidden == 0) {
+            job = 1;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+            for (N = 0; N < len_N; ++N) {
+                if (list_dN[N] == pl->figure[fN].data_N && list_cN[N] == pl->figure[fN].column_X) {
+                    job = 0;
+                    break;
+                }
+            }
 
-		if (		pl->figure[fN].busy != 0
-				&& pl->figure[fN].hidden == 0) {
+            if (job != 0) {
+                list_dN[len_N] = pl->figure[fN].data_N;
+                list_cN[len_N] = pl->figure[fN].column_X;
+                list_fN[len_N] = fN;
 
-			job = 1;
+                len_N++;
+            }
 
-			for (N = 0; N < len_N; ++N) {
+            job = 1;
 
-				if (		list_dN[N] == pl->figure[fN].data_N
-						&& list_cN[N] == pl->figure[fN].column_X) {
+            for (N = 0; N < len_N; ++N) {
+                if (list_dN[N] == pl->figure[fN].data_N && list_cN[N] == pl->figure[fN].column_Y) {
+                    job = 0;
+                    break;
+                }
+            }
 
-					job = 0;
-					break;
-				}
-			}
+            if (job != 0) {
+                list_dN[len_N] = pl->figure[fN].data_N;
+                list_cN[len_N] = pl->figure[fN].column_Y;
+                list_fN[len_N] = fN;
 
-			if (job != 0) {
+                len_N++;
+            }
+        }
+    }
 
-				list_dN[len_N] = pl->figure[fN].data_N;
-				list_cN[len_N] = pl->figure[fN].column_X;
-				list_fN[len_N] = fN;
+    if (len_N >= 2) {
+        const read_t *rd = (const read_t *) pl->ld;
+        FILE *fd_csv;
 
-				len_N++;
-			}
+        char labelbuf[PLOT_STRING_MAX];
 
-			job = 1;
+        fd_csv = unified_fopen(file, "w");
 
-			for (N = 0; N < len_N; ++N) {
+        if (fd_csv == NULL) {
+            ERROR("fopen(\"%s\"): %s\n", file, strerror(errno));
+            return -1;
+        }
 
-				if (		list_dN[N] == pl->figure[fN].data_N
-						&& list_cN[N] == pl->figure[fN].column_Y) {
+        for (N = 0; N < len_N; ++N) {
+            fN = list_fN[N];
 
-					job = 0;
-					break;
-				}
-			}
+            if (list_cN[N] == pl->figure[fN].column_X) {
+                aN = pl->figure[fN].axis_X;
 
-			if (job != 0) {
+                plotLabelFusedCSV(pl, labelbuf, "time",
+                        pl->axis[aN].label);
+            } else {
+                aN = pl->figure[fN].axis_Y;
 
-				list_dN[len_N] = pl->figure[fN].data_N;
-				list_cN[len_N] = pl->figure[fN].column_Y;
-				list_fN[len_N] = fN;
-
-				len_N++;
-			}
-		}
-	}
-
-	if (len_N >= 2) {
-
-		const read_t	*rd = (const read_t *) pl->ld;
-		FILE		*fd_csv;
-
-		char		labelbuf[PLOT_STRING_MAX];
-
-		fd_csv = unified_fopen(file, "w");
-
-		if (fd_csv == NULL) {
-
-			ERROR("fopen(\"%s\"): %s\n", file, strerror(errno));
-			return -1;
-		}
-
-		for (N = 0; N < len_N; ++N) {
-
-			fN = list_fN[N];
-
-			if (list_cN[N] == pl->figure[fN].column_X) {
-
-				aN = pl->figure[fN].axis_X;
-
-				plotLabelFusedCSV(pl, labelbuf, "time",
-						pl->axis[aN].label);
-			}
-			else {
-				aN = pl->figure[fN].axis_Y;
-
-				plotLabelFusedCSV(pl, labelbuf,
-						pl->figure[fN].label,
-						pl->axis[aN].label);
-			}
+                plotLabelFusedCSV(pl, labelbuf,
+                        pl->figure[fN].label,
+                        pl->axis[aN].label);
+            }
 
 #ifdef _WINDOWS
-			if (rd->legacy_label == 1) {
-
-				legacy_UTF8_to_ACP(labelbuf, labelbuf, sizeof(labelbuf));
-			}
-			else if (rd->legacy_label == 2) {
-
-				legacy_UTF8_to_OEM(labelbuf, labelbuf, sizeof(labelbuf));
-			}
+            if (rd->legacy_label == 1) {
+                legacy_UTF8_to_ACP(labelbuf, labelbuf, sizeof(labelbuf));
+            } else if (rd->legacy_label == 2) {
+                legacy_UTF8_to_OEM(labelbuf, labelbuf, sizeof(labelbuf));
+            }
 #endif /* _WINDOWS */
 
-			fprintf(fd_csv, "%s%c", labelbuf, rd->mk_text.space[0]);
-		}
+            fprintf(fd_csv, "%s%c", labelbuf, rd->mk_text.space[0]);
+        }
 
-		fprintf(fd_csv, "\n");
+        fprintf(fd_csv, "\n");
 
-		plotDataFileCSV(pl, list_dN, list_cN, len_N, fd_csv);
+        plotDataFileCSV(pl, list_dN, list_cN, len_N, fd_csv);
 
-		fclose(fd_csv);
-	}
+        fclose(fd_csv);
+    }
 
-	return 0;
+    return 0;
 }
 
 void plotFigureClean(plot_t *pl)
 {
-	int		N;
+    int N;
 
-	for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+    for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+        pl->figure[N].busy = 0;
+        pl->figure[N].hidden = 0;
+        pl->figure[N].label[0] = 0;
+    }
 
-		pl->figure[N].busy = 0;
-		pl->figure[N].hidden = 0;
-		pl->figure[N].label[0] = 0;
-	}
+    for (N = 0; N < PLOT_AXES_MAX; ++N) {
+        pl->axis[N].busy = AXIS_FREE;
+        pl->axis[N].slave = 0;
+        pl->axis[N].label[0] = 0;
+        pl->axis[N].compact = 1;
+        pl->axis[N].exponential = 0;
+    }
 
-	for (N = 0; N < PLOT_AXES_MAX; ++N) {
+    pl->legend_X = 0;
+    pl->legend_Y = 0;
 
-		pl->axis[N].busy = AXIS_FREE;
-		pl->axis[N].slave = 0;
-		pl->axis[N].label[0] = 0;
-		pl->axis[N].compact = 1;
-		pl->axis[N].exponential = 0;
-	}
+    pl->data_box_on = DATA_BOX_FREE;
+    pl->data_box_X = pl->viewport.max_x;
+    pl->data_box_Y = 0;
 
-	pl->legend_X = 0;
-	pl->legend_Y = 0;
+    pl->slice_on = 0;
+    pl->slice_mode_N = 0;
 
-	pl->data_box_on = DATA_BOX_FREE;
-	pl->data_box_X = pl->viewport.max_x;
-	pl->data_box_Y = 0;
+    pl->pick_on = 0;
 
-	pl->slice_on = 0;
-	pl->slice_mode_N = 0;
+    pl->on_X = -1;
+    pl->on_Y = -1;
 
-	pl->pick_on = 0;
+    pl->hover_figure = -1;
+    pl->hover_legend = -1;
+    pl->hover_data_box = -1;
+    pl->hover_axis = -1;
 
-	pl->on_X = -1;
-	pl->on_Y = -1;
+    pl->mark_on = 0;
+    pl->brush_on = 0;
 
-	pl->hover_figure = -1;
-	pl->hover_legend = -1;
-	pl->hover_data_box = -1;
-	pl->hover_axis = -1;
-
-	pl->mark_on = 0;
-	pl->brush_on = 0;
-
-	plotSketchClean(pl);
+    plotSketchClean(pl);
 }
 
-static void
-plotMarkLayout(plot_t *pl)
+static void plotMarkLayout(plot_t *pl)
 {
-	const fval_t	*row;
+    const fval_t *row;
+    double bias, urand, sigma, total, scale, offset, fval_X, fval_Y;
+    int fN, vN, aN, bN, cX, cY, cZ, N, id_N, fMAX = 0;
+    Uint32 rseed;
 
-	double		bias, urand, sigma, total, scale, offset, fval_X, fval_Y;
-	int		fN, vN, aN, bN, cX, cY, cZ, N, id_N, fMAX = 0;
+    const int ltdense[PLOT_FIGURE_MAX] = {
+        250, 353, 433, 500, 559, 612, 661, 707, 750, 790 /* 250 * sqrt(N) */
+    };
 
-	Uint32		rseed;
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].busy != 0 && pl->figure[fN].hidden == 0) {
+            fMAX++;
+        }
+    }
 
-	const int	ltdense[PLOT_FIGURE_MAX] = {
+    if (fMAX == 0) return;
 
-		250, 353, 433, 500, 559, 612, 661, 707, 750, 790	/* 250 * sqrt(N) */
-	};
+    rseed = SDL_GetTicks();
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+    rseed = rseed * 17317U + 1U;
+    rseed = rseed * 17317U + 1U;
 
-		if (		pl->figure[fN].busy != 0
-				&& pl->figure[fN].hidden == 0) {
+    pl->layout_mark_size = pl->layout_font_height * pl->mark_size / 200;
+    pl->layout_mark_size = (pl->layout_mark_size < 1) ? 1 : pl->layout_mark_size;
 
-			fMAX++;
-		}
-	}
+    pl->mark_length = (pl->viewport.max_x - pl->viewport.min_x)
+        * pl->mark_density / (pl->layout_mark_size * ltdense[fMAX - 1]);
 
-	if (fMAX == 0)
-		return ;
+    pl->mark_length = (pl->mark_length > PLOT_MARK_MAX) ? PLOT_MARK_MAX
+        : (pl->mark_length < 4) ? 4 : pl->mark_length;
 
-	rseed = SDL_GetTicks();
+    total = (double)(pl->viewport.max_x - pl->viewport.min_x);
+    sigma = (double)pl->layout_mark_size / total;
 
-	rseed = rseed * 17317U + 1U;
-	rseed = rseed * 17317U + 1U;
+    total = (double)(pl->mark_length * fMAX);
 
-	pl->layout_mark_size = pl->layout_font_height * pl->mark_size / 200;
-	pl->layout_mark_size = (pl->layout_mark_size < 1) ? 1 : pl->layout_mark_size;
+    for (fN = 0, vN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].busy != 0 && pl->figure[fN].hidden == 0) {
+            aN = pl->figure[fN].axis_X;
+            cZ = pl->figure[fN].column_X;
 
-	pl->mark_length = (pl->viewport.max_x - pl->viewport.min_x)
-		* pl->mark_density / (pl->layout_mark_size * ltdense[fMAX - 1]);
+            scale = pl->axis[aN].scale;
+            offset = pl->axis[aN].offset;
 
-	pl->mark_length = (pl->mark_length > PLOT_MARK_MAX) ? PLOT_MARK_MAX
-		: (pl->mark_length < 4) ? 4 : pl->mark_length;
+            if (pl->axis[aN].slave != 0) {
+                bN = pl->axis[aN].slave_N;
 
-	total = (double) (pl->viewport.max_x - pl->viewport.min_x);
-	sigma = (double) pl->layout_mark_size / total;
+                scale *= pl->axis[bN].scale;
+                offset = offset * pl->axis[bN].scale + pl->axis[bN].offset;
+            }
 
-	total = (double) (pl->mark_length * fMAX);
+            rseed = rseed * 17317U + 1U;
+            bias = (double)((rseed >> 16) & 65535U) / (double)(pl->mark_length * 65535U);
 
-	for (fN = 0, vN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+            for (N = 0; N < pl->mark_length; ++N) {
+                rseed = rseed * 17317U + 1U;
+                urand = (double)((int)((rseed >> 16) & 65535U) - 32767) / (double)32767U;
 
-		if (		pl->figure[fN].busy != 0
-				&& pl->figure[fN].hidden == 0) {
+                bias += urand * sigma;
 
-			aN = pl->figure[fN].axis_X;
-			cZ = pl->figure[fN].column_X;
+                fval_X = bias + (double)(N * fMAX + vN) / total;
+                fval_X = (fval_X > 1.) ? fval_X - 1. : (fval_X < 0.) ? fval_X + 1. : fval_X;
 
-			scale = pl->axis[aN].scale;
-			offset = pl->axis[aN].offset;
+                fval_X = (fval_X - offset) / scale;
 
-			if (pl->axis[aN].slave != 0) {
+                row = plotDataSliceGet(pl, pl->figure[fN].data_N, cZ, fval_X, &id_N);
 
-				bN = pl->axis[aN].slave_N;
+                if (row != NULL) {
+                    cX = pl->figure[fN].column_X;
+                    cY = pl->figure[fN].column_Y;
 
-				scale *= pl->axis[bN].scale;
-				offset = offset * pl->axis[bN].scale
-					+ pl->axis[bN].offset;
-			}
+                    fval_X = (cX < 0) ? id_N : row[cX];
+                    fval_Y = (cY < 0) ? id_N : row[cY];
 
-			rseed = rseed * 17317U + 1U;
-			bias = (double) ((rseed >> 16) & 65535U)
-				/ (double) (pl->mark_length * 65535U);
+                    pl->figure[fN].mark_X[N] = fval_X;
+                    pl->figure[fN].mark_Y[N] = fval_Y;
+                } else {
+                    pl->figure[fN].mark_X[N] = FP_NAN;
+                    pl->figure[fN].mark_Y[N] = FP_NAN;
+                }
+            }
 
-			for (N = 0; N < pl->mark_length; ++N) {
-
-				rseed = rseed * 17317U + 1U;
-				urand = (double) ((int) ((rseed >> 16) & 65535U)
-						- 32767) / (double) 32767U;
-
-				bias += urand * sigma;
-
-				fval_X = bias + (double) (N * fMAX + vN) / total;
-				fval_X = (fval_X > 1.) ? fval_X - 1.
-					: (fval_X < 0.) ? fval_X + 1. : fval_X;
-
-				fval_X = (fval_X - offset) / scale;
-
-				row = plotDataSliceGet(pl, pl->figure[fN].data_N,
-							cZ, fval_X, &id_N);
-
-				if (row != NULL) {
-
-					cX = pl->figure[fN].column_X;
-					cY = pl->figure[fN].column_Y;
-
-					fval_X = (cX < 0) ? id_N : row[cX];
-					fval_Y = (cY < 0) ? id_N : row[cY];
-
-					pl->figure[fN].mark_X[N] = fval_X;
-					pl->figure[fN].mark_Y[N] = fval_Y;
-				}
-				else {
-					pl->figure[fN].mark_X[N] = FP_NAN;
-					pl->figure[fN].mark_Y[N] = FP_NAN;
-				}
-			}
-
-			vN++;
-		}
-	}
+            vN++;
+        }
+    }
 }
 
-static void
-plotMarkDraw(plot_t *pl, SDL_Surface *surface)
+static void plotMarkDraw(plot_t *pl, SDL_Surface *surface)
 {
-	double		X, Y, scale_X, scale_Y, offset_X, offset_Y;
-	int		N, fN, aN, bN, fwidth;
+    double X, Y, scale_X, scale_Y, offset_X, offset_Y;
+    int N, fN, aN, bN, fwidth;
+    int ncolor;
 
-	int		ncolor;
+    SDL_LockSurface(surface);
 
-	SDL_LockSurface(surface);
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].busy != 0 && pl->figure[fN].hidden == 0) {
+            ncolor = (pl->figure[fN].hidden != 0) ? 11 : fN + 1;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+            fwidth = pl->figure[fN].width;
+            fwidth = (fwidth < 1) ? 1 : fwidth;
 
-		if (		pl->figure[fN].busy != 0
-				&& pl->figure[fN].hidden == 0) {
+            aN = pl->figure[fN].axis_X;
+            scale_X = pl->axis[aN].scale;
+            offset_X = pl->axis[aN].offset;
 
-			ncolor = (pl->figure[fN].hidden != 0) ? 11 : fN + 1;
+            if (pl->axis[aN].slave != 0) {
+                bN = pl->axis[aN].slave_N;
 
-			fwidth = pl->figure[fN].width;
-			fwidth = (fwidth < 1) ? 1 : fwidth;
+                scale_X *= pl->axis[bN].scale;
+                offset_X = offset_X * pl->axis[bN].scale + pl->axis[bN].offset;
+            }
 
-			aN = pl->figure[fN].axis_X;
-			scale_X = pl->axis[aN].scale;
-			offset_X = pl->axis[aN].offset;
+            aN = pl->figure[fN].axis_Y;
+            scale_Y = pl->axis[aN].scale;
+            offset_Y = pl->axis[aN].offset;
 
-			if (pl->axis[aN].slave != 0) {
+            if (pl->axis[aN].slave != 0) {
+                bN = pl->axis[aN].slave_N;
 
-				bN = pl->axis[aN].slave_N;
+                scale_Y *= pl->axis[bN].scale;
+                offset_Y = offset_Y * pl->axis[bN].scale + pl->axis[bN].offset;
+            }
 
-				scale_X *= pl->axis[bN].scale;
-				offset_X = offset_X * pl->axis[bN].scale
-					+ pl->axis[bN].offset;
-			}
+            X = (double)(pl->viewport.max_x - pl->viewport.min_x);
+            Y = (double)(pl->viewport.min_y - pl->viewport.max_y);
 
-			aN = pl->figure[fN].axis_Y;
-			scale_Y = pl->axis[aN].scale;
-			offset_Y = pl->axis[aN].offset;
+            scale_X *= X;
+            offset_X = offset_X * X + pl->viewport.min_x;
+            scale_Y *= Y;
+            offset_Y = offset_Y * Y + pl->viewport.max_y;
 
-			if (pl->axis[aN].slave != 0) {
+            for (N = 0; N < pl->mark_length; ++N) {
+                X = pl->figure[fN].mark_X[N] * scale_X + offset_X;
+                Y = pl->figure[fN].mark_Y[N] * scale_Y + offset_Y;
 
-				bN = pl->axis[aN].slave_N;
+                if (fp_isfinite(X) && fp_isfinite(Y)) {
+                    drawMarkCanvas(pl->dw, surface, &pl->viewport, X, Y,
+                            pl->layout_mark_size, fN, ncolor, fwidth);
+                }
+            }
+        }
+    }
 
-				scale_Y *= pl->axis[bN].scale;
-				offset_Y = offset_Y * pl->axis[bN].scale
-					+ pl->axis[bN].offset;
-			}
-
-			X = (double) (pl->viewport.max_x - pl->viewport.min_x);
-			Y = (double) (pl->viewport.min_y - pl->viewport.max_y);
-
-			scale_X *= X;
-			offset_X = offset_X * X + pl->viewport.min_x;
-			scale_Y *= Y;
-			offset_Y = offset_Y * Y + pl->viewport.max_y;
-
-			for (N = 0; N < pl->mark_length; ++N) {
-
-				X = pl->figure[fN].mark_X[N] * scale_X + offset_X;
-				Y = pl->figure[fN].mark_Y[N] * scale_Y + offset_Y;
-
-				if (fp_isfinite(X) && fp_isfinite(Y)) {
-
-					drawMarkCanvas(pl->dw, surface, &pl->viewport, X, Y,
-							pl->layout_mark_size, fN, ncolor, fwidth);
-				}
-			}
-		}
-	}
-
-	SDL_UnlockSurface(surface);
+    SDL_UnlockSurface(surface);
 }
 
 void plotGroupAdd(plot_t *pl, int dN, int gN, int cN)
 {
-	if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+    if (dN < 0 || dN >= PLOT_DATASET_MAX) {
+        ERROR("Dataset number is out of range\n");
+        return;
+    }
 
-		ERROR("Dataset number is out of range\n");
-		return ;
-	}
+    if (gN < 0 || gN >= PLOT_GROUP_MAX) {
+        ERROR("Group number is out of range\n");
+        return;
+    }
 
-	if (gN < 0 || gN >= PLOT_GROUP_MAX) {
+    if (cN < -1 || cN >= pl->data[dN].column_N + PLOT_SUBTRACT) {
+        ERROR("Column number %i is out of range\n", cN);
+        return;
+    }
 
-		ERROR("Group number is out of range\n");
-		return ;
-	}
-
-	if (cN < -1 || cN >= pl->data[dN].column_N + PLOT_SUBTRACT) {
-
-		ERROR("Column number %i is out of range\n", cN);
-		return ;
-	}
-
-	pl->data[dN].map[cN] = gN;
+    pl->data[dN].map[cN] = gN;
 }
 
 void plotGroupLabel(plot_t *pl, int gN, const char *label)
 {
-	if (gN < 0 || gN >= PLOT_GROUP_MAX) {
+    if (gN < 0 || gN >= PLOT_GROUP_MAX) {
+        ERROR("Group number is out of range\n");
+        return;
+    }
 
-		ERROR("Group number is out of range\n");
-		return ;
-	}
-
-	if (label[0] != 0) {
-
-		strcpy(pl->group[gN].label, label);
-	}
+    if (label[0] != 0) {
+        strcpy(pl->group[gN].label, label);
+    }
 }
 
 void plotGroupMedian(plot_t *pl, int gN, int length, int unwrap, int opdata)
 {
-	if (gN < 0 || gN >= PLOT_GROUP_MAX) {
+    if (gN < 0 || gN >= PLOT_GROUP_MAX) {
+        ERROR("Group number is out of range\n");
+        return;
+    }
 
-		ERROR("Group number is out of range\n");
-		return ;
-	}
-
-	pl->group[gN].op_time_median = (length >= 1) ? 1 : 0;
-	pl->group[gN].op_time_unwrap = unwrap;
-	pl->group[gN].op_time_opdata = opdata;
-
-	pl->group[gN].length = length;
+    pl->group[gN].op_time_median = (length >= 1) ? 1 : 0;
+    pl->group[gN].op_time_unwrap = unwrap;
+    pl->group[gN].op_time_opdata = opdata;
+    pl->group[gN].length = length;
 }
 
 void plotGroupScale(plot_t *pl, int gN, int knob, double scale, double offset)
 {
-	if (gN < 0 || gN >= PLOT_GROUP_MAX) {
+    if (gN < 0 || gN >= PLOT_GROUP_MAX) {
+        ERROR("Group number is out of range\n");
+        return;
+    }
 
-		ERROR("Group number is out of range\n");
-		return ;
-	}
-
-	pl->group[gN].op_scale = (knob != 0) ? 1 : 0;
-
-	pl->group[gN].scale = scale;
-	pl->group[gN].offset = offset;
+    pl->group[gN].op_scale = (knob != 0) ? 1 : 0;
+    pl->group[gN].scale = scale;
+    pl->group[gN].offset = offset;
 }
 
 void plotSliceSwitch(plot_t *pl)
 {
-	int		fN;
+    int fN;
 
-	if (pl->slice_mode_N == 0) {
+    if (pl->slice_mode_N == 0) {
+        pl->slice_mode_N = 1;
 
-		pl->slice_mode_N = 1;
+        for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+            pl->figure[fN].slice_base_catch = pl->figure[fN].slice_busy;
 
-		for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
-
-			pl->figure[fN].slice_base_catch = pl->figure[fN].slice_busy;
-
-			if (pl->figure[fN].slice_busy != 0) {
-
-				pl->figure[fN].slice_base_X = pl->figure[fN].slice_X;
-				pl->figure[fN].slice_base_Y = pl->figure[fN].slice_Y;
-			}
-		}
-	}
-	else if (pl->slice_mode_N == 1) {
-
-		pl->slice_mode_N = 2;
-	}
-	else if (pl->slice_mode_N == 2) {
-
-		pl->slice_mode_N = 0;
-	}
+            if (pl->figure[fN].slice_busy != 0) {
+                pl->figure[fN].slice_base_X = pl->figure[fN].slice_X;
+                pl->figure[fN].slice_base_Y = pl->figure[fN].slice_Y;
+            }
+        }
+    } else if (pl->slice_mode_N == 1) {
+        pl->slice_mode_N = 2;
+    } else if (pl->slice_mode_N == 2) {
+        pl->slice_mode_N = 0;
+    }
 }
 
 void plotSliceTrack(plot_t *pl, int cur_X, int cur_Y)
 {
-	const fval_t	*row = NULL;
+    const fval_t *row = NULL;
+    double fval_X, fval_Y;
+    int N, fN, aN, bN, dN, cX, cY, id_N, job;
+    int dN_cache, aN_cache, cX_cache;
 
-	double		fval_X, fval_Y;
-	int		N, fN, aN, bN, dN, cX, cY, id_N, job;
-	int		dN_cache, aN_cache, cX_cache;
+    if (pl->slice_mode_N == 2) return;
 
-	if (pl->slice_mode_N == 2)
-		return ;
+    if (pl->slice_axis_N < 0) {
+        pl->slice_axis_N = pl->on_X;
+    }
 
-	if (pl->slice_axis_N < 0) {
+    if (pl->slice_axis_N < 0) {
+        ERROR("No valid axis number to slice data\n");
+        return;
+    }
 
-		pl->slice_axis_N = pl->on_X;
-	}
+    dN_cache = -1;
+    aN_cache = -1;
+    cX_cache = -1;
 
-	if (pl->slice_axis_N < 0) {
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        pl->figure[fN].slice_busy = 0;
+        pl->figure[fN].slice_row = NULL;
 
-		ERROR("No valid axis number to slice data\n");
-		return ;
-	}
+        job = 0;
 
-	dN_cache = -1;
-	aN_cache = -1;
-	cX_cache = -1;
+        if (pl->figure[fN].busy != 0 && pl->figure[fN].hidden == 0) {
+            aN = pl->slice_axis_N;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+            if (pl->axis[aN].busy == AXIS_BUSY_X) {
+                if (pl->figure[fN].axis_X == aN) {
 
-		pl->figure[fN].slice_busy = 0;
-		pl->figure[fN].slice_row = NULL;
+                    job = 1;
+                } else {
+                    bN = pl->figure[fN].axis_X;
 
-		job = 0;
+                    if (pl->axis[bN].slave != 0) {
+                        if (pl->axis[bN].slave_N == aN)
+                            job = 1;
+                    } else if (pl->axis[aN].slave != 0) {
+                        if (pl->axis[aN].slave_N == bN)
+                            job = 1;
+                    }
+                }
 
-		if (pl->figure[fN].busy != 0 && pl->figure[fN].hidden == 0) {
+                aN = pl->figure[fN].axis_X;
+                cX = pl->figure[fN].column_X;
 
-			aN = pl->slice_axis_N;
+                fval_X = plotAxisConvBackward(pl, aN, cur_X);
+            } else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
+                if (pl->figure[fN].axis_Y == aN) {
+                    job = 1;
+                } else {
+                    bN = pl->figure[fN].axis_Y;
 
-			if (pl->axis[aN].busy == AXIS_BUSY_X) {
+                    if (pl->axis[bN].slave != 0) {
+                        if (pl->axis[bN].slave_N == aN)
+                            job = 1;
+                    } else if (pl->axis[aN].slave != 0) {
+                        if (pl->axis[aN].slave_N == bN)
+                            job = 1;
+                    }
+                }
 
-				if (pl->figure[fN].axis_X == aN) {
+                aN = pl->figure[fN].axis_Y;
+                cX = pl->figure[fN].column_Y;
 
-					job = 1;
-				}
-				else {
-					bN = pl->figure[fN].axis_X;
+                fval_X = plotAxisConvBackward(pl, aN, cur_Y);
+            }
+        }
 
-					if (pl->axis[bN].slave != 0) {
+        if (job) {
+            dN = pl->figure[fN].data_N;
 
-						if (pl->axis[bN].slave_N == aN)
-							job = 1;
-					}
-					else if (pl->axis[aN].slave != 0) {
+            if (dN_cache != dN || aN_cache != aN || cX_cache != cX) {
+                row = plotDataSliceGet(pl, dN, cX, fval_X, &id_N);
 
-						if (pl->axis[aN].slave_N == bN)
-							job = 1;
-					}
-				}
+                dN_cache = dN;
+                aN_cache = aN;
+                cX_cache = cX;
+            }
 
-				aN = pl->figure[fN].axis_X;
-				cX = pl->figure[fN].column_X;
+            if (row != NULL) {
+                cX = pl->figure[fN].column_X;
+                cY = pl->figure[fN].column_Y;
 
-				fval_X = plotAxisConvBackward(pl, aN, cur_X);
-			}
-			else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
+                fval_X = (cX < 0) ? id_N : row[cX];
+                fval_Y = (cY < 0) ? id_N : row[cY];
 
-				if (pl->figure[fN].axis_Y == aN) {
+                pl->figure[fN].slice_busy = 1;
+                pl->figure[fN].slice_row = row;
+                pl->figure[fN].slice_id_N = id_N;
+                pl->figure[fN].slice_X = fval_X;
+                pl->figure[fN].slice_Y = fval_Y;
+            }
+        }
+    }
 
-					job = 1;
-				}
-				else {
-					bN = pl->figure[fN].axis_Y;
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].slice_busy == 0 && pl->figure[fN].busy != 0 && pl->figure[fN].hidden == 0) {
+            dN = pl->figure[fN].data_N;
 
-					if (pl->axis[bN].slave != 0) {
+            for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+                if (pl->figure[N].slice_busy != 0 && pl->figure[N].busy != 0 && pl->figure[N].hidden == 0
+                        && pl->figure[N].slice_row != NULL && pl->figure[N].data_N == dN) {
+                    row = pl->figure[N].slice_row;
+                    id_N = pl->figure[N].slice_id_N;
 
-						if (pl->axis[bN].slave_N == aN)
-							job = 1;
-					}
-					else if (pl->axis[aN].slave != 0) {
+                    cX = pl->figure[fN].column_X;
+                    cY = pl->figure[fN].column_Y;
 
-						if (pl->axis[aN].slave_N == bN)
-							job = 1;
-					}
-				}
+                    fval_X = (cX < 0) ? id_N : row[cX];
+                    fval_Y = (cY < 0) ? id_N : row[cY];
 
-				aN = pl->figure[fN].axis_Y;
-				cX = pl->figure[fN].column_Y;
+                    pl->figure[fN].slice_busy = 1;
+                    pl->figure[fN].slice_X = fval_X;
+                    pl->figure[fN].slice_Y = fval_Y;
 
-				fval_X = plotAxisConvBackward(pl, aN, cur_Y);
-			}
-		}
+                    break;
+                }
+            }
+        }
+    }
 
-		if (job) {
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        pl->data_box_text[fN][0] = 0;
 
-			dN = pl->figure[fN].data_N;
+        if (pl->figure[fN].slice_busy != 0) {
+            const read_t *rd = (const read_t *) pl->ld;
 
-			if (		   dN_cache != dN
-					|| aN_cache != aN
-					|| cX_cache != cX) {
+            if (pl->slice_mode_N != 0 && pl->figure[fN].slice_base_catch != 0) {
+                fval_X = pl->figure[fN].slice_base_X;
+                fval_Y = pl->figure[fN].slice_base_Y;
 
-				row = plotDataSliceGet(pl, dN, cX, fval_X, &id_N);
+                strcat(pl->data_box_text[fN], " \xCE\x94");
+                plotDataBoxTextFmt(pl, fN, pl->figure[fN].slice_X - fval_X);
 
-				dN_cache = dN;
-				aN_cache = aN;
-				cX_cache = cX;
-			}
+                strcat(pl->data_box_text[fN], "\xCE\x94");
+                plotDataBoxTextFmt(pl, fN, pl->figure[fN].slice_Y - fval_Y);
+            } else {
+                plotDataBoxTextFmt(pl, fN, pl->figure[fN].slice_X);
 
-			if (row != NULL) {
+                dN = pl->figure[fN].data_N;
+                cY = pl->figure[fN].column_Y;
 
-				cX = pl->figure[fN].column_X;
-				cY = pl->figure[fN].column_Y;
+                if (pl->fhexadecimal != 0
+                        && (rd->data[dN].hint[cY] == DATA_HINT_HEX || rd->data[dN].hint[cY] == DATA_HINT_OCT)) {
+                    plotDataBoxTextHex(pl, fN, pl->figure[fN].slice_Y);
+                } else {
+                    plotDataBoxTextFmt(pl, fN, pl->figure[fN].slice_Y);
+                }
+            }
+        }
+    }
 
-				fval_X = (cX < 0) ? id_N : row[cX];
-				fval_Y = (cY < 0) ? id_N : row[cY];
-
-				pl->figure[fN].slice_busy = 1;
-				pl->figure[fN].slice_row = row;
-				pl->figure[fN].slice_id_N = id_N;
-				pl->figure[fN].slice_X = fval_X;
-				pl->figure[fN].slice_Y = fval_Y;
-			}
-		}
-	}
-
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
-
-		if (		pl->figure[fN].slice_busy == 0
-				&& pl->figure[fN].busy != 0
-				&& pl->figure[fN].hidden == 0) {
-
-			dN = pl->figure[fN].data_N;
-
-			for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
-
-				if (		pl->figure[N].slice_busy != 0
-						&& pl->figure[N].busy != 0
-						&& pl->figure[N].hidden == 0
-						&& pl->figure[N].slice_row != NULL
-						&& pl->figure[N].data_N == dN) {
-
-					row = pl->figure[N].slice_row;
-					id_N = pl->figure[N].slice_id_N;
-
-					cX = pl->figure[fN].column_X;
-					cY = pl->figure[fN].column_Y;
-
-					fval_X = (cX < 0) ? id_N : row[cX];
-					fval_Y = (cY < 0) ? id_N : row[cY];
-
-					pl->figure[fN].slice_busy = 1;
-					pl->figure[fN].slice_X = fval_X;
-					pl->figure[fN].slice_Y = fval_Y;
-
-					break;
-				}
-			}
-		}
-	}
-
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
-
-		pl->data_box_text[fN][0] = 0;
-
-		if (pl->figure[fN].slice_busy != 0) {
-
-			const read_t		*rd = (const read_t *) pl->ld;
-
-			if (		pl->slice_mode_N != 0
-					&& pl->figure[fN].slice_base_catch != 0) {
-
-				fval_X = pl->figure[fN].slice_base_X;
-				fval_Y = pl->figure[fN].slice_base_Y;
-
-				strcat(pl->data_box_text[fN], " \xCE\x94");
-				plotDataBoxTextFmt(pl, fN, pl->figure[fN].slice_X - fval_X);
-
-				strcat(pl->data_box_text[fN], "\xCE\x94");
-				plotDataBoxTextFmt(pl, fN, pl->figure[fN].slice_Y - fval_Y);
-			}
-			else {
-				plotDataBoxTextFmt(pl, fN, pl->figure[fN].slice_X);
-
-				dN = pl->figure[fN].data_N;
-				cY = pl->figure[fN].column_Y;
-
-				if (		pl->fhexadecimal != 0
-						&& (	   rd->data[dN].hint[cY] == DATA_HINT_HEX
-							|| rd->data[dN].hint[cY] == DATA_HINT_OCT)) {
-
-					plotDataBoxTextHex(pl, fN, pl->figure[fN].slice_Y);
-				}
-				else {
-					plotDataBoxTextFmt(pl, fN, pl->figure[fN].slice_Y);
-				}
-			}
-		}
-	}
-
-	if (pl->data_box_on != DATA_BOX_SLICE) {
-
-		pl->data_box_on = DATA_BOX_SLICE;
-		pl->data_box_X = pl->viewport.max_x;
-		pl->data_box_Y = 0;
-	}
+    if (pl->data_box_on != DATA_BOX_SLICE) {
+        pl->data_box_on = DATA_BOX_SLICE;
+        pl->data_box_X = pl->viewport.max_x;
+        pl->data_box_Y = 0;
+    }
 }
 
-static void
-plotSliceDrawLight(plot_t *pl, SDL_Surface *surface)
+static void plotSliceDrawLight(plot_t *pl, SDL_Surface *surface)
 {
-	double		base_X, base_Y, data_X, data_Y, temp;
-	int		fN, aN, bN;
+    double base_X, base_Y, data_X, data_Y, temp;
+    int fN, aN, bN;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].slice_busy != 0 && pl->figure[fN].slice_base_catch != 0) {
+            aN = pl->figure[fN].axis_X;
+            bN = pl->figure[fN].axis_Y;
 
-		if (		pl->figure[fN].slice_busy != 0
-				&& pl->figure[fN].slice_base_catch != 0) {
+            base_X = plotAxisConvForward(pl, aN, pl->figure[fN].slice_base_X);
+            base_Y = plotAxisConvForward(pl, bN, pl->figure[fN].slice_base_Y);
 
-			aN = pl->figure[fN].axis_X;
-			bN = pl->figure[fN].axis_Y;
+            data_X = plotAxisConvForward(pl, aN, pl->figure[fN].slice_X);
+            data_Y = plotAxisConvForward(pl, bN, pl->figure[fN].slice_Y);
 
-			base_X = plotAxisConvForward(pl, aN, pl->figure[fN].slice_base_X);
-			base_Y = plotAxisConvForward(pl, bN, pl->figure[fN].slice_base_Y);
+            if (data_X < base_X) {
+                temp = base_X;
+                base_X = data_X;
+                data_X = temp;
+            }
 
-			data_X = plotAxisConvForward(pl, aN, pl->figure[fN].slice_X);
-			data_Y = plotAxisConvForward(pl, bN, pl->figure[fN].slice_Y);
+            if (data_Y < base_Y) {
+                temp = base_Y;
+                base_Y = data_Y;
+                data_Y = temp;
+            }
 
-			if (data_X < base_X) {
+            SDL_LockSurface(surface);
 
-				temp = base_X;
-				base_X = data_X;
-				data_X = temp;
-			}
+            if (pl->axis[pl->slice_axis_N].busy == AXIS_BUSY_X) {
+                if (fp_isfinite(base_X) && fp_isfinite(data_X)) {
+                    drawClipRect(surface, &pl->viewport,
+                            (int)base_X, pl->viewport.min_y,
+                            (int)data_X, pl->viewport.max_y,
+                            pl->sch->plot_hidden);
+                }
+            } else if (pl->axis[pl->slice_axis_N].busy == AXIS_BUSY_Y) {
+                if (fp_isfinite(base_Y) && fp_isfinite(data_Y)) {
+                    drawClipRect(surface, &pl->viewport,
+                            pl->viewport.min_x, (int) base_Y,
+                            pl->viewport.max_x, (int) data_Y,
+                            pl->sch->plot_hidden);
+                }
+            }
 
-			if (data_Y < base_Y) {
-
-				temp = base_Y;
-				base_Y = data_Y;
-				data_Y = temp;
-			}
-
-			SDL_LockSurface(surface);
-
-			if (pl->axis[pl->slice_axis_N].busy == AXIS_BUSY_X) {
-
-				if (fp_isfinite(base_X) && fp_isfinite(data_X)) {
-
-					drawClipRect(surface, &pl->viewport,
-							(int) base_X, pl->viewport.min_y,
-							(int) data_X, pl->viewport.max_y,
-							pl->sch->plot_hidden);
-				}
-			}
-			else if (pl->axis[pl->slice_axis_N].busy == AXIS_BUSY_Y) {
-
-				if (fp_isfinite(base_Y) && fp_isfinite(data_Y)) {
-
-					drawClipRect(surface, &pl->viewport,
-							pl->viewport.min_x, (int) base_Y,
-							pl->viewport.max_x, (int) data_Y,
-							pl->sch->plot_hidden);
-				}
-			}
-
-			SDL_UnlockSurface(surface);
-		}
-	}
+            SDL_UnlockSurface(surface);
+        }
+    }
 }
 
-static void
-plotSliceDraw(plot_t *pl, SDL_Surface *surface)
+static void plotSliceDraw(plot_t *pl, SDL_Surface *surface)
 {
-	double		base_X, base_Y, data_X, data_Y;
-	int		fN, aN, bN;
+    double base_X, base_Y, data_X, data_Y;
+    int fN, aN, bN;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].slice_busy != 0) {
+            aN = pl->figure[fN].axis_X;
+            bN = pl->figure[fN].axis_Y;
 
-		if (pl->figure[fN].slice_busy != 0) {
+            if (pl->slice_mode_N != 0 && pl->figure[fN].slice_base_catch != 0) {
+                base_X = plotAxisConvForward(pl, aN, pl->figure[fN].slice_base_X);
+                base_Y = plotAxisConvForward(pl, bN, pl->figure[fN].slice_base_Y);
+            }
 
-			aN = pl->figure[fN].axis_X;
-			bN = pl->figure[fN].axis_Y;
+            data_X = plotAxisConvForward(pl, aN, pl->figure[fN].slice_X);
+            data_Y = plotAxisConvForward(pl, bN, pl->figure[fN].slice_Y);
 
-			if (		pl->slice_mode_N != 0
-					&& pl->figure[fN].slice_base_catch != 0) {
+            SDL_LockSurface(surface);
 
-				base_X = plotAxisConvForward(pl, aN, pl->figure[fN].slice_base_X);
-				base_Y = plotAxisConvForward(pl, bN, pl->figure[fN].slice_base_Y);
-			}
+            if (pl->axis[pl->slice_axis_N].busy == AXIS_BUSY_X) {
+                if (pl->slice_mode_N != 0 && pl->figure[fN].slice_base_catch != 0) {
+                    if (fp_isfinite(base_X)) {
+                        drawDashReset(pl->dw);
+                        drawDash(pl->dw, surface, &pl->viewport,
+                                base_X, pl->viewport.min_y,
+                                base_X, pl->viewport.max_y,
+                                pl->sch->plot_text,
+                                pl->layout_fence_dash,
+                                pl->layout_fence_space);
+                    }
+                }
 
-			data_X = plotAxisConvForward(pl, aN, pl->figure[fN].slice_X);
-			data_Y = plotAxisConvForward(pl, bN, pl->figure[fN].slice_Y);
+                if (fp_isfinite(data_X)) {
+                    drawDashReset(pl->dw);
+                    drawDash(pl->dw, surface, &pl->viewport,
+                            data_X, pl->viewport.min_y,
+                            data_X, pl->viewport.max_y,
+                            pl->sch->plot_text,
+                            pl->layout_fence_dash,
+                            pl->layout_fence_space);
+                }
+            } else if (pl->axis[pl->slice_axis_N].busy == AXIS_BUSY_Y) {
+                if (pl->slice_mode_N != 0 && pl->figure[fN].slice_base_catch != 0) {
+                    if (fp_isfinite(base_Y)) {
+                        drawDashReset(pl->dw);
+                        drawDash(pl->dw, surface, &pl->viewport,
+                                pl->viewport.min_x, base_Y,
+                                pl->viewport.max_x, base_Y,
+                                pl->sch->plot_text,
+                                pl->layout_fence_dash,
+                                pl->layout_fence_space);
+                    }
+                }
 
-			SDL_LockSurface(surface);
+                if (fp_isfinite(data_Y)) {
+                    drawDashReset(pl->dw);
+                    drawDash(pl->dw, surface, &pl->viewport,
+                            pl->viewport.min_x, data_Y,
+                            pl->viewport.max_x, data_Y,
+                            pl->sch->plot_text,
+                            pl->layout_fence_dash,
+                            pl->layout_fence_space);
+                }
+            }
 
-			if (pl->axis[pl->slice_axis_N].busy == AXIS_BUSY_X) {
+            if (pl->slice_mode_N != 0 && pl->figure[fN].slice_base_catch != 0) {
+                if (fp_isfinite(base_X) && fp_isfinite(base_Y)) {
+                    drawDotCanvas(pl->dw, surface, &pl->viewport,
+                            base_X, base_Y, pl->layout_fence_point, 12, 0);
+                }
+            }
 
-				if (		pl->slice_mode_N != 0
-						&& pl->figure[fN].slice_base_catch != 0) {
+            if (fp_isfinite(data_X) && fp_isfinite(data_Y)) {
+                drawDotCanvas(pl->dw, surface, &pl->viewport,
+                        data_X, data_Y, pl->layout_fence_point, 12, 0);
+            }
 
-					if (fp_isfinite(base_X)) {
-
-						drawDashReset(pl->dw);
-						drawDash(pl->dw, surface, &pl->viewport,
-								base_X, pl->viewport.min_y,
-								base_X, pl->viewport.max_y,
-								pl->sch->plot_text,
-								pl->layout_fence_dash,
-								pl->layout_fence_space);
-					}
-				}
-
-				if (fp_isfinite(data_X)) {
-
-					drawDashReset(pl->dw);
-					drawDash(pl->dw, surface, &pl->viewport,
-							data_X, pl->viewport.min_y,
-							data_X, pl->viewport.max_y,
-							pl->sch->plot_text,
-							pl->layout_fence_dash,
-							pl->layout_fence_space);
-				}
-			}
-			else if (pl->axis[pl->slice_axis_N].busy == AXIS_BUSY_Y) {
-
-				if (		pl->slice_mode_N != 0
-						&& pl->figure[fN].slice_base_catch != 0) {
-
-					if (fp_isfinite(base_Y)) {
-
-						drawDashReset(pl->dw);
-						drawDash(pl->dw, surface, &pl->viewport,
-								pl->viewport.min_x, base_Y,
-								pl->viewport.max_x, base_Y,
-								pl->sch->plot_text,
-								pl->layout_fence_dash,
-								pl->layout_fence_space);
-					}
-				}
-
-				if (fp_isfinite(data_Y)) {
-
-					drawDashReset(pl->dw);
-					drawDash(pl->dw, surface, &pl->viewport,
-							pl->viewport.min_x, data_Y,
-							pl->viewport.max_x, data_Y,
-							pl->sch->plot_text,
-							pl->layout_fence_dash,
-							pl->layout_fence_space);
-				}
-			}
-
-			if (		pl->slice_mode_N != 0
-					&& pl->figure[fN].slice_base_catch != 0) {
-
-				if (fp_isfinite(base_X) && fp_isfinite(base_Y)) {
-
-					drawDotCanvas(pl->dw, surface, &pl->viewport,
-							base_X, base_Y,
-							pl->layout_fence_point, 12, 0);
-				}
-			}
-
-			if (fp_isfinite(data_X) && fp_isfinite(data_Y)) {
-
-				drawDotCanvas(pl->dw, surface, &pl->viewport,
-						data_X, data_Y,
-						pl->layout_fence_point, 12, 0);
-			}
-
-			SDL_UnlockSurface(surface);
-		}
-	}
+            SDL_UnlockSurface(surface);
+        }
+    }
 }
 
 void plotPickTrack(plot_t *pl, int cur_X, int cur_Y)
 {
-	const fval_t	*row = NULL;
+    const fval_t *row = NULL;
+    double fval_X, fval_Y, tol_X, tol_Y;
+    int N, fN, aN, bN, dN, cNX, cNY, id_N;
 
-	double		fval_X, fval_Y, tol_X, tol_Y;
-	int		N, fN, aN, bN, dN, cNX, cNY, id_N;
+    if (pl->slice_mode_N == 2)
+        return;
 
-	if (pl->slice_mode_N == 2)
-		return ;
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        pl->figure[fN].slice_busy = 0;
+        pl->figure[fN].slice_row = NULL;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].busy != 0 && pl->figure[fN].hidden == 0) {
+            aN = pl->figure[fN].axis_X;
+            bN = pl->figure[fN].axis_Y;
 
-		pl->figure[fN].slice_busy = 0;
-		pl->figure[fN].slice_row = NULL;
+            cNX = pl->figure[fN].column_X;
+            cNY = pl->figure[fN].column_Y;
 
-		if (		pl->figure[fN].busy != 0
-				&& pl->figure[fN].hidden == 0) {
+            fval_X = plotAxisConvBackward(pl, aN, cur_X);
+            fval_Y = plotAxisConvBackward(pl, bN, cur_Y);
 
-			aN = pl->figure[fN].axis_X;
-			bN = pl->figure[fN].axis_Y;
+            if (pl->data_box_on == DATA_BOX_PICK) {
+                tol_X = plotAxisConvBackward(pl, aN, cur_X - pl->layout_font_height);
+                tol_Y = plotAxisConvBackward(pl, bN, cur_Y + pl->layout_font_height);
 
-			cNX = pl->figure[fN].column_X;
-			cNY = pl->figure[fN].column_Y;
+                tol_X = fval_X - tol_X;
+                tol_Y = fval_Y - tol_Y;
+            } else {
+                tol_X = plotAxisConvBackward(pl, aN, cur_X - (pl->viewport.max_x - pl->viewport.min_x));
+                tol_Y = plotAxisConvBackward(pl, bN, cur_Y + (pl->viewport.max_y - pl->viewport.min_y));
 
-			fval_X = plotAxisConvBackward(pl, aN, cur_X);
-			fval_Y = plotAxisConvBackward(pl, bN, cur_Y);
+                tol_X = fval_X - tol_X;
+                tol_Y = fval_Y - tol_Y;
+            }
 
-			if (pl->data_box_on == DATA_BOX_PICK) {
+            if (pl->slice_mode_N == 1 && pl->shift_on != 0 && pl->figure[fN].slice_base_catch == 1) {
+                pl->figure[fN].slice_busy = 1;
+                pl->figure[fN].slice_X = fval_X;
+                pl->figure[fN].slice_Y = fval_Y;
+            }
 
-				tol_X = plotAxisConvBackward(pl, aN, cur_X - pl->layout_font_height);
-				tol_Y = plotAxisConvBackward(pl, bN, cur_Y + pl->layout_font_height);
+            dN = pl->figure[fN].data_N;
 
-				tol_X = fval_X - tol_X;
-				tol_Y = fval_Y - tol_Y;
-			}
-			else {
-				tol_X = plotAxisConvBackward(pl, aN, cur_X - (pl->viewport.max_x - pl->viewport.min_x));
-				tol_Y = plotAxisConvBackward(pl, bN, cur_Y + (pl->viewport.max_y - pl->viewport.min_y));
+            row = plotDataPickGet(pl, dN, cNX, cNY, fval_X, fval_Y, tol_X, tol_Y, &id_N);
 
-				tol_X = fval_X - tol_X;
-				tol_Y = fval_Y - tol_Y;
-			}
+            if (row != NULL) {
+                cNX = pl->figure[fN].column_X;
+                cNY = pl->figure[fN].column_Y;
 
-			if (		pl->slice_mode_N == 1 && pl->shift_on != 0
-					&& pl->figure[fN].slice_base_catch == 1) {
+                fval_X = (cNX < 0) ? id_N : row[cNX];
+                fval_Y = (cNY < 0) ? id_N : row[cNY];
 
-				pl->figure[fN].slice_busy = 1;
-				pl->figure[fN].slice_X = fval_X;
-				pl->figure[fN].slice_Y = fval_Y;
-			}
+                if (pl->figure[fN].slice_busy == 0) {
+                    pl->figure[fN].slice_busy = 1;
+                    pl->figure[fN].slice_X = fval_X;
+                    pl->figure[fN].slice_Y = fval_Y;
+                }
 
-			dN = pl->figure[fN].data_N;
+                pl->figure[fN].slice_row = row;
+                pl->figure[fN].slice_id_N = id_N;
+            }
+        }
+    }
 
-			row = plotDataPickGet(pl, dN, cNX, cNY,
-					fval_X, fval_Y, tol_X, tol_Y, &id_N);
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].slice_busy == 0 && pl->figure[fN].busy != 0 && pl->figure[fN].hidden == 0) {
+            dN = pl->figure[fN].data_N;
 
-			if (row != NULL) {
+            for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+                if (pl->figure[N].slice_busy != 0 && pl->figure[N].busy != 0 && pl->figure[N].hidden == 0
+                        && pl->figure[N].slice_row != NULL && pl->figure[N].data_N == dN) {
+                    row = pl->figure[N].slice_row;
+                    id_N = pl->figure[N].slice_id_N;
 
-				cNX = pl->figure[fN].column_X;
-				cNY = pl->figure[fN].column_Y;
+                    cNX = pl->figure[fN].column_X;
+                    cNY = pl->figure[fN].column_Y;
 
-				fval_X = (cNX < 0) ? id_N : row[cNX];
-				fval_Y = (cNY < 0) ? id_N : row[cNY];
+                    fval_X = (cNX < 0) ? id_N : row[cNX];
+                    fval_Y = (cNY < 0) ? id_N : row[cNY];
 
-				if (pl->figure[fN].slice_busy == 0) {
+                    pl->figure[fN].slice_busy = 2;
+                    pl->figure[fN].slice_X = fval_X;
+                    pl->figure[fN].slice_Y = fval_Y;
 
-					pl->figure[fN].slice_busy = 1;
-					pl->figure[fN].slice_X = fval_X;
-					pl->figure[fN].slice_Y = fval_Y;
-				}
+                    break;
+                }
+            }
+        }
+    }
 
-				pl->figure[fN].slice_row = row;
-				pl->figure[fN].slice_id_N = id_N;
-			}
-		}
-	}
+    for (fN = 0, N = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        N += (pl->figure[fN].slice_busy != 0) ? 1 : 0;
+    }
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+    if (N == 0) return;
 
-		if (		pl->figure[fN].slice_busy == 0
-				&& pl->figure[fN].busy != 0
-				&& pl->figure[fN].hidden == 0) {
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        pl->data_box_text[fN][0] = 0;
 
-			dN = pl->figure[fN].data_N;
+        if (pl->figure[fN].slice_busy != 0) {
+            const read_t *rd = (const read_t *) pl->ld;
 
-			for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+            if (pl->slice_mode_N != 0 && pl->figure[fN].slice_base_catch != 0) {
+                fval_X = pl->figure[fN].slice_base_X;
+                fval_Y = pl->figure[fN].slice_base_Y;
 
-				if (		pl->figure[N].slice_busy != 0
-						&& pl->figure[N].busy != 0
-						&& pl->figure[N].hidden == 0
-						&& pl->figure[N].slice_row != NULL
-						&& pl->figure[N].data_N == dN) {
+                strcat(pl->data_box_text[fN], " \xCE\x94");
+                plotDataBoxTextFmt(pl, fN, pl->figure[fN].slice_X - fval_X);
 
-					row = pl->figure[N].slice_row;
-					id_N = pl->figure[N].slice_id_N;
+                strcat(pl->data_box_text[fN], "\xCE\x94");
+                plotDataBoxTextFmt(pl, fN, pl->figure[fN].slice_Y - fval_Y);
+            } else {
+                dN = pl->figure[fN].data_N;
 
-					cNX = pl->figure[fN].column_X;
-					cNY = pl->figure[fN].column_Y;
+                cNX = pl->figure[fN].column_Y;
+                cNY = pl->figure[fN].column_Y;
 
-					fval_X = (cNX < 0) ? id_N : row[cNX];
-					fval_Y = (cNY < 0) ? id_N : row[cNY];
+                if (pl->fhexadecimal != 0
+                        && (rd->data[dN].hint[cNX] == DATA_HINT_HEX
+                            || rd->data[dN].hint[cNX] == DATA_HINT_OCT)) {
+                    plotDataBoxTextHex(pl, fN, pl->figure[fN].slice_X);
+                } else {
+                    plotDataBoxTextFmt(pl, fN, pl->figure[fN].slice_X);
+                }
 
-					pl->figure[fN].slice_busy = 2;
-					pl->figure[fN].slice_X = fval_X;
-					pl->figure[fN].slice_Y = fval_Y;
+                if (pl->fhexadecimal != 0
+                        && (rd->data[dN].hint[cNY] == DATA_HINT_HEX
+                            || rd->data[dN].hint[cNY] == DATA_HINT_OCT)) {
+                    plotDataBoxTextHex(pl, fN, pl->figure[fN].slice_Y);
+                } else {
+                    plotDataBoxTextFmt(pl, fN, pl->figure[fN].slice_Y);
+                }
+            }
+        }
+    }
 
-					break;
-				}
-			}
-		}
-	}
-
-	for (fN = 0, N = 0; fN < PLOT_FIGURE_MAX; ++fN) {
-
-		N += (pl->figure[fN].slice_busy != 0) ? 1 : 0;
-	}
-
-	if (N == 0)
-		return ;
-
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
-
-		pl->data_box_text[fN][0] = 0;
-
-		if (pl->figure[fN].slice_busy != 0) {
-
-			const read_t		*rd = (const read_t *) pl->ld;
-
-			if (		pl->slice_mode_N != 0
-					&& pl->figure[fN].slice_base_catch != 0) {
-
-				fval_X = pl->figure[fN].slice_base_X;
-				fval_Y = pl->figure[fN].slice_base_Y;
-
-				strcat(pl->data_box_text[fN], " \xCE\x94");
-				plotDataBoxTextFmt(pl, fN, pl->figure[fN].slice_X - fval_X);
-
-				strcat(pl->data_box_text[fN], "\xCE\x94");
-				plotDataBoxTextFmt(pl, fN, pl->figure[fN].slice_Y - fval_Y);
-			}
-			else {
-				dN = pl->figure[fN].data_N;
-
-				cNX = pl->figure[fN].column_Y;
-				cNY = pl->figure[fN].column_Y;
-
-				if (		pl->fhexadecimal != 0
-						&& (	   rd->data[dN].hint[cNX] == DATA_HINT_HEX
-							|| rd->data[dN].hint[cNX] == DATA_HINT_OCT)) {
-
-					plotDataBoxTextHex(pl, fN, pl->figure[fN].slice_X);
-				}
-				else {
-					plotDataBoxTextFmt(pl, fN, pl->figure[fN].slice_X);
-				}
-
-				if (		pl->fhexadecimal != 0
-						&& (	   rd->data[dN].hint[cNY] == DATA_HINT_HEX
-							|| rd->data[dN].hint[cNY] == DATA_HINT_OCT)) {
-
-					plotDataBoxTextHex(pl, fN, pl->figure[fN].slice_Y);
-				}
-				else {
-					plotDataBoxTextFmt(pl, fN, pl->figure[fN].slice_Y);
-				}
-			}
-		}
-	}
-
-	if (pl->data_box_on != DATA_BOX_PICK) {
-
-		pl->data_box_on = DATA_BOX_PICK;
-		pl->data_box_X = pl->viewport.max_x;
-		pl->data_box_Y = 0;
-	}
+    if (pl->data_box_on != DATA_BOX_PICK) {
+        pl->data_box_on = DATA_BOX_PICK;
+        pl->data_box_X = pl->viewport.max_x;
+        pl->data_box_Y = 0;
+    }
 }
 
-static void
-plotPickDraw(plot_t *pl, SDL_Surface *surface)
+static void plotPickDraw(plot_t *pl, SDL_Surface *surface)
 {
-	double		base_X, base_Y, data_X, data_Y;
-	int		fN, aN, bN;
+    double base_X, base_Y, data_X, data_Y;
+    int fN, aN, bN;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].slice_busy != 0) {
 
-		if (pl->figure[fN].slice_busy != 0) {
+            aN = pl->figure[fN].axis_X;
+            bN = pl->figure[fN].axis_Y;
 
-			aN = pl->figure[fN].axis_X;
-			bN = pl->figure[fN].axis_Y;
+            if (pl->slice_mode_N != 0 && pl->figure[fN].slice_base_catch != 0) {
+                base_X = plotAxisConvForward(pl, aN, pl->figure[fN].slice_base_X);
+                base_Y = plotAxisConvForward(pl, bN, pl->figure[fN].slice_base_Y);
+            }
 
-			if (		pl->slice_mode_N != 0
-					&& pl->figure[fN].slice_base_catch != 0) {
+            data_X = plotAxisConvForward(pl, aN, pl->figure[fN].slice_X);
+            data_Y = plotAxisConvForward(pl, bN, pl->figure[fN].slice_Y);
 
-				base_X = plotAxisConvForward(pl, aN, pl->figure[fN].slice_base_X);
-				base_Y = plotAxisConvForward(pl, bN, pl->figure[fN].slice_base_Y);
-			}
+            SDL_LockSurface(surface);
 
-			data_X = plotAxisConvForward(pl, aN, pl->figure[fN].slice_X);
-			data_Y = plotAxisConvForward(pl, bN, pl->figure[fN].slice_Y);
+            if (pl->slice_mode_N != 0 && pl->figure[fN].slice_base_catch != 0) {
+                if (fp_isfinite(base_X) && fp_isfinite(base_Y)
+                        && fp_isfinite(data_X) && fp_isfinite(data_Y)) {
+                    drawDashReset(pl->dw);
+                    drawDashCanvas(pl->dw, surface, &pl->viewport,
+                            base_X, base_Y, data_X, data_Y,
+                            12, pl->dw->thickness, pl->layout_fence_dash, pl->layout_fence_space);
+                }
 
-			SDL_LockSurface(surface);
+                if (fp_isfinite(base_X) && fp_isfinite(base_Y)) {
+                    drawDotCanvas(pl->dw, surface, &pl->viewport,
+                            base_X, base_Y, pl->layout_fence_point, 12, 0);
+                }
+            }
 
-			if (		pl->slice_mode_N != 0
-					&& pl->figure[fN].slice_base_catch != 0) {
+            if (fp_isfinite(data_X) && fp_isfinite(data_Y)) {
+                drawDotCanvas(pl->dw, surface, &pl->viewport,
+                        data_X, data_Y, pl->layout_fence_point, 12, 0);
+            }
 
-				if (		   fp_isfinite(base_X)
-						&& fp_isfinite(base_Y)
-						&& fp_isfinite(data_X)
-						&& fp_isfinite(data_Y)) {
-
-					drawDashReset(pl->dw);
-					drawDashCanvas(pl->dw, surface, &pl->viewport,
-							base_X, base_Y, data_X, data_Y,
-							12, pl->dw->thickness,
-							pl->layout_fence_dash,
-							pl->layout_fence_space);
-				}
-
-				if (fp_isfinite(base_X) && fp_isfinite(base_Y)) {
-
-					drawDotCanvas(pl->dw, surface, &pl->viewport,
-							base_X, base_Y,
-							pl->layout_fence_point, 12, 0);
-				}
-			}
-
-			if (fp_isfinite(data_X) && fp_isfinite(data_Y)) {
-
-				drawDotCanvas(pl->dw, surface, &pl->viewport,
-						data_X, data_Y,
-						pl->layout_fence_point, 12, 0);
-			}
-
-			SDL_UnlockSurface(surface);
-		}
-	}
+            SDL_UnlockSurface(surface);
+        }
+    }
 }
 
 void plotBrushErase(plot_t *pl)
 {
-	double		fmin_X, fmin_Y, fmax_X, fmax_Y;
-	int		N, fN, aN, bN, dN, cNX, cNY, sNX, sNY;
+    double fmin_X, fmin_Y, fmax_X, fmax_Y;
+    int N, fN, aN, bN, dN, cNX, cNY, sNX, sNY;
 
-	int		modified = (int) (SDL_GetTicks() & 65535U);
+    int modified = (int)(SDL_GetTicks() & 65535U);
 
-	modified += pl->brush_box_X + pl->brush_box_Y
-		+ pl->brush_cur_X + pl->brush_cur_Y;
+    modified += pl->brush_box_X + pl->brush_box_Y
+        + pl->brush_cur_X + pl->brush_cur_Y;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].busy != 0 && pl->figure[fN].hidden == 0 && pl->figure[fN].brush_N != 0) {
+            dN = pl->figure[fN].data_N;
 
-		if (		pl->figure[fN].busy != 0
-				&& pl->figure[fN].hidden == 0
-				&& pl->figure[fN].brush_N != 0) {
+            cNX = pl->figure[fN].column_X;
+            cNY = pl->figure[fN].column_Y;
 
-			dN = pl->figure[fN].data_N;
+            if (cNX < pl->data[dN].column_N) {
+                cNX = plotGetSubtractClone(pl, dN, cNX);
+            } else {
+                for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+                    if (N != fN && pl->figure[N].busy != 0
+                            && dN == pl->figure[N].data_N
+                            && cNX == pl->figure[N].column_X) {
+                        cNX = plotGetSubtractClone(pl, dN, cNX);
+                        break;
+                    }
 
-			cNX = pl->figure[fN].column_X;
-			cNY = pl->figure[fN].column_Y;
+                    if (N != fN && pl->figure[N].busy != 0
+                            && dN == pl->figure[N].data_N
+                            && cNX == pl->figure[N].column_Y) {
+                        cNX = plotGetSubtractClone(pl, dN, cNX);
+                        break;
+                    }
+                }
+            }
 
-			if (cNX < pl->data[dN].column_N) {
+            if (cNY < pl->data[dN].column_N) {
+                cNY = plotGetSubtractClone(pl, dN, cNY);
+            } else {
+                for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+                    if (N != fN && pl->figure[N].busy != 0
+                            && dN == pl->figure[N].data_N
+                            && cNY == pl->figure[N].column_X) {
+                        cNY = plotGetSubtractClone(pl, dN, cNY);
+                        break;
+                    }
 
-				cNX = plotGetSubtractClone(pl, dN, cNX);
-			}
-			else {
-				for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+                    if (N != fN && pl->figure[N].busy != 0
+                            && dN == pl->figure[N].data_N
+                            && cNY == pl->figure[N].column_Y) {
+                        cNY = plotGetSubtractClone(pl, dN, cNY);
+                        break;
+                    }
+                }
+            }
 
-					if (		N != fN && pl->figure[N].busy != 0
-							&& dN == pl->figure[N].data_N
-							&& cNX == pl->figure[N].column_X) {
+            if (cNX >= pl->data[dN].column_N && cNY >= pl->data[dN].column_N) {
+                aN = pl->figure[fN].axis_X;
+                bN = pl->figure[fN].axis_Y;
 
-						cNX = plotGetSubtractClone(pl, dN, cNX);
-						break;
-					}
+                if (pl->brush_box_X < pl->brush_cur_X) {
+                    fmin_X = plotAxisConvBackward(pl, aN, pl->brush_box_X);
+                    fmax_X = plotAxisConvBackward(pl, aN, pl->brush_cur_X);
+                } else {
+                    fmin_X = plotAxisConvBackward(pl, aN, pl->brush_cur_X);
+                    fmax_X = plotAxisConvBackward(pl, aN, pl->brush_box_X);
+                }
 
-					if (		N != fN && pl->figure[N].busy != 0
-							&& dN == pl->figure[N].data_N
-							&& cNX == pl->figure[N].column_Y) {
+                if (pl->brush_box_Y < pl->brush_cur_Y) {
+                    fmax_Y = plotAxisConvBackward(pl, bN, pl->brush_box_Y);
+                    fmin_Y = plotAxisConvBackward(pl, bN, pl->brush_cur_Y);
+                } else {
+                    fmax_Y = plotAxisConvBackward(pl, bN, pl->brush_cur_Y);
+                    fmin_Y = plotAxisConvBackward(pl, bN, pl->brush_box_Y);
+                }
 
-						cNX = plotGetSubtractClone(pl, dN, cNX);
-						break;
-					}
-				}
-			}
+                sNX = cNX - pl->data[dN].column_N;
+                sNY = cNY - pl->data[dN].column_N;
 
-			if (cNY < pl->data[dN].column_N) {
+                if (pl->data[dN].sub[sNX].busy == SUBTRACT_SCALE) {
+                    pl->data[dN].sub[sNX].op.scale.modified += modified;
+                }
 
-				cNY = plotGetSubtractClone(pl, dN, cNY);
-			}
-			else {
-				for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+                if (pl->data[dN].sub[sNY].busy == SUBTRACT_SCALE) {
+                    pl->data[dN].sub[sNY].op.scale.modified += modified;
+                }
 
-					if (		N != fN && pl->figure[N].busy != 0
-							&& dN == pl->figure[N].data_N
-							&& cNY == pl->figure[N].column_X) {
+                plotDataErase(pl, dN, cNX, cNY, fmin_X, fmin_Y, fmax_X, fmax_Y);
 
-						cNY = plotGetSubtractClone(pl, dN, cNY);
-						break;
-					}
+                cNX = plotSubtractUnclone(pl, dN, cNX);
+                cNY = plotSubtractUnclone(pl, dN, cNY);
 
-					if (		N != fN && pl->figure[N].busy != 0
-							&& dN == pl->figure[N].data_N
-							&& cNY == pl->figure[N].column_Y) {
+                pl->figure[fN].column_X = cNX;
+                pl->figure[fN].column_Y = cNY;
 
-						cNY = plotGetSubtractClone(pl, dN, cNY);
-						break;
-					}
-				}
-			}
-
-			if (		   cNX >= pl->data[dN].column_N
-					&& cNY >= pl->data[dN].column_N) {
-
-				aN = pl->figure[fN].axis_X;
-				bN = pl->figure[fN].axis_Y;
-
-				if (pl->brush_box_X < pl->brush_cur_X) {
-
-					fmin_X = plotAxisConvBackward(pl, aN, pl->brush_box_X);
-					fmax_X = plotAxisConvBackward(pl, aN, pl->brush_cur_X);
-				}
-				else {
-					fmin_X = plotAxisConvBackward(pl, aN, pl->brush_cur_X);
-					fmax_X = plotAxisConvBackward(pl, aN, pl->brush_box_X);
-				}
-
-				if (pl->brush_box_Y < pl->brush_cur_Y) {
-
-					fmax_Y = plotAxisConvBackward(pl, bN, pl->brush_box_Y);
-					fmin_Y = plotAxisConvBackward(pl, bN, pl->brush_cur_Y);
-				}
-				else {
-					fmax_Y = plotAxisConvBackward(pl, bN, pl->brush_cur_Y);
-					fmin_Y = plotAxisConvBackward(pl, bN, pl->brush_box_Y);
-				}
-
-				sNX = cNX - pl->data[dN].column_N;
-				sNY = cNY - pl->data[dN].column_N;
-
-				if (pl->data[dN].sub[sNX].busy == SUBTRACT_SCALE) {
-
-					pl->data[dN].sub[sNX].op.scale.modified += modified;
-				}
-
-				if (pl->data[dN].sub[sNY].busy == SUBTRACT_SCALE) {
-
-					pl->data[dN].sub[sNY].op.scale.modified += modified;
-				}
-
-				plotDataErase(pl, dN, cNX, cNY, fmin_X, fmin_Y, fmax_X, fmax_Y);
-
-				cNX = plotSubtractUnclone(pl, dN, cNX);
-				cNY = plotSubtractUnclone(pl, dN, cNY);
-
-				pl->figure[fN].column_X = cNX;
-				pl->figure[fN].column_Y = cNY;
-
-				plotSubtractGarbage(pl, dN);
-			}
-		}
-	}
+                plotSubtractGarbage(pl, dN);
+            }
+        }
+    }
 }
 
-static void
-plotSketchDataChunkSetUp(plot_t *pl, int fN)
+static void plotSketchDataChunkSetUp(plot_t *pl, int fN)
 {
-	int		hN;
+    int hN;
 
-	hN = pl->draw[fN].list_self;
+    hN = pl->draw[fN].list_self;
 
-	if (hN >= 0	&& pl->sketch[hN].figure_N == fN
-			&& pl->sketch[hN].drawing == pl->figure[fN].drawing
-			&& pl->sketch[hN].width == pl->figure[fN].width
-			&& pl->sketch[hN].length < PLOT_SKETCH_CHUNK_SIZE) {
+    if (hN >= 0 && pl->sketch[hN].figure_N == fN
+            && pl->sketch[hN].drawing == pl->figure[fN].drawing
+            && pl->sketch[hN].width == pl->figure[fN].width
+            && pl->sketch[hN].length < PLOT_SKETCH_CHUNK_SIZE) {
+        /* Keep using this chunk */
+    } else if (pl->sketch_list_garbage >= 0) {
+        hN = pl->sketch_list_garbage;
+        pl->sketch_list_garbage = pl->sketch[hN].linked;
 
-		/* Keep using this chunk */
-	}
-	else if (pl->sketch_list_garbage >= 0) {
+        pl->sketch[hN].figure_N = fN;
+        pl->sketch[hN].drawing = pl->figure[fN].drawing;
+        pl->sketch[hN].width = pl->figure[fN].width;
 
-		hN = pl->sketch_list_garbage;
-		pl->sketch_list_garbage = pl->sketch[hN].linked;
+        if (pl->sketch[hN].chunk == NULL) {
+            pl->sketch[hN].chunk = (double *)malloc(sizeof(double) * PLOT_SKETCH_CHUNK_SIZE);
 
-		pl->sketch[hN].figure_N = fN;
-		pl->sketch[hN].drawing = pl->figure[fN].drawing;
-		pl->sketch[hN].width = pl->figure[fN].width;
+            if (pl->sketch[hN].chunk == NULL) {
+                ERROR("Unable to allocate memory of %i sketch chunk\n", hN);
+            }
+        }
 
-		if (pl->sketch[hN].chunk == NULL) {
+        pl->sketch[hN].length = 0;
 
-			pl->sketch[hN].chunk = (double *) malloc(sizeof(double) * PLOT_SKETCH_CHUNK_SIZE);
+        if (pl->draw[fN].list_self >= 0) {
+            pl->sketch[hN].linked = pl->sketch[pl->draw[fN].list_self].linked;
+            pl->sketch[pl->draw[fN].list_self].linked = hN;
 
-			if (pl->sketch[hN].chunk == NULL) {
+            if (pl->draw[fN].list_self == pl->sketch_list_current_end)
+                pl->sketch_list_current_end = hN;
+        } else {
+            pl->sketch[hN].linked = -1;
 
-				ERROR("Unable to allocate memory of %i sketch chunk\n", hN);
-			}
-		}
+            if (pl->sketch_list_current >= 0) {
+                pl->sketch[pl->sketch_list_current_end].linked = hN;
+                pl->sketch_list_current_end = hN;
+            } else {
+                pl->sketch_list_current = hN;
+                pl->sketch_list_current_end = hN;
+            }
+        }
 
-		pl->sketch[hN].length = 0;
+        pl->draw[fN].list_self = hN;
+    } else {
+        ERROR("Unable to get free sketch chunk\n");
 
-		if (pl->draw[fN].list_self >= 0) {
-
-			pl->sketch[hN].linked = pl->sketch[pl->draw[fN].list_self].linked;
-			pl->sketch[pl->draw[fN].list_self].linked = hN;
-
-			if (pl->draw[fN].list_self == pl->sketch_list_current_end)
-				pl->sketch_list_current_end = hN;
-		}
-		else {
-			pl->sketch[hN].linked = -1;
-
-			if (pl->sketch_list_current >= 0) {
-
-				pl->sketch[pl->sketch_list_current_end].linked = hN;
-				pl->sketch_list_current_end = hN;
-			}
-			else {
-				pl->sketch_list_current = hN;
-				pl->sketch_list_current_end = hN;
-			}
-		}
-
-		pl->draw[fN].list_self = hN;
-	}
-	else {
-		ERROR("Unable to get free sketch chunk\n");
-
-		pl->draw[fN].list_self = -1;
-	}
+        pl->draw[fN].list_self = -1;
+    }
 }
 
-static void
-plotSketchDataAdd(plot_t *pl, int fN, double X, double Y)
+static void plotSketchDataAdd(plot_t *pl, int fN, double X, double Y)
 {
-	int		hN, length;
+    int hN, length;
 
-	hN = pl->draw[fN].list_self;
+    hN = pl->draw[fN].list_self;
 
-	if (hN >= 0) {
+    if (hN >= 0) {
+        length = pl->sketch[hN].length;
 
-		length = pl->sketch[hN].length;
+        pl->sketch[hN].chunk[length++] = X;
+        pl->sketch[hN].chunk[length++] = Y;
 
-		pl->sketch[hN].chunk[length++] = X;
-		pl->sketch[hN].chunk[length++] = Y;
+        pl->sketch[hN].length = length;
 
-		pl->sketch[hN].length = length;
-
-		if (length >= PLOT_SKETCH_CHUNK_SIZE) {
-
-			plotSketchDataChunkSetUp(pl, fN);
-		}
-	}
+        if (length >= PLOT_SKETCH_CHUNK_SIZE) {
+            plotSketchDataChunkSetUp(pl, fN);
+        }
+    }
 }
 
-static void
-plotSketchGarbage(plot_t *pl)
+static void plotSketchGarbage(plot_t *pl)
 {
-	int		N, hN, linked;
+    int N, hN, linked;
 
-	hN = pl->sketch_list_todraw;
+    hN = pl->sketch_list_todraw;
 
-	while (hN >= 0) {
+    while (hN >= 0) {
+        linked = pl->sketch[hN].linked;
 
-		linked = pl->sketch[hN].linked;
+        pl->sketch[hN].linked = pl->sketch_list_garbage;
+        pl->sketch_list_garbage = hN;
 
-		pl->sketch[hN].linked = pl->sketch_list_garbage;
-		pl->sketch_list_garbage = hN;
+        hN = linked;
+    }
 
-		hN = linked;
-	}
+    pl->sketch_list_todraw = pl->sketch_list_current;
+    pl->sketch_list_current = -1;
+    pl->sketch_list_current_end = -1;
 
-	pl->sketch_list_todraw = pl->sketch_list_current;
-	pl->sketch_list_current = -1;
-	pl->sketch_list_current_end = -1;
-
-	for (N = 0; N < PLOT_FIGURE_MAX; ++N)
-		pl->draw[N].list_self = -1;
+    for (N = 0; N < PLOT_FIGURE_MAX; ++N)
+        pl->draw[N].list_self = -1;
 }
 
 void plotSketchClean(plot_t *pl)
 {
-	int		N, hN, linked;
+    int N, hN, linked;
 
-	hN = pl->sketch_list_todraw;
+    hN = pl->sketch_list_todraw;
 
-	while (hN >= 0) {
+    while (hN >= 0) {
+        linked = pl->sketch[hN].linked;
 
-		linked = pl->sketch[hN].linked;
+        pl->sketch[hN].linked = pl->sketch_list_garbage;
+        pl->sketch_list_garbage = hN;
 
-		pl->sketch[hN].linked = pl->sketch_list_garbage;
-		pl->sketch_list_garbage = hN;
+        hN = linked;
+    }
 
-		hN = linked;
-	}
+    hN = pl->sketch_list_current;
 
-	hN = pl->sketch_list_current;
+    while (hN >= 0) {
+        linked = pl->sketch[hN].linked;
 
-	while (hN >= 0) {
+        pl->sketch[hN].linked = pl->sketch_list_garbage;
+        pl->sketch_list_garbage = hN;
 
-		linked = pl->sketch[hN].linked;
+        hN = linked;
+    }
 
-		pl->sketch[hN].linked = pl->sketch_list_garbage;
-		pl->sketch_list_garbage = hN;
+    pl->sketch_list_todraw = -1;
+    pl->sketch_list_current = -1;
+    pl->sketch_list_current_end = -1;
 
-		hN = linked;
-	}
+    for (N = 0; N < PLOT_FIGURE_MAX; ++N)
+        pl->draw[N].list_self = -1;
 
-	pl->sketch_list_todraw = -1;
-	pl->sketch_list_current = -1;
-	pl->sketch_list_current_end = -1;
-
-	for (N = 0; N < PLOT_FIGURE_MAX; ++N)
-		pl->draw[N].list_self = -1;
-
-	pl->draw_in_progress = 0;
+    pl->draw_in_progress = 0;
 }
 
-static void
-plotDrawPalette(plot_t *pl)
+static void plotDrawPalette(plot_t *pl)
 {
-	draw_t			*dw = pl->dw;
-	scheme_t		*sch = pl->sch;
-	Uint32			*palette;
+    draw_t *dw = pl->dw;
+    scheme_t *sch = pl->sch;
+    Uint32 *palette;
 
-	palette = dw->palette;
+    palette = dw->palette;
 
-	palette[0] = drawRGBMap(dw, sch->plot_background);
-	palette[1] = drawRGBMap(dw, sch->plot_figure[0]);
-	palette[2] = drawRGBMap(dw, sch->plot_figure[1]);
-	palette[3] = drawRGBMap(dw, sch->plot_figure[2]);
-	palette[4] = drawRGBMap(dw, sch->plot_figure[3]);
-	palette[5] = drawRGBMap(dw, sch->plot_figure[4]);
-	palette[6] = drawRGBMap(dw, sch->plot_figure[5]);
-	palette[7] = drawRGBMap(dw, sch->plot_figure[6]);
-	palette[8] = drawRGBMap(dw, sch->plot_figure[7]);
-	palette[9] = drawRGBMap(dw, sch->plot_figure[8]);
-	palette[10] = drawRGBMap(dw, sch->plot_figure[9]);
-	palette[11] = drawRGBMap(dw, sch->plot_hidden);
-	palette[12] = drawRGBMap(dw, sch->plot_text);
+    palette[0] = drawRGBMap(dw, sch->plot_background);
+    palette[1] = drawRGBMap(dw, sch->plot_figure[0]);
+    palette[2] = drawRGBMap(dw, sch->plot_figure[1]);
+    palette[3] = drawRGBMap(dw, sch->plot_figure[2]);
+    palette[4] = drawRGBMap(dw, sch->plot_figure[3]);
+    palette[5] = drawRGBMap(dw, sch->plot_figure[4]);
+    palette[6] = drawRGBMap(dw, sch->plot_figure[5]);
+    palette[7] = drawRGBMap(dw, sch->plot_figure[6]);
+    palette[8] = drawRGBMap(dw, sch->plot_figure[7]);
+    palette[9] = drawRGBMap(dw, sch->plot_figure[8]);
+    palette[10] = drawRGBMap(dw, sch->plot_figure[9]);
+    palette[11] = drawRGBMap(dw, sch->plot_hidden);
+    palette[12] = drawRGBMap(dw, sch->plot_text);
 }
 
-static Uint32
-plotGetTick(plot_t *pl)
+static Uint32 plotGetTick(plot_t *pl)
 {
-	if (pl->tick_skip++ >= 63) {
+    if (pl->tick_skip++ >= 63) {
+        pl->tick_cached = SDL_GetTicks();
+        pl->tick_skip = 0;
+    }
 
-		pl->tick_cached = SDL_GetTicks();
-		pl->tick_skip = 0;
-	}
-
-	return pl->tick_cached;
+    return pl->tick_cached;
 }
 
-static void
-plotDrawFigureTrial(plot_t *pl, int fN, Uint32 tTOP)
+static void plotDrawFigureTrial(plot_t *pl, int fN, Uint32 tTOP)
 {
-	const fval_t	*row;
+    const fval_t *row;
+    double scale_X, scale_Y, offset_X, offset_Y, im_MIN, im_MAX;
+    double X, Y, last_X, last_Y, im_X, im_Y, last_im_X, last_im_Y;
+    int dN, rN, xN, yN, xNR, yNR, aN, bN, id_N, id_N_top, kN, kN_cached;
+    int job, skipped, line, rc, ncolor, fdrawing, fwidth;
+
+    ncolor = (pl->figure[fN].hidden != 0) ? 11 : fN + 1;
 
-	double		scale_X, scale_Y, offset_X, offset_Y, im_MIN, im_MAX;
-	double		X, Y, last_X, last_Y, im_X, im_Y, last_im_X, last_im_Y;
-	int		dN, rN, xN, yN, xNR, yNR, aN, bN, id_N, id_N_top, kN, kN_cached;
-	int		job, skipped, line, rc, ncolor, fdrawing, fwidth;
+    fdrawing = pl->figure[fN].drawing;
+    fwidth = pl->figure[fN].width;
+
+    dN = pl->figure[fN].data_N;
+    xN = pl->figure[fN].column_X;
+    yN = pl->figure[fN].column_Y;
 
-	ncolor = (pl->figure[fN].hidden != 0) ? 11 : fN + 1;
+    xNR = plotDataRangeCacheFetch(pl, dN, xN);
+    yNR = plotDataRangeCacheFetch(pl, dN, yN);
 
-	fdrawing = pl->figure[fN].drawing;
-	fwidth = pl->figure[fN].width;
-
-	dN = pl->figure[fN].data_N;
-	xN = pl->figure[fN].column_X;
-	yN = pl->figure[fN].column_Y;
-
-	xNR = plotDataRangeCacheFetch(pl, dN, xN);
-	yNR = plotDataRangeCacheFetch(pl, dN, yN);
-
-	aN = pl->figure[fN].axis_X;
-	scale_X = pl->axis[aN].scale;
-	offset_X = pl->axis[aN].offset;
-
-	if (pl->axis[aN].slave != 0) {
-
-		bN = pl->axis[aN].slave_N;
-		scale_X *= pl->axis[bN].scale;
-		offset_X = offset_X * pl->axis[bN].scale + pl->axis[bN].offset;
-	}
-
-	aN = pl->figure[fN].axis_Y;
-	scale_Y = pl->axis[aN].scale;
-	offset_Y = pl->axis[aN].offset;
-
-	if (pl->axis[aN].slave != 0) {
-
-		bN = pl->axis[aN].slave_N;
-		scale_Y *= pl->axis[bN].scale;
-		offset_Y = offset_Y * pl->axis[bN].scale + pl->axis[bN].offset;
-	}
-
-	X = (double) (pl->viewport.max_x - pl->viewport.min_x);
-	Y = (double) (pl->viewport.min_y - pl->viewport.max_y);
-
-	scale_X *= X;
-	offset_X = offset_X * X + pl->viewport.min_x;
-	scale_Y *= Y;
-	offset_Y = offset_Y * Y + pl->viewport.max_y;
-
-	rN = pl->draw[fN].rN;
-	id_N = pl->draw[fN].id_N;
-
-	id_N_top = id_N + (1UL << pl->data[dN].chunk_SHIFT);
-	kN_cached = -1;
-
-	plotSketchDataChunkSetUp(pl, fN);
-
-	if (		fdrawing == FIGURE_DRAWING_LINE
-			|| fdrawing == FIGURE_DRAWING_DASH) {
-
-		skipped = pl->draw[fN].skipped;
-		line = pl->draw[fN].line;
-
-		last_X = pl->draw[fN].last_X;
-		last_Y = pl->draw[fN].last_Y;
-
-		last_im_X = last_X * scale_X + offset_X;
-		last_im_Y = last_Y * scale_Y + offset_Y;
-
-		do {
-			kN = plotDataChunkN(pl, dN, rN);
-			job = 1;
-
-			if (kN != kN_cached) {
-
-				if (xNR >= 0 && pl->rcache[xNR].chunk[kN].computed != 0) {
-
-					if (pl->rcache[xNR].chunk[kN].finite != 0) {
-
-						im_MIN = pl->rcache[xNR].chunk[kN].fmin * scale_X + offset_X;
-						im_MAX = pl->rcache[xNR].chunk[kN].fmax * scale_X + offset_X;
-
-						job = (	   im_MAX < pl->viewport.min_x - 16
-							|| im_MIN > pl->viewport.max_x + 16) ? 0 : job;
-					}
-					else {
-						job = 0;
-					}
-				}
-
-				if (yNR >= 0 && pl->rcache[yNR].chunk[kN].computed != 0) {
-
-					if (pl->rcache[yNR].chunk[kN].finite != 0) {
-
-						im_MIN = pl->rcache[yNR].chunk[kN].fmin * scale_Y + offset_Y;
-						im_MAX = pl->rcache[yNR].chunk[kN].fmax * scale_Y + offset_Y;
-
-						job = (	   im_MIN < pl->viewport.min_y - 16
-							|| im_MAX > pl->viewport.max_y + 16) ? 0 : job;
-					}
-					else {
-						job = 0;
-					}
-				}
-
-				kN_cached = kN;
-			}
-
-			if (job != 0 || line != 0) {
-
-				if (skipped != 0) {
-
-					plotDataSkip(pl, dN, &rN, &id_N, -1);
-
-					skipped = 0;
-				}
-
-				row = plotDataGet(pl, dN, &rN);
-
-				if (row == NULL) {
-
-					pl->draw[fN].sketch = SKETCH_FINISHED;
-					break;
-				}
-
-				X = (xN < 0) ? id_N : row[xN];
-				Y = (yN < 0) ? id_N : row[yN];
-
-				im_X = X * scale_X + offset_X;
-				im_Y = Y * scale_Y + offset_Y;
-
-				if (fp_isfinite(im_X) && fp_isfinite(im_Y)) {
-
-					if (line != 0) {
-
-						rc = drawLineTrial(pl->dw, &pl->viewport,
-								last_im_X, last_im_Y, im_X, im_Y,
-								ncolor, fwidth);
-
-						if (rc != 0) {
-
-							plotSketchDataAdd(pl, fN, last_X, last_Y);
-							plotSketchDataAdd(pl, fN, X, Y);
-						}
-					}
-					else {
-						line = 1;
-					}
-
-					last_X = X;
-					last_Y = Y;
-
-					last_im_X = im_X;
-					last_im_Y = im_Y;
-				}
-				else {
-					line = 0;
-				}
-
-				id_N++;
-			}
-
-			if (job == 0) {
-
-				plotDataChunkSkip(pl, dN, &rN, &id_N);
-
-				skipped = 1;
-				line = 0;
-			}
-
-			if (id_N > id_N_top || plotGetTick(pl) > tTOP) {
-
-				pl->draw[fN].sketch = SKETCH_INTERRUPTED;
-				pl->draw[fN].rN = rN;
-				pl->draw[fN].id_N = id_N;
-				pl->draw[fN].skipped = skipped;
-				pl->draw[fN].line = line;
-				pl->draw[fN].last_X = last_X;
-				pl->draw[fN].last_Y = last_Y;
-				break;
-			}
-		}
-		while (1);
-	}
-	else if (fdrawing == FIGURE_DRAWING_DOT) {
-
-		do {
-			kN = plotDataChunkN(pl, dN, rN);
-			job = 1;
-
-			if (kN != kN_cached) {
-
-				if (xNR >= 0 && pl->rcache[xNR].chunk[kN].computed != 0) {
-
-					if (pl->rcache[xNR].chunk[kN].finite != 0) {
-
-						im_MIN = pl->rcache[xNR].chunk[kN].fmin * scale_X + offset_X;
-						im_MAX = pl->rcache[xNR].chunk[kN].fmax * scale_X + offset_X;
-
-						job = (	   im_MAX < pl->viewport.min_x - 16
-							|| im_MIN > pl->viewport.max_x + 16) ? 0 : job;
-					}
-					else {
-						job = 0;
-					}
-				}
-
-				if (yNR >= 0 && pl->rcache[yNR].chunk[kN].computed != 0) {
-
-					if (pl->rcache[yNR].chunk[kN].finite != 0) {
-
-						im_MIN = pl->rcache[yNR].chunk[kN].fmin * scale_Y + offset_Y;
-						im_MAX = pl->rcache[yNR].chunk[kN].fmax * scale_Y + offset_Y;
-
-						job = (	   im_MIN < pl->viewport.min_y - 16
-							|| im_MAX > pl->viewport.max_y + 16) ? 0 : job;
-					}
-					else {
-						job = 0;
-					}
-				}
-
-				kN_cached = kN;
-			}
-
-			if (job != 0) {
-
-				row = plotDataGet(pl, dN, &rN);
-
-				if (row == NULL) {
-
-					pl->draw[fN].sketch = SKETCH_FINISHED;
-					break;
-				}
-
-				X = (xN < 0) ? id_N : row[xN];
-				Y = (yN < 0) ? id_N : row[yN];
-
-				im_X = X * scale_X + offset_X;
-				im_Y = Y * scale_Y + offset_Y;
-
-				if (fp_isfinite(im_X) && fp_isfinite(im_Y)) {
-
-					rc = drawDotTrial(pl->dw, &pl->viewport,
-							im_X, im_Y, fwidth,
-							ncolor, 1);
-
-					if (rc != 0) {
-
-						plotSketchDataAdd(pl, fN, X, Y);
-					}
-				}
-
-				id_N++;
-			}
-
-			if (job == 0) {
-
-				plotDataChunkSkip(pl, dN, &rN, &id_N);
-			}
-
-			if (id_N > id_N_top || plotGetTick(pl) > tTOP) {
-
-				pl->draw[fN].sketch = SKETCH_INTERRUPTED;
-				pl->draw[fN].rN = rN;
-				pl->draw[fN].id_N = id_N;
-				break;
-			}
-		}
-		while (1);
-	}
+    aN = pl->figure[fN].axis_X;
+    scale_X = pl->axis[aN].scale;
+    offset_X = pl->axis[aN].offset;
+
+    if (pl->axis[aN].slave != 0) {
+        bN = pl->axis[aN].slave_N;
+        scale_X *= pl->axis[bN].scale;
+        offset_X = offset_X * pl->axis[bN].scale + pl->axis[bN].offset;
+    }
+
+    aN = pl->figure[fN].axis_Y;
+    scale_Y = pl->axis[aN].scale;
+    offset_Y = pl->axis[aN].offset;
+
+    if (pl->axis[aN].slave != 0) {
+        bN = pl->axis[aN].slave_N;
+        scale_Y *= pl->axis[bN].scale;
+        offset_Y = offset_Y * pl->axis[bN].scale + pl->axis[bN].offset;
+    }
+
+    X = (double)(pl->viewport.max_x - pl->viewport.min_x);
+    Y = (double)(pl->viewport.min_y - pl->viewport.max_y);
+
+    scale_X *= X;
+    offset_X = offset_X * X + pl->viewport.min_x;
+    scale_Y *= Y;
+    offset_Y = offset_Y * Y + pl->viewport.max_y;
+
+    rN = pl->draw[fN].rN;
+    id_N = pl->draw[fN].id_N;
+
+    id_N_top = id_N + (1UL << pl->data[dN].chunk_SHIFT);
+    kN_cached = -1;
+
+    plotSketchDataChunkSetUp(pl, fN);
+
+    if (fdrawing == FIGURE_DRAWING_LINE || fdrawing == FIGURE_DRAWING_DASH) {
+        skipped = pl->draw[fN].skipped;
+        line = pl->draw[fN].line;
+
+        last_X = pl->draw[fN].last_X;
+        last_Y = pl->draw[fN].last_Y;
+
+        last_im_X = last_X * scale_X + offset_X;
+        last_im_Y = last_Y * scale_Y + offset_Y;
+
+        do {
+            kN = plotDataChunkN(pl, dN, rN);
+            job = 1;
+
+            if (kN != kN_cached) {
+
+                if (xNR >= 0 && pl->rcache[xNR].chunk[kN].computed != 0) {
+                    if (pl->rcache[xNR].chunk[kN].finite != 0) {
+                        im_MIN = pl->rcache[xNR].chunk[kN].fmin * scale_X + offset_X;
+                        im_MAX = pl->rcache[xNR].chunk[kN].fmax * scale_X + offset_X;
+
+                        job = (im_MAX < pl->viewport.min_x - 16
+                            || im_MIN > pl->viewport.max_x + 16) ? 0 : job;
+                    } else {
+                        job = 0;
+                    }
+                }
+
+                if (yNR >= 0 && pl->rcache[yNR].chunk[kN].computed != 0) {
+                    if (pl->rcache[yNR].chunk[kN].finite != 0) {
+                        im_MIN = pl->rcache[yNR].chunk[kN].fmin * scale_Y + offset_Y;
+                        im_MAX = pl->rcache[yNR].chunk[kN].fmax * scale_Y + offset_Y;
+
+                        job = (im_MIN < pl->viewport.min_y - 16
+                            || im_MAX > pl->viewport.max_y + 16) ? 0 : job;
+                    } else {
+                        job = 0;
+                    }
+                }
+
+                kN_cached = kN;
+            }
+
+            if (job != 0 || line != 0) {
+                if (skipped != 0) {
+                    plotDataSkip(pl, dN, &rN, &id_N, -1);
+
+                    skipped = 0;
+                }
+
+                row = plotDataGet(pl, dN, &rN);
+
+                if (row == NULL) {
+                    pl->draw[fN].sketch = SKETCH_FINISHED;
+                    break;
+                }
+
+                X = (xN < 0) ? id_N : row[xN];
+                Y = (yN < 0) ? id_N : row[yN];
+
+                im_X = X * scale_X + offset_X;
+                im_Y = Y * scale_Y + offset_Y;
+
+                if (fp_isfinite(im_X) && fp_isfinite(im_Y)) {
+                    if (line != 0) {
+                        rc = drawLineTrial(pl->dw, &pl->viewport,
+                                last_im_X, last_im_Y, im_X, im_Y,
+                                ncolor, fwidth);
+
+                        if (rc != 0) {
+                            plotSketchDataAdd(pl, fN, last_X, last_Y);
+                            plotSketchDataAdd(pl, fN, X, Y);
+                        }
+                    } else {
+                        line = 1;
+                    }
+
+                    last_X = X;
+                    last_Y = Y;
+
+                    last_im_X = im_X;
+                    last_im_Y = im_Y;
+                } else {
+                    line = 0;
+                }
+
+                id_N++;
+            }
+
+            if (job == 0) {
+                plotDataChunkSkip(pl, dN, &rN, &id_N);
+
+                skipped = 1;
+                line = 0;
+            }
+
+            if (id_N > id_N_top || plotGetTick(pl) > tTOP) {
+                pl->draw[fN].sketch = SKETCH_INTERRUPTED;
+                pl->draw[fN].rN = rN;
+                pl->draw[fN].id_N = id_N;
+                pl->draw[fN].skipped = skipped;
+                pl->draw[fN].line = line;
+                pl->draw[fN].last_X = last_X;
+                pl->draw[fN].last_Y = last_Y;
+                break;
+            }
+        } while (1);
+    } else if (fdrawing == FIGURE_DRAWING_DOT) {
+        do {
+            kN = plotDataChunkN(pl, dN, rN);
+            job = 1;
+
+            if (kN != kN_cached) {
+                if (xNR >= 0 && pl->rcache[xNR].chunk[kN].computed != 0) {
+                    if (pl->rcache[xNR].chunk[kN].finite != 0) {
+                        im_MIN = pl->rcache[xNR].chunk[kN].fmin * scale_X + offset_X;
+                        im_MAX = pl->rcache[xNR].chunk[kN].fmax * scale_X + offset_X;
+
+                        job = (im_MAX < pl->viewport.min_x - 16
+                            || im_MIN > pl->viewport.max_x + 16) ? 0 : job;
+                    } else {
+                        job = 0;
+                    }
+                }
+
+                if (yNR >= 0 && pl->rcache[yNR].chunk[kN].computed != 0) {
+                    if (pl->rcache[yNR].chunk[kN].finite != 0) {
+                        im_MIN = pl->rcache[yNR].chunk[kN].fmin * scale_Y + offset_Y;
+                        im_MAX = pl->rcache[yNR].chunk[kN].fmax * scale_Y + offset_Y;
+
+                        job = (im_MIN < pl->viewport.min_y - 16
+                            || im_MAX > pl->viewport.max_y + 16) ? 0 : job;
+                    } else {
+                        job = 0;
+                    }
+                }
+
+                kN_cached = kN;
+            }
+
+            if (job != 0) {
+                row = plotDataGet(pl, dN, &rN);
+
+                if (row == NULL) {
+                    pl->draw[fN].sketch = SKETCH_FINISHED;
+                    break;
+                }
+
+                X = (xN < 0) ? id_N : row[xN];
+                Y = (yN < 0) ? id_N : row[yN];
+
+                im_X = X * scale_X + offset_X;
+                im_Y = Y * scale_Y + offset_Y;
+
+                if (fp_isfinite(im_X) && fp_isfinite(im_Y)) {
+                    rc = drawDotTrial(pl->dw, &pl->viewport, im_X, im_Y, fwidth, ncolor, 1);
+
+                    if (rc != 0) {
+                        plotSketchDataAdd(pl, fN, X, Y);
+                    }
+                }
+
+                id_N++;
+            }
+
+            if (job == 0) {
+                plotDataChunkSkip(pl, dN, &rN, &id_N);
+            }
+
+            if (id_N > id_N_top || plotGetTick(pl) > tTOP) {
+                pl->draw[fN].sketch = SKETCH_INTERRUPTED;
+                pl->draw[fN].rN = rN;
+                pl->draw[fN].id_N = id_N;
+                break;
+            }
+        } while (1);
+    }
 }
 
 int plotGetSketchLength(plot_t *pl)
 {
-	int		hN, length = 0;
+    int hN, length = 0;
 
-	hN = pl->sketch_list_todraw;
+    hN = pl->sketch_list_todraw;
 
-	while (hN >= 0) {
+    while (hN >= 0) {
+        length += pl->sketch[hN].length;
+        hN = pl->sketch[hN].linked;
+    }
 
-		length += pl->sketch[hN].length;
-		hN = pl->sketch[hN].linked;
-	}
-
-	return length;
+    return length;
 }
 
-static void
-plotDrawSketch(plot_t *pl, SDL_Surface *surface)
+static void plotDrawSketch(plot_t *pl, SDL_Surface *surface)
 {
-	double		scale_X, offset_X, scale_Y, offset_Y;
-	double		X, Y, last_X, last_Y, *chunk, *lend;
-	int		hN, fN, aN, bN;
+    double scale_X, offset_X, scale_Y, offset_Y;
+    double X, Y, last_X, last_Y, *chunk, *lend;
+    int hN, fN, aN, bN;
+    int fdrawing, fwidth, ncolor;
 
-	int		fdrawing, fwidth, ncolor;
+    hN = pl->sketch_list_todraw;
 
-	hN = pl->sketch_list_todraw;
+    drawDashReset(pl->dw);
 
-	drawDashReset(pl->dw);
+    SDL_LockSurface(surface);
 
-	SDL_LockSurface(surface);
+    while (hN >= 0) {
+        fN = pl->sketch[hN].figure_N;
 
-	while (hN >= 0) {
+        ncolor = (pl->figure[fN].hidden != 0) ? 11 : fN + 1;
 
-		fN = pl->sketch[hN].figure_N;
+        fdrawing = pl->sketch[hN].drawing;
+        fwidth = pl->sketch[hN].width;
 
-		ncolor = (pl->figure[fN].hidden != 0) ? 11 : fN + 1;
+        aN = pl->figure[fN].axis_X;
+        scale_X = pl->axis[aN].scale;
+        offset_X = pl->axis[aN].offset;
 
-		fdrawing = pl->sketch[hN].drawing;
-		fwidth = pl->sketch[hN].width;
+        if (pl->axis[aN].slave != 0) {
+            bN = pl->axis[aN].slave_N;
+            scale_X *= pl->axis[bN].scale;
+            offset_X = offset_X * pl->axis[bN].scale + pl->axis[bN].offset;
+        }
 
-		aN = pl->figure[fN].axis_X;
-		scale_X = pl->axis[aN].scale;
-		offset_X = pl->axis[aN].offset;
+        aN = pl->figure[fN].axis_Y;
+        scale_Y = pl->axis[aN].scale;
+        offset_Y = pl->axis[aN].offset;
 
-		if (pl->axis[aN].slave != 0) {
+        if (pl->axis[aN].slave != 0) {
+            bN = pl->axis[aN].slave_N;
+            scale_Y *= pl->axis[bN].scale;
+            offset_Y = offset_Y * pl->axis[bN].scale + pl->axis[bN].offset;
+        }
 
-			bN = pl->axis[aN].slave_N;
-			scale_X *= pl->axis[bN].scale;
-			offset_X = offset_X * pl->axis[bN].scale + pl->axis[bN].offset;
-		}
+        X = (double)(pl->viewport.max_x - pl->viewport.min_x);
+        Y = (double)(pl->viewport.min_y - pl->viewport.max_y);
 
-		aN = pl->figure[fN].axis_Y;
-		scale_Y = pl->axis[aN].scale;
-		offset_Y = pl->axis[aN].offset;
+        scale_X *= X;
+        offset_X = offset_X * X + pl->viewport.min_x;
+        scale_Y *= Y;
+        offset_Y = offset_Y * Y + pl->viewport.max_y;
 
-		if (pl->axis[aN].slave != 0) {
+        chunk = pl->sketch[hN].chunk;
+        lend = chunk + pl->sketch[hN].length;
 
-			bN = pl->axis[aN].slave_N;
-			scale_Y *= pl->axis[bN].scale;
-			offset_Y = offset_Y * pl->axis[bN].scale + pl->axis[bN].offset;
-		}
+        if (fdrawing == FIGURE_DRAWING_LINE) {
+            while (chunk < lend) {
+                X = *chunk++;
+                Y = *chunk++;
 
-		X = (double) (pl->viewport.max_x - pl->viewport.min_x);
-		Y = (double) (pl->viewport.min_y - pl->viewport.max_y);
+                last_X = X * scale_X + offset_X;
+                last_Y = Y * scale_Y + offset_Y;
 
-		scale_X *= X;
-		offset_X = offset_X * X + pl->viewport.min_x;
-		scale_Y *= Y;
-		offset_Y = offset_Y * Y + pl->viewport.max_y;
+                X = *chunk++;
+                Y = *chunk++;
 
-		chunk = pl->sketch[hN].chunk;
-		lend = chunk + pl->sketch[hN].length;
+                X = X * scale_X + offset_X;
+                Y = Y * scale_Y + offset_Y;
 
-		if (fdrawing == FIGURE_DRAWING_LINE) {
+                drawLineCanvas(pl->dw, surface, &pl->viewport,
+                        last_X, last_Y, X, Y, ncolor, fwidth);
+            }
+        } else if (fdrawing == FIGURE_DRAWING_DASH) {
+            while (chunk < lend) {
+                X = *chunk++;
+                Y = *chunk++;
 
-			while (chunk < lend) {
+                last_X = X * scale_X + offset_X;
+                last_Y = Y * scale_Y + offset_Y;
 
-				X = *chunk++;
-				Y = *chunk++;
+                X = *chunk++;
+                Y = *chunk++;
 
-				last_X = X * scale_X + offset_X;
-				last_Y = Y * scale_Y + offset_Y;
+                X = X * scale_X + offset_X;
+                Y = Y * scale_Y + offset_Y;
 
-				X = *chunk++;
-				Y = *chunk++;
+                drawDashCanvas(pl->dw, surface, &pl->viewport,
+                        last_X, last_Y, X, Y,
+                        ncolor, fwidth, pl->layout_drawing_dash,
+                        pl->layout_drawing_space);
+            }
+        } else if (fdrawing == FIGURE_DRAWING_DOT) {
+            while (chunk < lend) {
+                X = *chunk++;
+                Y = *chunk++;
 
-				X = X * scale_X + offset_X;
-				Y = Y * scale_Y + offset_Y;
+                X = X * scale_X + offset_X;
+                Y = Y * scale_Y + offset_Y;
 
-				drawLineCanvas(pl->dw, surface, &pl->viewport,
-						last_X, last_Y, X, Y,
-						ncolor, fwidth);
-			}
-		}
-		else if (fdrawing == FIGURE_DRAWING_DASH) {
+                drawDotCanvas(pl->dw, surface, &pl->viewport, X, Y, fwidth, ncolor, 1);
+            }
+        }
 
-			while (chunk < lend) {
+        hN = pl->sketch[hN].linked;
+    }
 
-				X = *chunk++;
-				Y = *chunk++;
-
-				last_X = X * scale_X + offset_X;
-				last_Y = Y * scale_Y + offset_Y;
-
-				X = *chunk++;
-				Y = *chunk++;
-
-				X = X * scale_X + offset_X;
-				Y = Y * scale_Y + offset_Y;
-
-				drawDashCanvas(pl->dw, surface, &pl->viewport,
-						last_X, last_Y, X, Y,
-						ncolor, fwidth, pl->layout_drawing_dash,
-						pl->layout_drawing_space);
-			}
-		}
-		else if (fdrawing == FIGURE_DRAWING_DOT) {
-
-			while (chunk < lend) {
-
-				X = *chunk++;
-				Y = *chunk++;
-
-				X = X * scale_X + offset_X;
-				Y = Y * scale_Y + offset_Y;
-
-				drawDotCanvas(pl->dw, surface, &pl->viewport,
-						X, Y, fwidth,
-						ncolor, 1);
-			}
-		}
-
-		hN = pl->sketch[hN].linked;
-	}
-
-	SDL_UnlockSurface(surface);
+    SDL_UnlockSurface(surface);
 }
 
-static void
-plotDrawBrush(plot_t *pl, SDL_Surface *surface)
+static void plotDrawBrush(plot_t *pl, SDL_Surface *surface)
 {
-	double		scale_X, offset_X, scale_Y, offset_Y;
-	double		X, Y, *chunk, *lend;
-	int		hN, fN, aN, bN, min_X, min_Y, max_X, max_Y;
+    double scale_X, offset_X, scale_Y, offset_Y;
+    double X, Y, *chunk, *lend;
+    int hN, fN, aN, bN, min_X, min_Y, max_X, max_Y;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN)
-		pl->figure[fN].brush_N = 0;
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN)
+        pl->figure[fN].brush_N = 0;
 
-	hN = pl->sketch_list_todraw;
+    hN = pl->sketch_list_todraw;
 
-	SDL_LockSurface(surface);
+    SDL_LockSurface(surface);
 
-	while (hN >= 0) {
+    while (hN >= 0) {
+        fN = pl->sketch[hN].figure_N;
 
-		fN = pl->sketch[hN].figure_N;
+        if (pl->figure[fN].hidden != 0)
+            goto plotDrawBrush_SKIP;
 
-		if (pl->figure[fN].hidden != 0)
-			goto plotDrawBrush_SKIP;
+        aN = pl->figure[fN].axis_X;
+        scale_X = pl->axis[aN].scale;
+        offset_X = pl->axis[aN].offset;
 
-		aN = pl->figure[fN].axis_X;
-		scale_X = pl->axis[aN].scale;
-		offset_X = pl->axis[aN].offset;
+        if (pl->axis[aN].slave != 0) {
+            bN = pl->axis[aN].slave_N;
+            scale_X *= pl->axis[bN].scale;
+            offset_X = offset_X * pl->axis[bN].scale + pl->axis[bN].offset;
+        }
 
-		if (pl->axis[aN].slave != 0) {
+        aN = pl->figure[fN].axis_Y;
+        scale_Y = pl->axis[aN].scale;
+        offset_Y = pl->axis[aN].offset;
 
-			bN = pl->axis[aN].slave_N;
-			scale_X *= pl->axis[bN].scale;
-			offset_X = offset_X * pl->axis[bN].scale + pl->axis[bN].offset;
-		}
+        if (pl->axis[aN].slave != 0) {
+            bN = pl->axis[aN].slave_N;
+            scale_Y *= pl->axis[bN].scale;
+            offset_Y = offset_Y * pl->axis[bN].scale + pl->axis[bN].offset;
+        }
 
-		aN = pl->figure[fN].axis_Y;
-		scale_Y = pl->axis[aN].scale;
-		offset_Y = pl->axis[aN].offset;
+        X = (double)(pl->viewport.max_x - pl->viewport.min_x);
+        Y = (double)(pl->viewport.min_y - pl->viewport.max_y);
 
-		if (pl->axis[aN].slave != 0) {
+        scale_X *= X;
+        offset_X = offset_X * X + pl->viewport.min_x;
+        scale_Y *= Y;
+        offset_Y = offset_Y * Y + pl->viewport.max_y;
 
-			bN = pl->axis[aN].slave_N;
-			scale_Y *= pl->axis[bN].scale;
-			offset_Y = offset_Y * pl->axis[bN].scale + pl->axis[bN].offset;
-		}
+        if (pl->brush_box_X < pl->brush_cur_X) {
+            min_X = pl->brush_box_X;
+            max_X = pl->brush_cur_X;
+        } else {
+            min_X = pl->brush_cur_X;
+            max_X = pl->brush_box_X;
+        }
 
-		X = (double) (pl->viewport.max_x - pl->viewport.min_x);
-		Y = (double) (pl->viewport.min_y - pl->viewport.max_y);
+        if (pl->brush_box_Y < pl->brush_cur_Y) {
+            min_Y = pl->brush_box_Y;
+            max_Y = pl->brush_cur_Y;
+        } else {
+            min_Y = pl->brush_cur_Y;
+            max_Y = pl->brush_box_Y;
+        }
 
-		scale_X *= X;
-		offset_X = offset_X * X + pl->viewport.min_x;
-		scale_Y *= Y;
-		offset_Y = offset_Y * Y + pl->viewport.max_y;
+        chunk = pl->sketch[hN].chunk;
+        lend = chunk + pl->sketch[hN].length;
 
-		if (pl->brush_box_X < pl->brush_cur_X) {
+        while (chunk < lend) {
+            X = *chunk++;
+            Y = *chunk++;
 
-			min_X = pl->brush_box_X;
-			max_X = pl->brush_cur_X;
-		}
-		else {
-			min_X = pl->brush_cur_X;
-			max_X = pl->brush_box_X;
-		}
+            X = X * scale_X + offset_X;
+            Y = Y * scale_Y + offset_Y;
 
-		if (pl->brush_box_Y < pl->brush_cur_Y) {
+            if (X > min_X && X < max_X && Y > min_Y && Y < max_Y) {
+                drawDotCanvas(pl->dw, surface, &pl->viewport,
+                        X, Y, pl->layout_fence_point, 12, 1);
 
-			min_Y = pl->brush_box_Y;
-			max_Y = pl->brush_cur_Y;
-		}
-		else {
-			min_Y = pl->brush_cur_Y;
-			max_Y = pl->brush_box_Y;
-		}
-
-		chunk = pl->sketch[hN].chunk;
-		lend = chunk + pl->sketch[hN].length;
-
-		while (chunk < lend) {
-
-			X = *chunk++;
-			Y = *chunk++;
-
-			X = X * scale_X + offset_X;
-			Y = Y * scale_Y + offset_Y;
-
-			if (		   X > min_X && X < max_X
-					&& Y > min_Y && Y < max_Y) {
-
-				drawDotCanvas(pl->dw, surface, &pl->viewport,
-						X, Y, pl->layout_fence_point, 12, 1);
-
-				pl->figure[fN].brush_N++;
-			}
-		}
+                pl->figure[fN].brush_N++;
+            }
+        }
 
 plotDrawBrush_SKIP:
-		hN = pl->sketch[hN].linked;
-	}
+        hN = pl->sketch[hN].linked;
+    }
 
-	SDL_UnlockSurface(surface);
+    SDL_UnlockSurface(surface);
 }
 
-static void
-plotDrawAxis(plot_t *pl, SDL_Surface *surface, int aN)
+static void plotDrawAxis(plot_t *pl, SDL_Surface *surface, int aN)
 {
-	char		numfmt[PLOT_STRING_MAX];
-	char		numbuf[PLOT_STRING_MAX];
+    char numfmt[PLOT_STRING_MAX];
+    char numbuf[PLOT_STRING_MAX];
+    double scale, offset, fmin, fmax, fpow, tih, tis, tik, la;
+    int fN, bN, texp, lpos, tpos, tdec, hovered;
+    Uint32 axCol = pl->sch->plot_hidden;
+
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].busy != 0 && pl->figure[fN].hidden == 0) {
+            if (pl->figure[fN].axis_X == aN || pl->figure[fN].axis_Y == aN) {
+                if (axCol != pl->sch->plot_hidden) {
+                    axCol = pl->sch->plot_text;
+                } else {
+                    axCol = pl->sch->plot_figure[fN];
+                }
+            }
+        }
+    }
+
+    scale = pl->axis[aN].scale;
+    offset = pl->axis[aN].offset;
+
+    if (pl->axis[aN].slave != 0) {
+        bN = pl->axis[aN].slave_N;
+        scale *= pl->axis[bN].scale;
+        offset = offset * pl->axis[bN].scale + pl->axis[bN].offset;
+    }
+
+    fmin = - offset / scale;
+    fmax = 1. / scale + fmin;
+
+    if (pl->axis[aN].lock_tick != 0) {
+        if (pl->axis[aN].ruler_min > fmin || pl->axis[aN].ruler_max < fmax) {
+            fmin = pl->axis[aN].ruler_min;
+            fmax = pl->axis[aN].ruler_max;
+        }
+    }
+
+    if (pl->axis[aN].busy == AXIS_BUSY_X) {
+        la = (double)(pl->viewport.max_x - pl->viewport.min_x);
+    } else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
+        la = (double)(pl->viewport.max_y - pl->viewport.min_y);
+    }
+
+    if (fmin < fmax) {
+        texp = (int) ceil(log10((fmax - fmin) / 10.));
+        tih = pow(10., (double)texp);
+
+        if ((fmax - fmin) / tih < 2.) {
+            tdec = (int) (tih * scale * la / 5.);
+
+            if (tdec > pl->layout_font_height) {
+                tih /= 5.;
+                texp--;
+            }
+        }
+
+        if ((fmax - fmin) / tih < 4.) {
+            tdec = (int) (tih * scale * la / 2.);
+
+            if (tdec > pl->layout_font_height) {
+                tih /= 2.;
+                texp--;
+            }
+        }
+
+        tdec = (int) (tih * scale * la);
+
+        if (tdec < pl->layout_font_height) {
+            tih *= 2.;
+        }
+
+        tis = floor(fmin / tih) * tih;
+        tis += (tis < fmin) ? tih : 0.;
+        tih = (tis + tih == tis) ? fmax - tis : tih;
+    } else {
+        texp = 0;
+        tis = fmax;
+        tih = fmax;
+    }
+
+    pl->axis[aN].ruler_tih = tih * scale;
+    pl->axis[aN].ruler_tis = tis * scale + offset;
+
+    fpow = 1.;
+
+    if (pl->axis[aN].busy == AXIS_BUSY_X) {
+        la = (double)(pl->viewport.max_x - pl->viewport.min_x);
+        scale *= la;
+        offset = offset * la + pl->viewport.min_x;
+    } else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
+        la = (double)(pl->viewport.min_y - pl->viewport.max_y);
+        scale *= la;
+        offset = offset * la + pl->viewport.max_y;
+    }
+
+    SDL_LockSurface(surface);
+
+    if (pl->axis[aN].busy == AXIS_BUSY_X) {
+        lpos = pl->viewport.max_y + pl->layout_border + pl->axis[aN].layout_pos;
+        hovered = (pl->hover_axis == aN) ? 1 : 0;
+
+        if (pl->hover_figure != -1 && pl->shift_on != 0) {
+            fN = pl->hover_figure;
+
+            hovered = (pl->figure[fN].axis_X == aN) ? 1 : hovered;
+            hovered = (pl->figure[fN].axis_Y == aN) ? 1 : hovered;
+        }
+
+        if (hovered != 0) {
+            tdec = pl->layout_ruler_box;
+            tdec += (pl->axis[aN].compact == 0) ? pl->layout_label_box : 0;
+
+            drawFillRect(surface, pl->viewport.min_x, lpos, pl->viewport.max_x,
+                    lpos + tdec, pl->sch->plot_hovered);
+        }
+
+        drawLine(pl->dw, surface, &pl->screen, pl->viewport.min_x, lpos,
+                pl->viewport.max_x, lpos, pl->sch->plot_axis);
+
+        for (tik = tis; tik < fmax; tik += tih) {
+            tpos = (int) (tik * scale + offset);
+
+            if (tpos < pl->viewport.min_x || tpos > pl->viewport.max_x)
+                continue;
+
+            drawLine(pl->dw, surface, &pl->screen, tpos, lpos, tpos,
+                    lpos + pl->layout_tick_tooth, pl->sch->plot_axis);
+
+            if (pl->axis[aN].lock_tick != 0 || pl->on_X == aN) {
+                drawDashReset(pl->dw);
+                drawDash(pl->dw, surface, &pl->screen, tpos,
+                        pl->viewport.min_y, tpos,
+                        pl->viewport.max_y, pl->sch->plot_axis,
+                        pl->layout_grid_dash, pl->layout_grid_space);
+            }
+        }
 
-	double		scale, offset, fmin, fmax, fpow, tih, tis, tik, la;
-	int		fN, bN, texp, lpos, tpos, tdec, hovered;
+        if (pl->on_X == aN) {
+            drawLine(pl->dw, surface, &pl->screen, pl->viewport.min_x,
+                    lpos + 1, pl->viewport.max_x, lpos + 1,
+                    pl->sch->plot_axis);
+        }
+
+        if (pl->axis[aN].slave != 0) {
+            drawLine(pl->dw, surface, &pl->screen, pl->viewport.min_x,
+                    lpos + pl->layout_tick_tooth, pl->viewport.max_x,
+                    lpos + pl->layout_tick_tooth, pl->sch->plot_axis);
+        }
+    } else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
+        lpos = pl->viewport.min_x - pl->layout_border - pl->axis[aN].layout_pos;
+        hovered = (pl->hover_axis == aN) ? 1 : 0;
+
+        if (pl->hover_figure != -1 && pl->shift_on != 0) {
+            fN = pl->hover_figure;
+
+            hovered = (pl->figure[fN].axis_X == aN) ? 1 : hovered;
+            hovered = (pl->figure[fN].axis_Y == aN) ? 1 : hovered;
+        }
 
-	Uint32		axCol = pl->sch->plot_hidden;
+        if (hovered != 0) {
+            tdec = pl->layout_ruler_box;
+            tdec += (pl->axis[aN].compact == 0) ? pl->layout_label_box : 0;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+            drawFillRect(surface, lpos - tdec, pl->viewport.min_y, lpos,
+                    pl->viewport.max_y, pl->sch->plot_hovered);
+        }
 
-		if (pl->figure[fN].busy != 0 && pl->figure[fN].hidden == 0) {
+        drawLine(pl->dw, surface, &pl->screen, lpos, pl->viewport.min_y,
+                lpos, pl->viewport.max_y, pl->sch->plot_axis);
 
-			if (	pl->figure[fN].axis_X == aN
-				|| pl->figure[fN].axis_Y == aN) {
+        for (tik = tis; tik < fmax; tik += tih) {
+            tpos = (int)(tik * scale + offset);
 
-				if (axCol != pl->sch->plot_hidden) {
+            if (tpos < pl->viewport.min_y || tpos > pl->viewport.max_y)
+                continue;
 
-					axCol = pl->sch->plot_text;
-				}
-				else {
-					axCol = pl->sch->plot_figure[fN];
-				}
-			}
-		}
-	}
+            drawLine(pl->dw, surface, &pl->screen, lpos, tpos,
+                    lpos - pl->layout_tick_tooth, tpos,
+                    pl->sch->plot_axis);
 
-	scale = pl->axis[aN].scale;
-	offset = pl->axis[aN].offset;
+            if (pl->axis[aN].lock_tick != 0 || pl->on_Y == aN) {
+                drawDashReset(pl->dw);
+                drawDash(pl->dw, surface, &pl->screen,
+                        pl->viewport.min_x, tpos,
+                        pl->viewport.max_x, tpos,
+                        pl->sch->plot_axis, pl->layout_grid_dash,
+                        pl->layout_grid_space);
+            }
+        }
+
+        if (pl->on_Y == aN) {
+            drawLine(pl->dw, surface, &pl->screen, lpos - 1,
+                    pl->viewport.min_y, lpos - 1,
+                    pl->viewport.max_y, pl->sch->plot_axis);
+        }
+
+        if (pl->axis[aN].slave != 0) {
+            drawLine(pl->dw, surface, &pl->screen, lpos - pl->layout_tick_tooth,
+                    pl->viewport.min_y, lpos - pl->layout_tick_tooth,
+                    pl->viewport.max_y, pl->sch->plot_axis);
+        }
+    }
+
+    SDL_UnlockSurface(surface);
 
-	if (pl->axis[aN].slave != 0) {
+    if (pl->axis[aN].busy == AXIS_BUSY_X) {
+        int tmove, taway, tleft, tright, txlen;
 
-		bN = pl->axis[aN].slave_N;
-		scale *= pl->axis[bN].scale;
-		offset = offset * pl->axis[bN].scale + pl->axis[bN].offset;
-	}
+        lpos = pl->viewport.max_y + pl->layout_border + pl->axis[aN].layout_pos;
+        tmove = pl->screen.min_x;
+        taway = pl->viewport.max_x;
 
-	fmin = - offset / scale;
-	fmax = 1. / scale + fmin;
+        if (pl->axis[aN].exponential != 0 || abs(texp) > 16) {
+            tdec = 3 * (- texp / 3);
 
-	if (pl->axis[aN].lock_tick != 0) {
+            if (tdec != 0) {
+                texp += tdec;
+                fpow *= pow(10., (double)tdec);
 
-		if (		   pl->axis[aN].ruler_min > fmin
-				|| pl->axis[aN].ruler_max < fmax) {
+                sprintf(numbuf, "E%+i", - tdec);
 
-			fmin = pl->axis[aN].ruler_min;
-			fmax = pl->axis[aN].ruler_max;
-		}
-	}
+                tpos = (pl->axis[aN].compact == 0) ?
+                    lpos + pl->layout_ruler_box :
+                    lpos + pl->layout_tick_tooth;
 
-	if (pl->axis[aN].busy == AXIS_BUSY_X) {
+                tpos += pl->layout_font_height / 2;
 
-		la = (double) (pl->viewport.max_x - pl->viewport.min_x);
-	}
-	else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
+                TTF_SizeUTF8(pl->font, numbuf, &txlen, &tdec);
 
-		la = (double) (pl->viewport.max_y - pl->viewport.min_y);
-	}
+                drawText(pl->dw, surface, pl->font, taway - txlen, tpos,
+                        numbuf, TEXT_CENTERED_ON_Y, axCol);
 
-	if (fmin < fmax) {
+                if (pl->axis[aN].compact != 0)
+                    taway += - (txlen + pl->layout_font_space);
 
-		texp = (int) ceil(log10((fmax - fmin) / 10.));
-		tih = pow(10., (double) texp);
+                if (pl->axis[aN].exponential == 0)
+                    pl->axis[aN].exponential = 1;
+            }
+        }
 
-		if ((fmax - fmin) / tih < 2.) {
+        if (pl->axis[aN].label[0] != 0 && pl->axis[aN].compact != 0) {
+            TTF_SizeUTF8(pl->font, pl->axis[aN].label, &txlen, &tdec);
 
-			tdec = (int) (tih * scale * la / 5.);
+            taway += - (txlen + pl->layout_font_space);
+        }
 
-			if (tdec > pl->layout_font_height) {
+        if (abs(texp) < 170) {
+            sprintf(numfmt, "%%.%df", (texp < 0) ? - texp : 0);
+        } else {
+            numfmt[0] = 0;
+        }
 
-				tih /= 5.;
-				texp--;
-			}
-		}
+        for (tik = tis; tik < fmax; tik += tih) {
+            tpos = (int) (tik * scale + offset);
 
-		if ((fmax - fmin) / tih < 4.) {
+            if (tpos < pl->viewport.min_x || tpos > pl->viewport.max_x)
+                continue;
 
-			tdec = (int) (tih * scale * la / 2.);
+            sprintf(numbuf, numfmt, tik * fpow);
 
-			if (tdec > pl->layout_font_height) {
+            TTF_SizeUTF8(pl->font, numbuf, &txlen, &tdec);
 
-				tih /= 2.;
-				texp--;
-			}
-		}
+            tleft = tpos - txlen / 2 - pl->layout_font_long;
+            tright = tpos + (txlen - txlen / 2);
 
-		tdec = (int) (tih * scale * la);
+            if (tmove < tleft && tright < taway) {
+                drawText(pl->dw, surface, pl->font, tpos, lpos + pl->layout_tick_tooth
+                        + pl->layout_font_height / 2, numbuf, TEXT_CENTERED, axCol);
 
-		if (tdec < pl->layout_font_height) {
+                tmove = tright;
+            }
+        }
 
-			tih *= 2.;
-		}
+        if (pl->axis[aN].compact != 0) {
+            tpos = taway + pl->layout_font_height / 2;
+            lpos = lpos + pl->layout_tick_tooth + pl->layout_font_height / 2;
 
-		tis = floor(fmin / tih) * tih;
-		tis += (tis < fmin) ? tih : 0.;
-		tih = (tis + tih == tis) ? fmax - tis : tih;
-	}
-	else {
-		texp = 0;
-		tis = fmax;
-		tih = fmax;
-	}
+            if (pl->axis[aN].label[0] != 0) {
+                drawText(pl->dw, surface, pl->font, tpos, lpos,
+                        pl->axis[aN].label, TEXT_CENTERED_ON_Y, axCol);
+            }
+        } else {
+            tpos = (pl->viewport.min_x + pl->viewport.max_x) / 2;
+            lpos = lpos + pl->layout_ruler_box + pl->layout_font_height / 2;
 
-	pl->axis[aN].ruler_tih = tih * scale;
-	pl->axis[aN].ruler_tis = tis * scale + offset;
+            if (pl->axis[aN].label[0] != 0) {
+                drawText(pl->dw, surface, pl->font, tpos, lpos,
+                        pl->axis[aN].label, TEXT_CENTERED, axCol);
+            }
+        }
+    } else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
+        int tmove, taway, tawayb, tleft, tright, txlen;
 
-	fpow = 1.;
+        lpos = pl->viewport.min_x - pl->layout_border - pl->axis[aN].layout_pos;
+        tmove = pl->screen.max_y;
+        taway = pl->viewport.min_y;
 
-	if (pl->axis[aN].busy == AXIS_BUSY_X) {
+        if (pl->axis[aN].exponential != 0 || abs(texp) > 16) {
+            tdec = 3 * (- texp / 3);
 
-		la = (double) (pl->viewport.max_x - pl->viewport.min_x);
-		scale *= la;
-		offset = offset * la + pl->viewport.min_x;
-	}
-	else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
+            if (tdec != 0) {
+                texp += tdec;
+                fpow *= pow(10., (double)tdec);
 
-		la = (double) (pl->viewport.min_y - pl->viewport.max_y);
-		scale *= la;
-		offset = offset * la + pl->viewport.max_y;
-	}
+                sprintf(numbuf, "E%+i", - tdec);
 
-	SDL_LockSurface(surface);
+                tpos = (pl->axis[aN].compact == 0) ?
+                    lpos - pl->layout_ruler_box :
+                    lpos - pl->layout_tick_tooth;
 
-	if (pl->axis[aN].busy == AXIS_BUSY_X) {
+                tpos -= pl->layout_font_height / 2;
 
-		lpos = pl->viewport.max_y + pl->layout_border + pl->axis[aN].layout_pos;
-		hovered = (pl->hover_axis == aN) ? 1 : 0;
+                TTF_SizeUTF8(pl->font, numbuf, &txlen, &tdec);
 
-		if (pl->hover_figure != -1 && pl->shift_on != 0) {
+                drawText(pl->dw, surface, pl->font, tpos, taway, numbuf,
+                        TEXT_CENTERED_ON_X | TEXT_VERTICAL, axCol);
 
-			fN = pl->hover_figure;
+                if (pl->axis[aN].compact != 0)
+                    taway += txlen + pl->layout_font_space;
 
-			hovered = (pl->figure[fN].axis_X == aN) ? 1 : hovered;
-			hovered = (pl->figure[fN].axis_Y == aN) ? 1 : hovered;
-		}
+                if (pl->axis[aN].exponential == 0)
+                    pl->axis[aN].exponential = 1;
+            }
+        }
 
-		if (hovered != 0) {
+        tawayb = taway;
 
-			tdec = pl->layout_ruler_box;
-			tdec += (pl->axis[aN].compact == 0) ? pl->layout_label_box : 0;
+        if (pl->axis[aN].label[0] != 0 && pl->axis[aN].compact != 0) {
+            TTF_SizeUTF8(pl->font, pl->axis[aN].label, &txlen, &tdec);
 
-			drawFillRect(surface, pl->viewport.min_x, lpos, pl->viewport.max_x,
-					lpos + tdec, pl->sch->plot_hovered);
-		}
+            taway += txlen + pl->layout_font_space;
+        }
 
-		drawLine(pl->dw, surface, &pl->screen, pl->viewport.min_x, lpos,
-				pl->viewport.max_x, lpos, pl->sch->plot_axis);
+        if (abs(texp) < 170) {
+            sprintf(numfmt, "%%.%df", (texp < 0) ? - texp : 0);
+        } else {
+            numfmt[0] = 0;
+        }
 
-		for (tik = tis; tik < fmax; tik += tih) {
+        for (tik = tis; tik < fmax; tik += tih) {
+            tpos = (int)(tik * scale + offset);
 
-			tpos = (int) (tik * scale + offset);
+            if (tpos < pl->viewport.min_y || tpos > pl->viewport.max_y)
+                continue;
 
-			if (tpos < pl->viewport.min_x || tpos > pl->viewport.max_x)
-				continue ;
+            sprintf(numbuf, numfmt, tik * fpow);
 
-			drawLine(pl->dw, surface, &pl->screen, tpos, lpos, tpos,
-					lpos + pl->layout_tick_tooth, pl->sch->plot_axis);
+            TTF_SizeUTF8(pl->font, numbuf, &txlen, &tdec);
 
-			if (		pl->axis[aN].lock_tick != 0
-					|| pl->on_X == aN) {
+            tleft = tpos + txlen / 2 + pl->layout_font_long;
+            tright = tpos - (txlen - txlen / 2);
 
-				drawDashReset(pl->dw);
-				drawDash(pl->dw, surface, &pl->screen, tpos,
-						pl->viewport.min_y, tpos,
-						pl->viewport.max_y, pl->sch->plot_axis,
-						pl->layout_grid_dash, pl->layout_grid_space);
-			}
-		}
+            if (tmove > tleft && tright > taway) {
+                drawText(pl->dw, surface, pl->font,
+                        lpos - pl->layout_tick_tooth - pl->layout_font_height / 2,
+                        tpos, numbuf, TEXT_CENTERED | TEXT_VERTICAL, axCol);
 
-		if (pl->on_X == aN) {
+                tmove = tright;
+            }
+        }
 
-			drawLine(pl->dw, surface, &pl->screen, pl->viewport.min_x,
-					lpos + 1, pl->viewport.max_x, lpos + 1,
-					pl->sch->plot_axis);
-		}
+        if (pl->axis[aN].compact != 0) {
+            lpos = lpos - pl->layout_tick_tooth - pl->layout_font_height / 2;
+            tpos = tawayb;
 
-		if (pl->axis[aN].slave != 0) {
+            if (pl->axis[aN].label[0] != 0) {
+                drawText(pl->dw, surface, pl->font, lpos, tpos, pl->axis[aN].label,
+                        TEXT_CENTERED_ON_X | TEXT_VERTICAL, axCol);
+            }
+        } else {
+            lpos = lpos - pl->layout_ruler_box - pl->layout_font_height / 2;
+            tpos = (pl->viewport.min_y + pl->viewport.max_y) / 2;
 
-			drawLine(pl->dw, surface, &pl->screen, pl->viewport.min_x,
-					lpos + pl->layout_tick_tooth, pl->viewport.max_x,
-					lpos + pl->layout_tick_tooth, pl->sch->plot_axis);
-		}
-	}
-	else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
-
-		lpos = pl->viewport.min_x - pl->layout_border - pl->axis[aN].layout_pos;
-		hovered = (pl->hover_axis == aN) ? 1 : 0;
-
-		if (pl->hover_figure != -1 && pl->shift_on != 0) {
-
-			fN = pl->hover_figure;
-
-			hovered = (pl->figure[fN].axis_X == aN) ? 1 : hovered;
-			hovered = (pl->figure[fN].axis_Y == aN) ? 1 : hovered;
-		}
-
-		if (hovered != 0) {
-
-			tdec = pl->layout_ruler_box;
-			tdec += (pl->axis[aN].compact == 0) ? pl->layout_label_box : 0;
-
-			drawFillRect(surface, lpos - tdec, pl->viewport.min_y, lpos,
-					pl->viewport.max_y, pl->sch->plot_hovered);
-		}
-
-		drawLine(pl->dw, surface, &pl->screen, lpos, pl->viewport.min_y,
-				lpos, pl->viewport.max_y, pl->sch->plot_axis);
-
-		for (tik = tis; tik < fmax; tik += tih) {
-
-			tpos = (int) (tik * scale + offset);
-
-			if (tpos < pl->viewport.min_y || tpos > pl->viewport.max_y)
-				continue ;
-
-			drawLine(pl->dw, surface, &pl->screen, lpos, tpos,
-					lpos - pl->layout_tick_tooth, tpos,
-					pl->sch->plot_axis);
-
-			if (		pl->axis[aN].lock_tick != 0
-					|| pl->on_Y == aN) {
-
-				drawDashReset(pl->dw);
-				drawDash(pl->dw, surface, &pl->screen,
-						pl->viewport.min_x, tpos,
-						pl->viewport.max_x, tpos,
-						pl->sch->plot_axis, pl->layout_grid_dash,
-						pl->layout_grid_space);
-			}
-		}
-
-		if (pl->on_Y == aN) {
-
-			drawLine(pl->dw, surface, &pl->screen, lpos - 1,
-					pl->viewport.min_y, lpos - 1,
-					pl->viewport.max_y, pl->sch->plot_axis);
-		}
-
-		if (pl->axis[aN].slave != 0) {
-
-			drawLine(pl->dw, surface, &pl->screen, lpos - pl->layout_tick_tooth,
-					pl->viewport.min_y, lpos - pl->layout_tick_tooth,
-					pl->viewport.max_y, pl->sch->plot_axis);
-		}
-	}
-
-	SDL_UnlockSurface(surface);
-
-	if (pl->axis[aN].busy == AXIS_BUSY_X) {
-
-		int		tmove, taway, tleft, tright, txlen;
-
-		lpos = pl->viewport.max_y + pl->layout_border + pl->axis[aN].layout_pos;
-		tmove = pl->screen.min_x;
-		taway = pl->viewport.max_x;
-
-		if (		pl->axis[aN].exponential != 0
-				|| abs(texp) > 16) {
-
-			tdec = 3 * (- texp / 3);
-
-			if (tdec != 0) {
-
-				texp += tdec;
-				fpow *= pow(10., (double) tdec);
-
-				sprintf(numbuf, "E%+i", - tdec);
-
-				tpos = (pl->axis[aN].compact == 0) ?
-					lpos + pl->layout_ruler_box :
-					lpos + pl->layout_tick_tooth;
-
-				tpos += pl->layout_font_height / 2;
-
-				TTF_SizeUTF8(pl->font, numbuf, &txlen, &tdec);
-
-				drawText(pl->dw, surface, pl->font, taway - txlen, tpos,
-						numbuf, TEXT_CENTERED_ON_Y, axCol);
-
-				if (pl->axis[aN].compact != 0)
-					taway += - (txlen + pl->layout_font_space);
-
-				if (pl->axis[aN].exponential == 0)
-					pl->axis[aN].exponential = 1;
-			}
-		}
-
-		if (		pl->axis[aN].label[0] != 0
-				&& pl->axis[aN].compact != 0) {
-
-			TTF_SizeUTF8(pl->font, pl->axis[aN].label, &txlen, &tdec);
-
-			taway += - (txlen + pl->layout_font_space);
-		}
-
-		if (abs(texp) < 170) {
-
-			sprintf(numfmt, "%%.%df", (texp < 0) ? - texp : 0);
-		}
-		else {
-			numfmt[0] = 0;
-		}
-
-		for (tik = tis; tik < fmax; tik += tih) {
-
-			tpos = (int) (tik * scale + offset);
-
-			if (tpos < pl->viewport.min_x || tpos > pl->viewport.max_x)
-				continue ;
-
-			sprintf(numbuf, numfmt, tik * fpow);
-
-			TTF_SizeUTF8(pl->font, numbuf, &txlen, &tdec);
-
-			tleft = tpos - txlen / 2 - pl->layout_font_long;
-			tright = tpos + (txlen - txlen / 2);
-
-			if (tmove < tleft && tright < taway) {
-
-				drawText(pl->dw, surface, pl->font, tpos,
-						lpos + pl->layout_tick_tooth
-						+ pl->layout_font_height / 2, numbuf,
-						TEXT_CENTERED, axCol);
-
-				tmove = tright;
-			}
-		}
-
-		if (pl->axis[aN].compact != 0) {
-
-			tpos = taway + pl->layout_font_height / 2;
-			lpos = lpos + pl->layout_tick_tooth + pl->layout_font_height / 2;
-
-			if (pl->axis[aN].label[0] != 0) {
-
-				drawText(pl->dw, surface, pl->font, tpos, lpos,
-						pl->axis[aN].label,
-						TEXT_CENTERED_ON_Y, axCol);
-			}
-		}
-		else {
-			tpos = (pl->viewport.min_x + pl->viewport.max_x) / 2;
-			lpos = lpos + pl->layout_ruler_box + pl->layout_font_height / 2;
-
-			if (pl->axis[aN].label[0] != 0) {
-
-				drawText(pl->dw, surface, pl->font, tpos, lpos,
-						pl->axis[aN].label,
-						TEXT_CENTERED, axCol);
-			}
-		}
-	}
-	else if (pl->axis[aN].busy == AXIS_BUSY_Y) {
-
-		int		tmove, taway, tawayb, tleft, tright, txlen;
-
-		lpos = pl->viewport.min_x - pl->layout_border - pl->axis[aN].layout_pos;
-		tmove = pl->screen.max_y;
-		taway = pl->viewport.min_y;
-
-		if (		pl->axis[aN].exponential != 0
-				|| abs(texp) > 16) {
-
-			tdec = 3 * (- texp / 3);
-
-			if (tdec != 0) {
-
-				texp += tdec;
-				fpow *= pow(10., (double) tdec);
-
-				sprintf(numbuf, "E%+i", - tdec);
-
-				tpos = (pl->axis[aN].compact == 0) ?
-					lpos - pl->layout_ruler_box :
-					lpos - pl->layout_tick_tooth;
-
-				tpos -= pl->layout_font_height / 2;
-
-				TTF_SizeUTF8(pl->font, numbuf, &txlen, &tdec);
-
-				drawText(pl->dw, surface, pl->font, tpos, taway, numbuf,
-						TEXT_CENTERED_ON_X | TEXT_VERTICAL, axCol);
-
-				if (pl->axis[aN].compact != 0)
-					taway += txlen + pl->layout_font_space;
-
-				if (pl->axis[aN].exponential == 0)
-					pl->axis[aN].exponential = 1;
-			}
-		}
-
-		tawayb = taway;
-
-		if (		pl->axis[aN].label[0] != 0
-				&& pl->axis[aN].compact != 0) {
-
-			TTF_SizeUTF8(pl->font, pl->axis[aN].label, &txlen, &tdec);
-
-			taway += txlen + pl->layout_font_space;
-		}
-
-		if (abs(texp) < 170) {
-
-			sprintf(numfmt, "%%.%df", (texp < 0) ? - texp : 0);
-		}
-		else {
-			numfmt[0] = 0;
-		}
-
-		for (tik = tis; tik < fmax; tik += tih) {
-
-			tpos = (int) (tik * scale + offset);
-
-			if (tpos < pl->viewport.min_y || tpos > pl->viewport.max_y)
-				continue ;
-
-			sprintf(numbuf, numfmt, tik * fpow);
-
-			TTF_SizeUTF8(pl->font, numbuf, &txlen, &tdec);
-
-			tleft = tpos + txlen / 2 + pl->layout_font_long;
-			tright = tpos - (txlen - txlen / 2);
-
-			if (tmove > tleft && tright > taway) {
-
-				drawText(pl->dw, surface, pl->font,
-						lpos - pl->layout_tick_tooth
-						- pl->layout_font_height / 2, tpos, numbuf,
-						TEXT_CENTERED | TEXT_VERTICAL, axCol);
-
-				tmove = tright;
-			}
-		}
-
-		if (pl->axis[aN].compact != 0) {
-
-			lpos = lpos - pl->layout_tick_tooth - pl->layout_font_height / 2;
-			tpos = tawayb;
-
-			if (pl->axis[aN].label[0] != 0) {
-
-				drawText(pl->dw, surface, pl->font, lpos, tpos,
-						pl->axis[aN].label,
-						TEXT_CENTERED_ON_X | TEXT_VERTICAL, axCol);
-			}
-		}
-		else {
-			lpos = lpos - pl->layout_ruler_box - pl->layout_font_height / 2;
-			tpos = (pl->viewport.min_y + pl->viewport.max_y) / 2;
-
-			if (pl->axis[aN].label[0] != 0) {
-
-				drawText(pl->dw, surface, pl->font, lpos, tpos,
-						pl->axis[aN].label,
-						TEXT_CENTERED | TEXT_VERTICAL, axCol);
-			}
-		}
-	}
+            if (pl->axis[aN].label[0] != 0) {
+                drawText(pl->dw, surface, pl->font, lpos, tpos, pl->axis[aN].label,
+                        TEXT_CENTERED | TEXT_VERTICAL, axCol);
+            }
+        }
+    }
 }
 
-static void
-plotLegendLayout(plot_t *pl)
+static void plotLegendLayout(plot_t *pl)
 {
-	int		fN, size_X, size_Y;
-	int		size_N = 0, size_MAX = 0;
+    int fN, size_X, size_Y;
+    int size_N = 0, size_MAX = 0;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].busy != 0) {
+            TTF_SizeUTF8(pl->font, pl->figure[fN].label, &size_X, &size_Y);
+            size_MAX = (size_MAX < size_X) ? size_X : size_MAX;
 
-		if (pl->figure[fN].busy != 0) {
+            size_N++;
+        }
+    }
 
-			TTF_SizeUTF8(pl->font, pl->figure[fN].label, &size_X, &size_Y);
-			size_MAX = (size_MAX < size_X) ? size_X : size_MAX;
+    pl->legend_size_X = size_MAX + pl->layout_font_long * 2;
+    pl->legend_N = size_N;
 
-			size_N++;
-		}
-	}
+    if (pl->legend_X > pl->viewport.max_x - (size_MAX + pl->layout_font_height * 3))
+        pl->legend_X = pl->viewport.max_x - (size_MAX + pl->layout_font_height * 3);
 
-	pl->legend_size_X = size_MAX + pl->layout_font_long * 2;
-	pl->legend_N = size_N;
+    if (pl->legend_Y > pl->viewport.max_y - pl->layout_font_height * (size_N + 1))
+        pl->legend_Y = pl->viewport.max_y - pl->layout_font_height * (size_N + 1);
 
-	if (pl->legend_X > pl->viewport.max_x - (size_MAX + pl->layout_font_height * 3))
-		pl->legend_X = pl->viewport.max_x - (size_MAX + pl->layout_font_height * 3);
+    if (pl->legend_X < pl->viewport.min_x + pl->layout_font_height)
+        pl->legend_X = pl->viewport.min_x + pl->layout_font_height;
 
-	if (pl->legend_Y > pl->viewport.max_y - pl->layout_font_height * (size_N + 1))
-		pl->legend_Y = pl->viewport.max_y - pl->layout_font_height * (size_N + 1);
-
-	if (pl->legend_X < pl->viewport.min_x + pl->layout_font_height)
-		pl->legend_X = pl->viewport.min_x + pl->layout_font_height;
-
-	if (pl->legend_Y < pl->viewport.min_y + pl->layout_font_height)
-		pl->legend_Y = pl->viewport.min_y + pl->layout_font_height;
+    if (pl->legend_Y < pl->viewport.min_y + pl->layout_font_height)
+        pl->legend_Y = pl->viewport.min_y + pl->layout_font_height;
 }
 
-static void
-plotLegendDraw(plot_t *pl, SDL_Surface *surface)
+static void plotLegendDraw(plot_t *pl, SDL_Surface *surface)
 {
-	int		boxX, boxY, size_X, size_Y;
-	int		fN, legX, legY, ncolor, fwidth, hovered;
+    int boxX, boxY, size_X, size_Y;
+    int fN, legX, legY, ncolor, fwidth, hovered;
 
-	legX = pl->legend_X;
-	legY = pl->legend_Y;
+    legX = pl->legend_X;
+    legY = pl->legend_Y;
 
-	size_X = pl->layout_font_height * 2 + pl->legend_size_X;
-	size_Y = pl->layout_font_height * pl->legend_N;
+    size_X = pl->layout_font_height * 2 + pl->legend_size_X;
+    size_Y = pl->layout_font_height * pl->legend_N;
 
-	SDL_LockSurface(surface);
+    SDL_LockSurface(surface);
 
-	if (pl->hover_legend != -1) {
+    if (pl->hover_legend != -1) {
+        drawFillRect(surface, legX, legY, legX + size_X,
+                legY + size_Y, pl->sch->plot_hovered);
+    } else if (pl->transparency == 0 && pl->legend_hidden == 0) {
+        drawFillRect(surface, legX, legY, legX + size_X,
+                legY + size_Y, pl->sch->plot_background);
+    }
 
-		drawFillRect(surface, legX, legY, legX + size_X,
-				legY + size_Y, pl->sch->plot_hovered);
-	}
-	else if (	pl->transparency == 0
-			&& pl->legend_hidden == 0) {
+    SDL_UnlockSurface(surface);
 
-		drawFillRect(surface, legX, legY, legX + size_X,
-				legY + size_Y, pl->sch->plot_background);
-	}
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].busy != 0) {
+            SDL_LockSurface(surface);
 
-	SDL_UnlockSurface(surface);
+            ncolor = (pl->figure[fN].hidden != 0) ? 11 : fN + 1;
+            hovered = (pl->hover_figure == fN) ? 1 : 0;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+            if (pl->shift_on != 0) {
+                hovered = (pl->figure[fN].axis_X == pl->hover_axis) ? 1 : hovered;
+                hovered = (pl->figure[fN].axis_Y == pl->hover_axis) ? 1 : hovered;
+            }
 
-		if (pl->figure[fN].busy != 0) {
+            if (hovered != 0) {
+                boxX = legX + pl->layout_font_height * 2;
+                size_X = pl->legend_size_X;
+                size_Y = pl->layout_font_height;
 
-			SDL_LockSurface(surface);
+                drawFillRect(surface, boxX, legY, boxX + size_X,
+                        legY + size_Y, pl->sch->plot_hovered);
+            }
 
-			ncolor = (pl->figure[fN].hidden != 0) ? 11 : fN + 1;
-			hovered = (pl->hover_figure == fN) ? 1 : 0;
+            if (pl->legend_hidden == 0) {
+                double padY;
 
-			if (pl->shift_on != 0) {
+                fwidth = pl->figure[fN].width;
+                boxY = legY + pl->layout_font_height / 2;
 
-				hovered = (pl->figure[fN].axis_X == pl->hover_axis) ? 1 : hovered;
-				hovered = (pl->figure[fN].axis_Y == pl->hover_axis) ? 1 : hovered;
-			}
+                padY = (fwidth < 1 || (fwidth % 2) != 0) ? 0.5 : 0.;
 
-			if (hovered != 0) {
+                if (pl->figure[fN].drawing == FIGURE_DRAWING_LINE) {
+                    boxX = legX + pl->layout_font_height / 2;
 
-				boxX = legX + pl->layout_font_height * 2;
-				size_X = pl->legend_size_X;
-				size_Y = pl->layout_font_height;
+                    drawLineCanvas(pl->dw, surface, &pl->viewport, boxX,
+                            boxY + padY, boxX + pl->layout_font_height,
+                            boxY + padY, ncolor, fwidth);
+                } else if (pl->figure[fN].drawing == FIGURE_DRAWING_DASH) {
+                    boxX = legX + pl->layout_font_height / 2;
 
-				drawFillRect(surface, boxX, legY, boxX + size_X,
-						legY + size_Y, pl->sch->plot_hovered);
-			}
+                    drawDashReset(pl->dw);
 
-			if (pl->legend_hidden == 0) {
+                    drawDashCanvas(pl->dw, surface, &pl->viewport, boxX,
+                            boxY + padY, boxX + pl->layout_font_height,
+                            boxY + padY, ncolor, fwidth,
+                            pl->layout_drawing_dash, pl->layout_drawing_space);
+                } else if (pl->figure[fN].drawing == FIGURE_DRAWING_DOT) {
+                    boxX = legX + pl->layout_font_height;
 
-				double		padY;
+                    drawDotCanvas(pl->dw, surface, &pl->viewport,
+                            boxX + padY, boxY + padY,
+                            (fwidth > 4) ? fwidth : 4, ncolor, 1);
+                }
 
-				fwidth = pl->figure[fN].width;
-				boxY = legY + pl->layout_font_height / 2;
+                if (pl->mark_on != 0) {
+                    boxX = legX + pl->layout_font_height;
 
-				padY = (fwidth < 1 || (fwidth % 2) != 0) ? 0.5 : 0.;
+                    drawMarkCanvas(pl->dw, surface, &pl->viewport, boxX,
+                            boxY + padY, pl->layout_mark_size,
+                            fN, ncolor, (fwidth < 1) ? 1 : fwidth);
+                }
+            }
 
-				if (pl->figure[fN].drawing == FIGURE_DRAWING_LINE) {
+            SDL_UnlockSurface(surface);
 
-					boxX = legX + pl->layout_font_height / 2;
+            if (pl->legend_hidden == 0) {
+                drawText(pl->dw, surface, pl->font, legX + pl->layout_font_height * 2
+                        + pl->layout_font_long, boxY, pl->figure[fN].label,
+                        TEXT_CENTERED_ON_Y, (pl->figure[fN].hidden != 0)
+                        ? pl->sch->plot_hidden : pl->sch->plot_text);
+            }
 
-					drawLineCanvas(pl->dw, surface, &pl->viewport, boxX,
-							boxY + padY, boxX + pl->layout_font_height,
-							boxY + padY, ncolor, fwidth);
-				}
-				else if (pl->figure[fN].drawing == FIGURE_DRAWING_DASH) {
-
-					boxX = legX + pl->layout_font_height / 2;
-
-					drawDashReset(pl->dw);
-
-					drawDashCanvas(pl->dw, surface, &pl->viewport, boxX,
-							boxY + padY, boxX + pl->layout_font_height,
-							boxY + padY, ncolor, fwidth,
-							pl->layout_drawing_dash, pl->layout_drawing_space);
-				}
-				else if (pl->figure[fN].drawing == FIGURE_DRAWING_DOT) {
-
-					boxX = legX + pl->layout_font_height;
-
-					drawDotCanvas(pl->dw, surface, &pl->viewport,
-							boxX + padY, boxY + padY,
-							(fwidth > 4) ? fwidth : 4, ncolor, 1);
-				}
-
-				if (pl->mark_on != 0) {
-
-					boxX = legX + pl->layout_font_height;
-
-					drawMarkCanvas(pl->dw, surface, &pl->viewport, boxX,
-							boxY + padY, pl->layout_mark_size,
-							fN, ncolor, (fwidth < 1) ? 1 : fwidth);
-				}
-			}
-
-			SDL_UnlockSurface(surface);
-
-			if (pl->legend_hidden == 0) {
-
-				drawText(pl->dw, surface, pl->font, legX + pl->layout_font_height * 2
-						+ pl->layout_font_long, boxY, pl->figure[fN].label,
-						TEXT_CENTERED_ON_Y, (pl->figure[fN].hidden != 0)
-						? pl->sch->plot_hidden : pl->sch->plot_text);
-			}
-
-			legY += pl->layout_font_height;
-		}
-	}
+            legY += pl->layout_font_height;
+        }
+    }
 }
 
 int plotLegendGetByClick(plot_t *pl, int cur_X, int cur_Y)
 {
-	int		legX, legY, relX, relY;
-	int		fN, rN = -1;
+    int legX, legY, relX, relY;
+    int fN, rN = -1;
 
-	legX = pl->legend_X;
-	legY = pl->legend_Y;
+    legX = pl->legend_X;
+    legY = pl->legend_Y;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].busy != 0) {
+            relX = cur_X - (legX + pl->layout_font_height * 2);
+            relY = cur_Y - legY;
 
-		if (pl->figure[fN].busy != 0) {
+            if (relX > 0 && relX < pl->legend_size_X && relY > 0 && relY < pl->layout_font_height) {
+                rN = fN;
+                break;
+            }
 
-			relX = cur_X - (legX + pl->layout_font_height * 2);
-			relY = cur_Y - legY;
+            legY += pl->layout_font_height;
+        }
+    }
 
-			if (		relX > 0 && relX < pl->legend_size_X
-					&& relY > 0 && relY < pl->layout_font_height) {
+    pl->hover_figure = rN;
 
-				rN = fN;
-				break;
-			}
-
-			legY += pl->layout_font_height;
-		}
-	}
-
-	pl->hover_figure = rN;
-
-	return rN;
+    return rN;
 }
 
 int plotLegendBoxGetByClick(plot_t *pl, int cur_X, int cur_Y)
 {
-	int		relX, relY, lenY, rN = -1;
+    int relX, relY, lenY, rN = -1;
 
-	relX = cur_X - pl->legend_X;
-	relY = cur_Y - pl->legend_Y;
+    relX = cur_X - pl->legend_X;
+    relY = cur_Y - pl->legend_Y;
 
-	lenY = pl->layout_font_height * pl->legend_N;
+    lenY = pl->layout_font_height * pl->legend_N;
 
-	if (		relX > 0 && relX < pl->layout_font_height * 2
-			&& relY > 0 && relY < lenY) {
+    if (relX > 0 && relX < pl->layout_font_height * 2 && relY > 0 && relY < lenY) {
+        rN = 0;
+    }
 
-		rN = 0;
-	}
+    pl->hover_legend = rN;
 
-	pl->hover_legend = rN;
-
-	return rN;
+    return rN;
 }
 
-static void
-plotDataBoxLayout(plot_t *pl)
+static void plotDataBoxLayout(plot_t *pl)
 {
-	int		N, size_X, size_Y;
-	int		size_N = 0, size_MAX = 0;
+    int N, size_X, size_Y;
+    int size_N = 0, size_MAX = 0;
 
-	if (		pl->data_box_on == DATA_BOX_SLICE
-			|| pl->data_box_on == DATA_BOX_PICK) {
+    if (pl->data_box_on == DATA_BOX_SLICE || pl->data_box_on == DATA_BOX_PICK) {
+        for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+            if (pl->figure[N].busy != 0) {
+                TTF_SizeUTF8(pl->font, pl->data_box_text[N], &size_X, &size_Y);
 
-		for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+                size_MAX = (size_MAX < size_X) ? size_X : size_MAX;
+                size_N++;
+            }
+        }
+    } else if (pl->data_box_on == DATA_BOX_POLYFIT) {
+        for (N = 0; N < PLOT_DATA_BOX_MAX; ++N) {
+            if (pl->data_box_text[N][0] != 0) {
+                TTF_SizeUTF8(pl->font, pl->data_box_text[N], &size_X, &size_Y);
 
-			if (pl->figure[N].busy != 0) {
+                size_MAX = (size_MAX < size_X) ? size_X : size_MAX;
+                size_N++;
+            }
+        }
+    }
 
-				TTF_SizeUTF8(pl->font, pl->data_box_text[N], &size_X, &size_Y);
+    pl->data_box_size_X = size_MAX;
+    pl->data_box_N = size_N;
 
-				size_MAX = (size_MAX < size_X) ? size_X : size_MAX;
-				size_N++;
-			}
-		}
-	}
-	else if (pl->data_box_on == DATA_BOX_POLYFIT) {
+    if (pl->data_box_X > pl->viewport.max_x - (size_MAX + pl->layout_font_height))
+        pl->data_box_X = pl->viewport.max_x - (size_MAX + pl->layout_font_height);
 
-		for (N = 0; N < PLOT_DATA_BOX_MAX; ++N) {
+    if (pl->data_box_Y > pl->viewport.max_y - pl->layout_font_height * (size_N + 1))
+        pl->data_box_Y = pl->viewport.max_y - pl->layout_font_height * (size_N + 1);
 
-			if (pl->data_box_text[N][0] != 0) {
+    if (pl->data_box_X < pl->viewport.min_x + pl->layout_font_height)
+        pl->data_box_X = pl->viewport.min_x + pl->layout_font_height;
 
-				TTF_SizeUTF8(pl->font, pl->data_box_text[N], &size_X, &size_Y);
-
-				size_MAX = (size_MAX < size_X) ? size_X : size_MAX;
-				size_N++;
-			}
-		}
-	}
-
-	pl->data_box_size_X = size_MAX;
-	pl->data_box_N = size_N;
-
-	if (pl->data_box_X > pl->viewport.max_x - (size_MAX + pl->layout_font_height))
-		pl->data_box_X = pl->viewport.max_x - (size_MAX + pl->layout_font_height);
-
-	if (pl->data_box_Y > pl->viewport.max_y - pl->layout_font_height * (size_N + 1))
-		pl->data_box_Y = pl->viewport.max_y - pl->layout_font_height * (size_N + 1);
-
-	if (pl->data_box_X < pl->viewport.min_x + pl->layout_font_height)
-		pl->data_box_X = pl->viewport.min_x + pl->layout_font_height;
-
-	if (pl->data_box_Y < pl->viewport.min_y + pl->layout_font_height)
-		pl->data_box_Y = pl->viewport.min_y + pl->layout_font_height;
+    if (pl->data_box_Y < pl->viewport.min_y + pl->layout_font_height)
+        pl->data_box_Y = pl->viewport.min_y + pl->layout_font_height;
 }
 
-static void
-plotDataBoxDraw(plot_t *pl, SDL_Surface *surface)
+static void plotDataBoxDraw(plot_t *pl, SDL_Surface *surface)
 {
-	int		boxY, size_X, size_Y;
-	int		N, legX, legY;
+    int boxY, size_X, size_Y;
+    int N, legX, legY;
 
-	legX = pl->data_box_X;
-	legY = pl->data_box_Y;
-	size_X = pl->data_box_size_X;
-	size_Y = pl->layout_font_height * pl->data_box_N;
+    legX = pl->data_box_X;
+    legY = pl->data_box_Y;
+    size_X = pl->data_box_size_X;
+    size_Y = pl->layout_font_height * pl->data_box_N;
 
-	SDL_LockSurface(surface);
+    SDL_LockSurface(surface);
 
-	if (pl->hover_data_box != -1) {
+    if (pl->hover_data_box != -1) {
+        drawFillRect(surface, legX, legY, legX + size_X,
+                legY + size_Y, pl->sch->plot_hovered);
+    } else if (pl->transparency == 0) {
+        drawFillRect(surface, legX, legY, legX + size_X,
+                legY + size_Y, pl->sch->plot_background);
+    }
 
-		drawFillRect(surface, legX, legY, legX + size_X,
-				legY + size_Y, pl->sch->plot_hovered);
-	}
-	else if (pl->transparency == 0) {
+    SDL_UnlockSurface(surface);
 
-		drawFillRect(surface, legX, legY, legX + size_X,
-				legY + size_Y, pl->sch->plot_background);
-	}
+    if (pl->data_box_on == DATA_BOX_SLICE || pl->data_box_on == DATA_BOX_PICK) {
+        for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+            if (pl->figure[N].busy != 0) {
+                if (pl->data_box_text[N][0] != 0) {
+                    boxY = legY + pl->layout_font_height / 2;
 
-	SDL_UnlockSurface(surface);
+                    drawText(pl->dw, surface, pl->font, legX, boxY,
+                            pl->data_box_text[N], TEXT_CENTERED_ON_Y,
+                            pl->sch->plot_figure[N]);
+                }
 
-	if (		pl->data_box_on == DATA_BOX_SLICE
-			|| pl->data_box_on == DATA_BOX_PICK) {
+                legY += pl->layout_font_height;
+            }
+        }
+    } else if (pl->data_box_on == DATA_BOX_POLYFIT) {
+        for (N = 0; N < PLOT_DATA_BOX_MAX; ++N) {
+            if (pl->data_box_text[N][0] != 0) {
+                boxY = legY + pl->layout_font_height / 2;
 
-		for (N = 0; N < PLOT_FIGURE_MAX; ++N) {
+                drawText(pl->dw, surface, pl->font, legX, boxY,
+                        pl->data_box_text[N], TEXT_CENTERED_ON_Y,
+                        pl->sch->plot_text);
 
-			if (pl->figure[N].busy != 0) {
-
-				if (pl->data_box_text[N][0] != 0) {
-
-					boxY = legY + pl->layout_font_height / 2;
-
-					drawText(pl->dw, surface, pl->font, legX, boxY,
-							pl->data_box_text[N], TEXT_CENTERED_ON_Y,
-							pl->sch->plot_figure[N]);
-				}
-
-				legY += pl->layout_font_height;
-			}
-		}
-	}
-	else if (pl->data_box_on == DATA_BOX_POLYFIT) {
-
-		for (N = 0; N < PLOT_DATA_BOX_MAX; ++N) {
-
-			if (pl->data_box_text[N][0] != 0) {
-
-				boxY = legY + pl->layout_font_height / 2;
-
-				drawText(pl->dw, surface, pl->font, legX, boxY,
-						pl->data_box_text[N], TEXT_CENTERED_ON_Y,
-						pl->sch->plot_text);
-
-				legY += pl->layout_font_height;
-			}
-		}
-	}
+                legY += pl->layout_font_height;
+            }
+        }
+    }
 }
 
 int plotDataBoxGetByClick(plot_t *pl, int cur_X, int cur_Y)
 {
-	int		relX, relY, lenY, rN = -1;
+    int relX, relY, lenY, rN = -1;
 
-	if (pl->data_box_on != DATA_BOX_FREE) {
+    if (pl->data_box_on != DATA_BOX_FREE) {
+        relX = cur_X - pl->data_box_X;
+        relY = cur_Y - pl->data_box_Y;
 
-		relX = cur_X - pl->data_box_X;
-		relY = cur_Y - pl->data_box_Y;
+        lenY = pl->layout_font_height * pl->data_box_N;
 
-		lenY = pl->layout_font_height * pl->data_box_N;
+        if (relX > 0 && relX < pl->data_box_size_X && relY > 0 && relY < lenY) {
+            rN = 0;
+        }
+    }
 
-		if (		relX > 0 && relX < pl->data_box_size_X
-				&& relY > 0 && relY < lenY) {
+    pl->hover_data_box = rN;
 
-			rN = 0;
-		}
-	}
-
-	pl->hover_data_box = rN;
-
-	return rN;
+    return rN;
 }
 
 void plotDataBoxCopyClipboard(plot_t *pl)
 {
-	int		N;
+    int N;
 
-	if (pl->data_box_on != DATA_BOX_FREE) {
+    if (pl->data_box_on != DATA_BOX_FREE) {
+        pl->data_box_clipboard[0] = 0;
 
-		pl->data_box_clipboard[0] = 0;
+        for (N = 0; N < PLOT_DATA_BOX_MAX; ++N) {
+            if (pl->data_box_text[N][0] != 0) {
+                strcat(pl->data_box_clipboard, pl->data_box_text[N]);
+                strcat(pl->data_box_clipboard, "\r\n");
+            }
+        }
 
-		for (N = 0; N < PLOT_DATA_BOX_MAX; ++N) {
-
-			if (pl->data_box_text[N][0] != 0) {
-
-				strcat(pl->data_box_clipboard, pl->data_box_text[N]);
-				strcat(pl->data_box_clipboard, "\r\n");
-			}
-		}
-
-		if (pl->data_box_clipboard[0] != 0) {
-
-			SDL_SetClipboardText(pl->data_box_clipboard);
-		}
-	}
+        if (pl->data_box_clipboard[0] != 0) {
+            SDL_SetClipboardText(pl->data_box_clipboard);
+        }
+    }
 }
 
 void plotLayout(plot_t *pl)
 {
-	int		aN, posX, posY;
+    int aN, posX, posY;
 
-	posX = 0;
-	posY = 0;
+    posX = 0;
+    posY = 0;
 
-	for (aN = 0; aN < PLOT_AXES_MAX; ++aN) {
+    for (aN = 0; aN < PLOT_AXES_MAX; ++aN) {
+        if (pl->axis[aN].busy == AXIS_BUSY_X) {
+            if (pl->axis[aN].label[0] == 0)
+                pl->axis[aN].compact = 1;
 
-		if (pl->axis[aN].busy == AXIS_BUSY_X) {
+            pl->axis[aN].layout_pos = posX;
 
-			if (pl->axis[aN].label[0] == 0)
-				pl->axis[aN].compact = 1;
+            posX += pl->layout_ruler_box + pl->dw->thickness;
+            posX += (pl->axis[aN].compact == 0) ? pl->layout_label_box : 0;
+        }
 
-			pl->axis[aN].layout_pos = posX;
+        if (pl->axis[aN].busy == AXIS_BUSY_Y) {
 
-			posX += pl->layout_ruler_box + pl->dw->thickness;
-			posX += (pl->axis[aN].compact == 0) ? pl->layout_label_box : 0;
-		}
+            if (pl->axis[aN].label[0] == 0)
+                pl->axis[aN].compact = 1;
 
-		if (pl->axis[aN].busy == AXIS_BUSY_Y) {
+            pl->axis[aN].layout_pos = posY;
 
-			if (pl->axis[aN].label[0] == 0)
-				pl->axis[aN].compact = 1;
+            posY += pl->layout_ruler_box + pl->dw->thickness;
+            posY += (pl->axis[aN].compact == 0) ? pl->layout_label_box : 0;
+        }
+    }
 
-			pl->axis[aN].layout_pos = posY;
+    pl->viewport.min_x = pl->screen.min_x + posY + pl->layout_border;
+    pl->viewport.max_x = pl->screen.max_x - pl->layout_border;
+    pl->viewport.min_y = pl->screen.min_y + pl->layout_border;
+    pl->viewport.max_y = pl->screen.max_y - posX - pl->layout_border;
 
-			posY += pl->layout_ruler_box + pl->dw->thickness;
-			posY += (pl->axis[aN].compact == 0) ? pl->layout_label_box : 0;
-		}
-	}
+    plotLegendLayout(pl);
 
-	pl->viewport.min_x = pl->screen.min_x + posY + pl->layout_border;
-	pl->viewport.max_x = pl->screen.max_x - pl->layout_border;
-	pl->viewport.min_y = pl->screen.min_y + pl->layout_border;
-	pl->viewport.max_y = pl->screen.max_y - posX - pl->layout_border;
+    if (pl->data_box_on != DATA_BOX_FREE) {
+        plotDataBoxLayout(pl);
+    }
 
-	plotLegendLayout(pl);
-
-	if (pl->data_box_on != DATA_BOX_FREE) {
-
-		plotDataBoxLayout(pl);
-	}
-
-	if (pl->mark_on != 0) {
-
-		if (pl->mark_length == 0) {
-
-			plotMarkLayout(pl);
-		}
-	}
-	else {
-		pl->mark_length = 0;
-	}
+    if (pl->mark_on != 0) {
+        if (pl->mark_length == 0) {
+            plotMarkLayout(pl);
+        }
+    } else {
+        pl->mark_length = 0;
+    }
 }
 
-static void
-plotDrawFigureTrialAll(plot_t *pl)
+static void plotDrawFigureTrialAll(plot_t *pl)
 {
-	int		FIGS[PLOT_FIGURE_MAX];
-	int		N, fN, fQ, lN, dN;
+    int FIGS[PLOT_FIGURE_MAX];
+    int N, fN, fQ, lN, dN;
 
-	Uint32		tTOP;
+    Uint32 tTOP;
 
-	lN = 0;
+    lN = 0;
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].busy != 0 && pl->figure[fN].hidden != 0)
+            FIGS[lN++] = fN;
+    }
 
-		if (pl->figure[fN].busy != 0 && pl->figure[fN].hidden != 0)
-			FIGS[lN++] = fN;
-	}
+    for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+        if (pl->figure[fN].busy != 0 && pl->figure[fN].hidden == 0)
+            FIGS[lN++] = fN;
+    }
 
-	for (fN = 0; fN < PLOT_FIGURE_MAX; ++fN) {
+    if (pl->draw_in_progress == 0) {
+        for (N = 0; N < lN; ++N) {
+            fN = FIGS[N];
+            dN = pl->figure[fN].data_N;
 
-		if (pl->figure[fN].busy != 0 && pl->figure[fN].hidden == 0)
-			FIGS[lN++] = fN;
-	}
+            pl->draw[fN].sketch = SKETCH_STARTED;
+            pl->draw[fN].rN = pl->data[dN].head_N;
+            pl->draw[fN].id_N = pl->data[dN].id_N;
 
-	if (pl->draw_in_progress == 0) {
+            pl->draw[fN].skipped = 0;
+            pl->draw[fN].line = 0;
+        }
 
-		for (N = 0; N < lN; ++N) {
+        pl->draw_in_progress = 1;
+    }
 
-			fN = FIGS[N];
-			dN = pl->figure[fN].data_N;
+    if (pl->draw_in_progress != 0) {
+        pl->tick_cached = SDL_GetTicks();
 
-			pl->draw[fN].sketch = SKETCH_STARTED;
-			pl->draw[fN].rN = pl->data[dN].head_N;
-			pl->draw[fN].id_N = pl->data[dN].id_N;
+        tTOP = pl->tick_cached + (Uint32) PLOT_RUNTIME_MAX;
 
-			pl->draw[fN].skipped = 0;
-			pl->draw[fN].line = 0;
-		}
+        drawClearTrial(pl->dw);
 
-		pl->draw_in_progress = 1;
-	}
+        do {
+            fN = -1;
 
-	if (pl->draw_in_progress != 0) {
+            for (N = 0; N < lN; ++N) {
+                fQ = FIGS[N];
 
-		pl->tick_cached = SDL_GetTicks();
+                if (pl->draw[fQ].sketch != SKETCH_FINISHED) {
+                    if (fN < 0) {
+                        fN = fQ;
+                    } else if (pl->draw[fQ].id_N < pl->draw[fN].id_N) {
+                        fN = fQ;
+                    }
+                }
+            }
 
-		tTOP = pl->tick_cached + (Uint32) PLOT_RUNTIME_MAX;
+            if (fN >= 0) {
+                if (SDL_GetTicks() > tTOP)
+                    break;
 
-		drawClearTrial(pl->dw);
+                plotDrawFigureTrial(pl, fN, tTOP);
+            } else {
+                plotSketchGarbage(pl);
 
-		do {
-			fN = -1;
-
-			for (N = 0; N < lN; ++N) {
-
-				fQ = FIGS[N];
-
-				if (pl->draw[fQ].sketch != SKETCH_FINISHED) {
-
-					if (fN < 0) {
-
-						fN = fQ;
-					}
-					else if (pl->draw[fQ].id_N < pl->draw[fN].id_N) {
-
-						fN = fQ;
-					}
-				}
-			}
-
-			if (fN >= 0) {
-
-				if (SDL_GetTicks() > tTOP)
-					break;
-
-				plotDrawFigureTrial(pl, fN, tTOP);
-			}
-			else {
-				plotSketchGarbage(pl);
-
-				pl->draw_in_progress = 0;
-				break;
-			}
-		}
-		while (1);
-	}
+                pl->draw_in_progress = 0;
+                break;
+            }
+        } while (1);
+    }
 }
 
-static void
-plotDrawAxisAll(plot_t *pl, SDL_Surface *surface)
+static void plotDrawAxisAll(plot_t *pl, SDL_Surface *surface)
 {
-	int		aN;
+    int aN;
 
-	for (aN = 0; aN < PLOT_AXES_MAX; ++aN) {
-
-		if (pl->axis[aN].busy != AXIS_FREE) {
-
-			plotDrawAxis(pl, surface, aN);
-		}
-	}
+    for (aN = 0; aN < PLOT_AXES_MAX; ++aN) {
+        if (pl->axis[aN].busy != AXIS_FREE) {
+            plotDrawAxis(pl, surface, aN);
+        }
+    }
 }
 
 void plotDraw(plot_t *pl, SDL_Surface *surface)
 {
-	if (		pl->slice_on != 0
-			&& pl->slice_mode_N != 0) {
+    if (pl->slice_on != 0 && pl->slice_mode_N != 0) {
+        plotSliceDrawLight(pl, surface);
+    }
 
-		plotSliceDrawLight(pl, surface);
-	}
+    drawPixmapAlloc(pl->dw, surface);
 
-	drawPixmapAlloc(pl->dw, surface);
+    plotDrawPalette(pl);
+    plotDrawFigureTrialAll(pl);
 
-	plotDrawPalette(pl);
-	plotDrawFigureTrialAll(pl);
+    drawClearCanvas(pl->dw);
 
-	drawClearCanvas(pl->dw);
+    plotDrawSketch(pl, surface);
 
-	plotDrawSketch(pl, surface);
+    if (pl->mark_on != 0) {
+        plotMarkDraw(pl, surface);
+    }
 
-	if (pl->mark_on != 0) {
+    if (pl->slice_on != 0) {
+        plotSliceDraw(pl, surface);
+    } else if (pl->pick_on != 0) {
+        plotPickDraw(pl, surface);
+    }
 
-		plotMarkDraw(pl, surface);
-	}
+    if (pl->brush_on != 0) {
+        plotDrawBrush(pl, surface);
+    }
 
-	if (pl->slice_on != 0) {
+    SDL_LockSurface(surface);
 
-		plotSliceDraw(pl, surface);
-	}
-	else if (pl->pick_on != 0) {
+    drawFlushCanvas(pl->dw, surface, &pl->viewport);
 
-		plotPickDraw(pl, surface);
-	}
+    SDL_UnlockSurface(surface);
 
-	if (pl->brush_on != 0) {
+    drawClearCanvas(pl->dw);
 
-		plotDrawBrush(pl, surface);
-	}
+    plotDrawAxisAll(pl, surface);
 
-	SDL_LockSurface(surface);
+    plotLegendDraw(pl, surface);
 
-	drawFlushCanvas(pl->dw, surface, &pl->viewport);
+    SDL_LockSurface(surface);
 
-	SDL_UnlockSurface(surface);
+    drawFlushCanvas(pl->dw, surface, &pl->viewport);
 
-	drawClearCanvas(pl->dw);
+    SDL_UnlockSurface(surface);
 
-	plotDrawAxisAll(pl, surface);
-
-	plotLegendDraw(pl, surface);
-
-	SDL_LockSurface(surface);
-
-	drawFlushCanvas(pl->dw, surface, &pl->viewport);
-
-	SDL_UnlockSurface(surface);
-
-	if (pl->data_box_on != DATA_BOX_FREE) {
-
-		plotDataBoxDraw(pl, surface);
-	}
+    if (pl->data_box_on != DATA_BOX_FREE) {
+        plotDataBoxDraw(pl, surface);
+    }
 }
 

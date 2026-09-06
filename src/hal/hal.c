@@ -5,33 +5,27 @@
 
 #include "cmsis/stm32xx.h"
 
-#define HAL_ENABLED		0xDAA92EE2U
-#define HAL_LOG_INC(np)		(((np) < sizeof(log.text) - 1U) ? (np) + 1 : 0)
+#define HAL_ENABLED	 0xDAA92EE2U
+#define HAL_LOG_INC(np) (((np) < sizeof(log.text) - 1U) ? (np) + 1 : 0)
 
-uint32_t			clock_cpu_hz;
-
-HAL_t				hal;
-LOG_t				log		LD_NOINIT;
+uint32_t clock_cpu_hz;
+HAL_t hal;
+LOG_t log LD_NOINIT;
 
 typedef struct {
+	uint32_t bootload_jump;
+	uint32_t crystal_fault;
+} priv_HAL_t;
 
-	uint32_t	bootload_jump;
-	uint32_t	crystal_fault;
-}
-priv_HAL_t;
-
-static volatile priv_HAL_t	noinit_HAL	LD_NOINIT;
+static volatile priv_HAL_t noinit_HAL LD_NOINIT;
 
 LD_IRQ void irq_NMI()
 {
 	log_TRACE("IRQ NMI" EOL);
 
 	if (RCC->CIR & RCC_CIR_CSSF) {
-
 		noinit_HAL.crystal_fault = HAL_ENABLED;
-
 		RCC->CIR |= RCC_CIR_CSSC;
-
 		log_TRACE("HSE clock fault" EOL);
 	}
 
@@ -40,7 +34,7 @@ LD_IRQ void irq_NMI()
 
 LD_IRQ void irq_HardFault(void)
 {
-	uint32_t		*sp, lr;
+	uint32_t *sp, lr;
 
 	__asm volatile
 	(
@@ -55,8 +49,8 @@ LD_IRQ void irq_HardFault(void)
 
 	log_TRACE("IRQ HardFault" EOL);
 
-	log_TRACE(" SP   %8x" EOL, (uint32_t) sp);
-	log_TRACE(" EX   %8x" EOL, (uint32_t) lr);
+	log_TRACE(" SP   %8x" EOL, (uint32_t)sp);
+	log_TRACE(" EX   %8x" EOL, (uint32_t)lr);
 
 	log_TRACE(" R0   %8x" EOL, sp[0]);
 	log_TRACE(" R1   %8x" EOL, sp[1]);
@@ -103,39 +97,32 @@ LD_IRQ void irq_Default()
 	hal_system_reset();
 }
 
-static void
-mcu_identify()
+static void mcu_identify()
 {
-	uint32_t		ID;
+	uint32_t ID;
 
 	ID = DBGMCU->IDCODE & DBGMCU_IDCODE_DEV_ID_Msk;
 
 	if (ID == 0x413U) {
-
 		hal.MCU_ID = MCU_ID_STM32F405;
 
-		if (* (volatile const uint32_t *) 0x400238E8U == 0x88000000U) {
-
+		if (*(volatile const uint32_t *)0x400238E8U == 0x88000000U) {
 			hal.MCU_ID = MCU_ID_GD32F405;
 		}
-	}
-	else if (ID == 0x452U) {
-
+	} else if (ID == 0x452U) {
 		hal.MCU_ID = MCU_ID_STM32F722;
-	}
-	else {
+	} else {
 		hal.MCU_ID = MCU_ID_UNKNOWN;
 
 		log_TRACE("Unknown MCU ID %4x" EOL, ID);
 	}
 }
 
-static void
-core_startup()
+static void core_startup()
 {
-	uint32_t	CLOCK, PLLQ, PLLP, PLLN, PLLM;
+	uint32_t CLOCK, PLLQ, PLLP, PLLN, PLLM;
 
-	SCB->VTOR = (uint32_t) &ld_text_begin;
+	SCB->VTOR = (uint32_t)&ld_text_begin;
 
 	NVIC_SetPriorityGrouping(0U);
 
@@ -153,10 +140,8 @@ core_startup()
 	RCC->DCKCFGR2 = 0;
 #endif /* STM32F7 */
 
-	if (		HW_CLOCK_CRYSTAL_HZ != 0U
-			&& noinit_HAL.crystal_fault != HAL_ENABLED) {
-
-		int		N = 0;
+	if (HW_CLOCK_CRYSTAL_HZ != 0U && noinit_HAL.crystal_fault != HAL_ENABLED) {
+		int N = 0;
 
 		/* Enable HSE.
 		 * */
@@ -171,7 +156,6 @@ core_startup()
 			__NOP();
 
 			if (N > 70000) {
-
 				log_TRACE("HSE not ready" EOL);
 
 				noinit_HAL.crystal_fault = HAL_ENABLED;
@@ -179,8 +163,7 @@ core_startup()
 			}
 
 			N++;
-		}
-		while (1);
+		} while (1);
 	}
 
 	/* Enable power interface clock.
@@ -191,11 +174,8 @@ core_startup()
 	 * */
 #if defined(STM32F4)
 	if (hal.MCU_ID == MCU_ID_STM32F405) {
-
 		PWR->CR |= PWR_CR_VOS;
-	}
-	else if (hal.MCU_ID == MCU_ID_GD32F405) {
-
+	} else if (hal.MCU_ID == MCU_ID_GD32F405) {
 		PWR->CR |= (1U << 15) | (1U << 14);	/* LDOVS */
 	}
 #elif defined(STM32F7)
@@ -206,9 +186,7 @@ core_startup()
 	 * */
 	RCC->CFGR |= RCC_CFGR_HPRE_DIV1 | RCC_CFGR_PPRE1_DIV4 | RCC_CFGR_PPRE2_DIV2;
 
-	if (		HW_CLOCK_CRYSTAL_HZ != 0U
-			&& noinit_HAL.crystal_fault != HAL_ENABLED) {
-
+	if (HW_CLOCK_CRYSTAL_HZ != 0U && noinit_HAL.crystal_fault != HAL_ENABLED) {
 		CLOCK = HW_CLOCK_CRYSTAL_HZ;
 
 		/* Clock from HSE.
@@ -218,8 +196,7 @@ core_startup()
 		/* Enable CSS.
 		 * */
 		RCC->CR |= RCC_CR_CSSON;
-	}
-	else {
+	} else {
 		CLOCK = 16000000U;
 
 		/* Clock from HSI.
@@ -255,7 +232,6 @@ core_startup()
 	/* Enable PLL and wait until it is ready.
 	 * */
 	RCC->CR |= RCC_CR_PLLON;
-
 	while ((RCC->CR & RCC_CR_PLLRDY) != RCC_CR_PLLRDY) { __NOP(); }
 
 	/* Configure Flash.
@@ -271,7 +247,6 @@ core_startup()
 	 * */
 #ifdef STM32F4
 	if (hal.MCU_ID == MCU_ID_GD32F405) {
-
 		PWR->CR |= (1U << 16);		/* HDEN */
 
 		while ((PWR->CSR & (1U << 16)) == 0U) { __NOP(); }
@@ -285,7 +260,6 @@ core_startup()
 	/* Select PLL clock and wait until it is used.
 	 * */
 	RCC->CFGR |= RCC_CFGR_SW_PLL;
-
 	while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL) { __NOP(); }
 
 	/* Enable caching on Cortex-M7.
@@ -296,8 +270,7 @@ core_startup()
 #endif /* STM32F7 */
 }
 
-static void
-periph_startup()
+static void periph_startup()
 {
 	/* Enable LSI.
 	 * */
@@ -325,34 +298,28 @@ periph_startup()
 	RCC->CSR |= RCC_CSR_RMVF;
 }
 
-static void
-flash_verify()
+static void flash_verify()
 {
-	uint32_t		crc32;
+	uint32_t crc32;
 
-	if (* (const uint32_t *) fw.ld_crc32 == 0xFFFFFFFFU) {
-
-		crc32 = crc32u((const void *) fw.ld_begin, fw.ld_crc32 - fw.ld_begin);
-
+	if (*(const uint32_t *)fw.ld_crc32 == 0xFFFFFFFFU) {
+		crc32 = crc32u((const void *)fw.ld_begin, fw.ld_crc32 - fw.ld_begin);
 		/* Update flash CRC32.
 		 * */
-		FLASH_prog_u32((uint32_t *) fw.ld_crc32, crc32);
+		FLASH_prog_u32((uint32_t *)fw.ld_crc32, crc32);
 	}
 
-	crc32 = crc32u((const void *) fw.ld_begin, fw.ld_crc32 - fw.ld_begin);
-
-	if (* (const uint32_t *) fw.ld_crc32 != crc32) {
-
+	crc32 = crc32u((const void *)fw.ld_begin, fw.ld_crc32 - fw.ld_begin);
+	if (*(const uint32_t *) fw.ld_crc32 != crc32) {
 		log_TRACE("Flash CRC32 does not match" EOL);
 	}
 }
 
 void hal_bootload()
 {
-	const uint32_t		*sysmem;
+	const uint32_t *sysmem;
 
 	if (noinit_HAL.bootload_jump == HAL_ENABLED) {
-
 		noinit_HAL.bootload_jump = 0U;
 
 #ifdef STM32F7
@@ -365,7 +332,7 @@ void hal_bootload()
 		sysmem = (const uint32_t *) 0x1FF00000U;
 #endif /* STM32Fx */
 
-		SCB->VTOR = (uint32_t) sysmem;
+		SCB->VTOR = (uint32_t)sysmem;
 
 		__DSB();
 		__ISB();
@@ -397,7 +364,7 @@ void hal_startup()
 
 int hal_lock_irq()
 {
-	int		irq;
+	int irq;
 
 	irq = __get_BASEPRI();
 	__set_BASEPRI(1 << (8 - __NVIC_PRIO_BITS));
@@ -425,7 +392,6 @@ void hal_system_reset()
 void hal_bootload_reset()
 {
 	noinit_HAL.bootload_jump = HAL_ENABLED;
-
 	hal_system_reset();
 }
 
@@ -442,21 +408,18 @@ void hal_memory_fence()
 
 int log_status()
 {
-	return (	log.boot_FLAG == HAL_ENABLED
-			&& log.text_wp != log.text_rp) ? HAL_FAULT : HAL_OK;
+	return (log.boot_FLAG == HAL_ENABLED && log.text_wp != log.text_rp) ?
+            HAL_FAULT : HAL_OK;
 }
 
 void log_bootup()
 {
 	if (log.boot_FLAG != HAL_ENABLED) {
-
 		log.boot_FLAG = HAL_ENABLED;
 		log.boot_COUNT = 0U;
-
 		log.text_wp = 0;
 		log.text_rp = 0;
-	}
-	else {
+	} else {
 		log.boot_COUNT += 1U;
 	}
 }
@@ -464,10 +427,8 @@ void log_bootup()
 void log_putc(int c)
 {
 	if (unlikely(log.boot_FLAG != HAL_ENABLED)) {
-
 		log.boot_FLAG = HAL_ENABLED;
 		log.boot_COUNT = 0U;
-
 		log.text_wp = 0;
 		log.text_rp = 0;
 	}
@@ -475,23 +436,20 @@ void log_putc(int c)
 	log.text[log.text_wp] = (char) c;
 
 	log.text_wp = HAL_LOG_INC(log.text_wp);
-	log.text_rp = (log.text_rp == log.text_wp)
-		? HAL_LOG_INC(log.text_rp) : log.text_rp;
+	log.text_rp = (log.text_rp == log.text_wp) ?
+            HAL_LOG_INC(log.text_rp) : log.text_rp;
 }
 
 void log_flush()
 {
-	int		rp, wp;
+	int rp, wp;
 
 	if (log.boot_FLAG == HAL_ENABLED) {
-
 		rp = log.text_rp;
 		wp = log.text_wp;
 
 		while (rp != wp) {
-
 			putc(log.text[rp]);
-
 			rp = HAL_LOG_INC(rp);
 		}
 
@@ -502,7 +460,6 @@ void log_flush()
 void log_clean()
 {
 	if (log.boot_FLAG == HAL_ENABLED) {
-
 		log.text_wp = 0;
 		log.text_rp = 0;
 	}

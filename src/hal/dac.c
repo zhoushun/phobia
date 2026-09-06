@@ -12,7 +12,6 @@ void DAC_startup(int mode)
 	DAC->CR = DAC_CR_BOFF2 | DAC_CR_BOFF1;
 
 	if (mode & DAC_OUT1) {
-
 		/* Enable DAC pin.
 		 * */
 		GPIO_set_mode_ANALOG(GPIO_DAC_OUT1);
@@ -23,7 +22,6 @@ void DAC_startup(int mode)
 	}
 
 	if (mode & DAC_OUT2) {
-
 		/* Enable DAC pin.
 		 * */
 		GPIO_set_mode_ANALOG(GPIO_DAC_OUT2);

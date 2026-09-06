@@ -11,991 +11,847 @@
 
 int pm_wait_IDLE()
 {
-	TickType_t		xTIME = (TickType_t) 0;
+    TickType_t xTIME = (TickType_t)0;
 
-	do {
-		vTaskDelay((TickType_t) 10);
+    do {
+        vTaskDelay((TickType_t)10);
 
-		if (pm.fsm_state == PM_STATE_IDLE)
-			break;
+        if (pm.fsm_state == PM_STATE_IDLE) break;
 
-		if (xTIME > (TickType_t) 10000) {
+        if (xTIME > (TickType_t)10000) {
+            pm.fsm_errno = PM_ERROR_TIMEOUT;
+            break;
+        }
 
-			pm.fsm_errno = PM_ERROR_TIMEOUT;
-			break;
-		}
+        xTIME += (TickType_t)10;
+    } while (1);
 
-		xTIME += (TickType_t) 10;
-	}
-	while (1);
-
-	return pm.fsm_errno;
+    return pm.fsm_errno;
 }
 
 int pm_wait_motion()
 {
-	TickType_t		xTIME = (TickType_t) 0;
+    TickType_t xTIME = (TickType_t)0;
 
-	do {
-		vTaskDelay((TickType_t) 50);
+    do {
+        vTaskDelay((TickType_t)50);
 
-		if (pm.fsm_errno != PM_OK)
-			break;
+        if (pm.fsm_errno != PM_OK) break;
 
-		if (		m_fabsf(pm.zone_lpf_wS) > pm.zone_threshold
-				&& pm.detach_TIM > PM_TSMS(&pm, pm.tm_transient_slow))
-			break;
+        if (m_fabsf(pm.zone_lpf_wS) > pm.zone_threshold
+                && pm.detach_TIM > PM_TSMS(&pm, pm.tm_transient_slow))
+            break;
 
-		if (xTIME > (TickType_t) 10000) {
+        if (xTIME > (TickType_t)10000) {
+            pm.fsm_errno = PM_ERROR_TIMEOUT;
+            break;
+        }
 
-			pm.fsm_errno = PM_ERROR_TIMEOUT;
-			break;
-		}
+        xTIME += (TickType_t)50;
+    } while (1);
 
-		xTIME += (TickType_t) 50;
-	}
-	while (1);
-
-	return pm.fsm_errno;
+    return pm.fsm_errno;
 }
 
 int pm_wait_spinup()
 {
-	TickType_t		xTIME = (TickType_t) 0;
+    TickType_t xTIME = (TickType_t)0;
 
-	do {
-		vTaskDelay((TickType_t) 50);
+    do {
+        vTaskDelay((TickType_t)50);
 
-		if (pm.fsm_errno != PM_OK)
-			break;
+        if (pm.fsm_errno != PM_OK) break;
+        if (m_fabsf(pm.s_setpoint_speed - pm.lu_wS) < pm.probe_speed_tol) break;
+        if (pm.lu_MODE == PM_LU_FORCED && pm.vsi_lpf_DC > pm.forced_stop_DC) break;
 
-		if (m_fabsf(pm.s_setpoint_speed - pm.lu_wS) < pm.probe_speed_tol)
-			break;
+        if (xTIME > (TickType_t)10000) {
+            pm.fsm_errno = PM_ERROR_TIMEOUT;
+            break;
+        }
 
-		if (		pm.lu_MODE == PM_LU_FORCED
-				&& pm.vsi_lpf_DC > pm.forced_stop_DC)
-			break;
+        xTIME += (TickType_t)50;
+    } while (1);
 
-		if (xTIME > (TickType_t) 10000) {
-
-			pm.fsm_errno = PM_ERROR_TIMEOUT;
-			break;
-		}
-
-		xTIME += (TickType_t) 50;
-	}
-	while (1);
-
-	return pm.fsm_errno;
+    return pm.fsm_errno;
 }
 
 int pm_wait_settle()
 {
-	TickType_t		xTick = (TickType_t) 0;
+    TickType_t xTick = (TickType_t)0;
 
-	do {
-		float		eSP;
+    do {
+        float eSP;
 
-		vTaskDelay((TickType_t) 50);
+        vTaskDelay((TickType_t)50);
 
-		if (pm.fsm_errno != PM_OK)
-			break;
+        if (pm.fsm_errno != PM_OK) break;
+        eSP = pm.x_setpoint_location - pm.lu_location;
+        if (m_fabsf(eSP) < pm.probe_location_tol) break;
 
-		eSP = pm.x_setpoint_location - pm.lu_location;
+        if (xTick > (TickType_t)10000) {
+            pm.fsm_errno = PM_ERROR_TIMEOUT;
+            break;
+        }
 
-		if (m_fabsf(eSP) < pm.probe_location_tol)
-			break;
+        xTick += (TickType_t)50;
+    } while (1);
 
-		if (xTick > (TickType_t) 10000) {
-
-			pm.fsm_errno = PM_ERROR_TIMEOUT;
-			break;
-		}
-
-		xTick += (TickType_t) 50;
-	}
-	while (1);
-
-	return pm.fsm_errno;
+    return pm.fsm_errno;
 }
 
 SH_DEF(pm_probe_impedance)
 {
-	if (pm.lu_MODE != PM_LU_DISABLED) {
+    if (pm.lu_MODE != PM_LU_DISABLED) {
+        printf("Unable when PM is running" EOL);
+        return;
+    }
 
-		printf("Unable when PM is running" EOL);
-		return;
-	}
+    do {
+        pm.fsm_req = PM_STATE_ZERO_DRIFT;
+        pm_wait_IDLE();
 
-	do {
-		pm.fsm_req = PM_STATE_ZERO_DRIFT;
-		pm_wait_IDLE();
+        tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
 
-		tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
+        reg_OUTP(ID_PM_CONST_FB_U);
+        reg_OUTP(ID_PM_SELF_STDI);
+        reg_OUTP(ID_PM_SCALE_IA0);
+        reg_OUTP(ID_PM_SCALE_IB0);
+        reg_OUTP(ID_PM_SCALE_IC0);
 
-		reg_OUTP(ID_PM_CONST_FB_U);
-		reg_OUTP(ID_PM_SELF_STDI);
-		reg_OUTP(ID_PM_SCALE_IA0);
-		reg_OUTP(ID_PM_SCALE_IB0);
-		reg_OUTP(ID_PM_SCALE_IC0);
+        reg_OUTP(ID_PM_PROBE_CURRENT_HOLD);
+        reg_OUTP(ID_PM_PROBE_CURRENT_SINE);
+        reg_OUTP(ID_PM_PROBE_CURRENT_BIAS);
+        reg_OUTP(ID_PM_PROBE_FREQ_SINE);
+        reg_OUTP(ID_PM_PROBE_LOSS_MAXIMAL);
 
-		reg_OUTP(ID_PM_PROBE_CURRENT_HOLD);
-		reg_OUTP(ID_PM_PROBE_CURRENT_SINE);
-		reg_OUTP(ID_PM_PROBE_CURRENT_BIAS);
-		reg_OUTP(ID_PM_PROBE_FREQ_SINE);
-		reg_OUTP(ID_PM_PROBE_LOSS_MAXIMAL);
+        if (pm.fsm_errno != PM_OK) break;
 
-		if (pm.fsm_errno != PM_OK)
-			break;
+        if (PM_CONFIG_TVM(&pm) == PM_ENABLED) {
+            pm.fsm_req = PM_STATE_SELF_TEST_POWER_STAGE;
+            if (pm_wait_IDLE() != PM_OK) break;
+        }
 
-		if (PM_CONFIG_TVM(&pm) == PM_ENABLED) {
+        pm.fsm_req = PM_STATE_PROBE_CONST_RESISTANCE;
 
-			pm.fsm_req = PM_STATE_SELF_TEST_POWER_STAGE;
+        if (pm_wait_IDLE() != PM_OK) break;
 
-			if (pm_wait_IDLE() != PM_OK)
-				break;
-		}
+        pm.const_Rs = pm.const_im_Rz;
 
-		pm.fsm_req = PM_STATE_PROBE_CONST_RESISTANCE;
+        reg_OUTP(ID_PM_CONST_RS);
+        reg_OUTP(ID_PM_SELF_DTU);
 
-		if (pm_wait_IDLE() != PM_OK)
-			break;
+        pm.fsm_req = PM_STATE_PROBE_CONST_INDUCTANCE;
 
-		pm.const_Rs = pm.const_im_Rz;
+        if (pm_wait_IDLE() != PM_OK) break;
 
-		reg_OUTP(ID_PM_CONST_RS);
-		reg_OUTP(ID_PM_SELF_DTU);
+        reg_OUTP(ID_PM_CONST_IM_LD);
+        reg_OUTP(ID_PM_CONST_IM_LQ);
+        reg_OUTP(ID_PM_CONST_IM_AG);
+        reg_OUTP(ID_PM_CONST_IM_RZ);
 
-		pm.fsm_req = PM_STATE_PROBE_CONST_INDUCTANCE;
+        pm_auto(&pm, PM_AUTO_MAXIMAL_CURRENT);
+        pm_auto(&pm, PM_AUTO_LOOP_CURRENT);
 
-		if (pm_wait_IDLE() != PM_OK)
-			break;
+        reg_OUTP(ID_PM_I_MAXIMAL);
+        reg_OUTP(ID_PM_I_GAIN_P);
+        reg_OUTP(ID_PM_I_GAIN_I);
+        reg_OUTP(ID_PM_I_SLEW_RATE);
+    } while (0);
 
-		reg_OUTP(ID_PM_CONST_IM_LD);
-		reg_OUTP(ID_PM_CONST_IM_LQ);
-		reg_OUTP(ID_PM_CONST_IM_AG);
-		reg_OUTP(ID_PM_CONST_IM_RZ);
+    reg_OUTP(ID_PM_FSM_ERRNO);
 
-		pm_auto(&pm, PM_AUTO_MAXIMAL_CURRENT);
-		pm_auto(&pm, PM_AUTO_LOOP_CURRENT);
-
-		reg_OUTP(ID_PM_I_MAXIMAL);
-		reg_OUTP(ID_PM_I_GAIN_P);
-		reg_OUTP(ID_PM_I_GAIN_I);
-		reg_OUTP(ID_PM_I_SLEW_RATE);
-	}
-	while (0);
-
-	reg_OUTP(ID_PM_FSM_ERRNO);
-
-	tlm_halt(&tlm);
+    tlm_halt(&tlm);
 }
 
 SH_DEF(pm_probe_saturation)
 {
-	TickType_t		xTIME = (TickType_t) 0;
+    TickType_t xTIME = (TickType_t)0;
 
-	float			iD, iQ;
+    float iD, iQ;
 
-	if (pm.lu_MODE != PM_LU_DISABLED) {
+    if (pm.lu_MODE != PM_LU_DISABLED) {
+        printf("Unable when PM is running" EOL);
+        return;
+    }
 
-		printf("Unable when PM is running" EOL);
-		return;
-	}
+    do {
+        pm.fsm_req = PM_STATE_ZERO_DRIFT;
+        pm_wait_IDLE();
 
-	do {
-		pm.fsm_req = PM_STATE_ZERO_DRIFT;
-		pm_wait_IDLE();
+        tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
 
-		tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
+        reg_OUTP(ID_PM_CONST_FB_U);
+        reg_OUTP(ID_PM_SELF_STDI);
+        reg_OUTP(ID_PM_SCALE_IA0);
+        reg_OUTP(ID_PM_SCALE_IB0);
+        reg_OUTP(ID_PM_SCALE_IC0);
 
-		reg_OUTP(ID_PM_CONST_FB_U);
-		reg_OUTP(ID_PM_SELF_STDI);
-		reg_OUTP(ID_PM_SCALE_IA0);
-		reg_OUTP(ID_PM_SCALE_IB0);
-		reg_OUTP(ID_PM_SCALE_IC0);
+        reg_OUTP(ID_PM_PROBE_CURRENT_HOLD);
+        reg_OUTP(ID_PM_PROBE_CURRENT_SINE);
+        reg_OUTP(ID_PM_PROBE_CURRENT_BIAS);
+        reg_OUTP(ID_PM_PROBE_FREQ_SINE);
 
-		reg_OUTP(ID_PM_PROBE_CURRENT_HOLD);
-		reg_OUTP(ID_PM_PROBE_CURRENT_SINE);
-		reg_OUTP(ID_PM_PROBE_CURRENT_BIAS);
-		reg_OUTP(ID_PM_PROBE_FREQ_SINE);
+        reg_OUTP(ID_PM_I_MAXIMAL);
 
-		reg_OUTP(ID_PM_I_MAXIMAL);
+        if (pm.fsm_errno != PM_OK) break;
 
-		if (pm.fsm_errno != PM_OK)
-			break;
+        if (PM_CONFIG_TVM(&pm) == PM_ENABLED) {
+            pm.fsm_req = PM_STATE_SELF_TEST_POWER_STAGE;
 
-		if (PM_CONFIG_TVM(&pm) == PM_ENABLED) {
+            if (pm_wait_IDLE() != PM_OK) break;
+        }
 
-			pm.fsm_req = PM_STATE_SELF_TEST_POWER_STAGE;
+        printf("iD@A  iQ@A  Ld@H   Lq@H   Rz@Ohm Ag@deg" EOL);
 
-			if (pm_wait_IDLE() != PM_OK)
-				break;
-		}
+        iD = pm.lu_iD;
+        iQ = pm.lu_iQ;
 
-		printf("iD@A  iQ@A  Ld@H   Lq@H   Rz@Ohm Ag@deg" EOL);
+        pm.fsm_req = PM_STATE_PROBE_CONST_SATURATION;
 
-		iD = pm.lu_iD;
-		iQ = pm.lu_iQ;
+        do {
+            vTaskDelay((TickType_t)10);
 
-		pm.fsm_req = PM_STATE_PROBE_CONST_SATURATION;
+            if (pm.fsm_state == PM_STATE_IDLE) break;
 
-		do {
-			vTaskDelay((TickType_t) 10);
+            if (pm.lu_iD != iD || pm.lu_iQ != iQ) {
+                iD = pm.lu_iD;
+                iQ = pm.lu_iQ;
 
-			if (pm.fsm_state == PM_STATE_IDLE)
-				break;
+                printf("%1f %1f %4g %4g %4g %1f" EOL, &pm.lu_iD, &pm.lu_iQ,
+                        &pm.const_im_Ld, &pm.const_im_Lq,
+                        &pm.const_im_Rz, &pm.const_im_Ag);
+            }
 
-			if (pm.lu_iD != iD || pm.lu_iQ != iQ) {
+            if (xTIME > (TickType_t)10000) {
+                pm.fsm_errno = PM_ERROR_TIMEOUT;
+                break;
+            }
 
-				iD = pm.lu_iD;
-				iQ = pm.lu_iQ;
+            xTIME += (TickType_t)10;
+        } while (1);
 
-				printf("%1f %1f %4g %4g %4g %1f" EOL, &pm.lu_iD, &pm.lu_iQ,
-						&pm.const_im_Ld, &pm.const_im_Lq,
-						&pm.const_im_Rz, &pm.const_im_Ag);
-			}
+        if (pm.fsm_errno != PM_OK) break;
 
-			if (xTIME > (TickType_t) 10000) {
+        reg_OUTP(ID_PM_CONST_IM_LD);
+        reg_OUTP(ID_PM_CONST_IM_LQ);
 
-				pm.fsm_errno = PM_ERROR_TIMEOUT;
-				break;
-			}
+        pm_auto(&pm, PM_AUTO_LOOP_CURRENT);
 
-			xTIME += (TickType_t) 10;
-		}
-		while (1);
+        reg_OUTP(ID_PM_I_GAIN_P);
+        reg_OUTP(ID_PM_I_GAIN_I);
+        reg_OUTP(ID_PM_I_SLEW_RATE);
+    } while (0);
 
-		if (pm.fsm_errno != PM_OK)
-			break;
+    reg_OUTP(ID_PM_FSM_ERRNO);
 
-		reg_OUTP(ID_PM_CONST_IM_LD);
-		reg_OUTP(ID_PM_CONST_IM_LQ);
-
-		pm_auto(&pm, PM_AUTO_LOOP_CURRENT);
-
-		reg_OUTP(ID_PM_I_GAIN_P);
-		reg_OUTP(ID_PM_I_GAIN_I);
-		reg_OUTP(ID_PM_I_SLEW_RATE);
-	}
-	while (0);
-
-	reg_OUTP(ID_PM_FSM_ERRNO);
-
-	tlm_halt(&tlm);
+    tlm_halt(&tlm);
 }
 
 SH_DEF(pm_probe_fqscan)
 {
-	float		usual_freq, walk_freq, stop_freq;
+    float usual_freq, walk_freq, stop_freq;
 
-	if (pm.lu_MODE != PM_LU_DISABLED) {
+    if (pm.lu_MODE != PM_LU_DISABLED) {
+        printf("Unable when PM is running" EOL);
+        return;
+    }
 
-		printf("Unable when PM is running" EOL);
-		return;
-	}
+    pm.fsm_req = PM_STATE_ZERO_DRIFT;
+    pm_wait_IDLE();
 
-	pm.fsm_req = PM_STATE_ZERO_DRIFT;
-	pm_wait_IDLE();
+    if (PM_CONFIG_TVM(&pm) == PM_ENABLED) {
+        pm.fsm_req = PM_STATE_SELF_TEST_POWER_STAGE;
+        pm_wait_IDLE();
+    }
 
-	if (PM_CONFIG_TVM(&pm) == PM_ENABLED) {
+    tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
 
-		pm.fsm_req = PM_STATE_SELF_TEST_POWER_STAGE;
-		pm_wait_IDLE();
-	}
+    usual_freq = pm.probe_freq_sine;
+    pm.probe_freq_sine = pm.m_freq / 60.f;
 
-	tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
+    stop_freq = pm.m_freq / 6.f;
+    walk_freq = (float)(int)((stop_freq - pm.probe_freq_sine) / 20.f);
 
-	usual_freq = pm.probe_freq_sine;
-	pm.probe_freq_sine = pm.m_freq / 60.f;
+    printf("Fq@Hz  Ld@H   Lq@H   Rz@Ohm Ag@deg" EOL);
 
-	stop_freq = pm.m_freq / 6.f;
-	walk_freq = (float) (int) ((stop_freq - pm.probe_freq_sine) / 20.f);
+    while (pm.probe_freq_sine < stop_freq) {
+        if (pm.fsm_errno != PM_OK) break;
 
-	printf("Fq@Hz  Ld@H   Lq@H   Rz@Ohm Ag@deg" EOL);
+        pm.fsm_req = PM_STATE_PROBE_CONST_INDUCTANCE;
+        pm_wait_IDLE();
 
-	while (pm.probe_freq_sine < stop_freq) {
+        printf("%4g %4g %4g %4g %1f" EOL, &pm.probe_freq_sine,
+                &pm.const_im_Ld, &pm.const_im_Lq,
+                &pm.const_im_Rz, &pm.const_im_Ag);
 
-		if (pm.fsm_errno != PM_OK)
-			break;
+        pm.probe_freq_sine += walk_freq;
+    }
 
-		pm.fsm_req = PM_STATE_PROBE_CONST_INDUCTANCE;
-		pm_wait_IDLE();
+    pm.probe_freq_sine = usual_freq;
 
-		printf("%4g %4g %4g %4g %1f" EOL, &pm.probe_freq_sine,
-				&pm.const_im_Ld, &pm.const_im_Lq,
-				&pm.const_im_Rz, &pm.const_im_Ag);
-
-		pm.probe_freq_sine += walk_freq;
-	}
-
-	pm.probe_freq_sine = usual_freq;
-
-	tlm_halt(&tlm);
+    tlm_halt(&tlm);
 }
 
 SH_DEF(pm_probe_spinup)
 {
-	int		backup_LU_DRIVE;
+    int backup_LU_DRIVE;
 
-	if (pm.lu_MODE != PM_LU_DISABLED) {
+    if (pm.lu_MODE != PM_LU_DISABLED) {
+        printf("Unable when PM is running" EOL);
+        return;
+    }
 
-		printf("Unable when PM is running" EOL);
-		return;
-	}
+    backup_LU_DRIVE = pm.config_LU_DRIVE;
+    pm.config_LU_DRIVE = PM_DRIVE_SPEED;
 
-	backup_LU_DRIVE = pm.config_LU_DRIVE;
-	pm.config_LU_DRIVE = PM_DRIVE_SPEED;
+    do {
+        pm.fsm_req = PM_STATE_LU_STARTUP;
 
-	do {
-		pm.fsm_req = PM_STATE_LU_STARTUP;
+        reg_OUTP(ID_PM_CONST_FB_U);
+        reg_OUTP(ID_PM_PROBE_SPEED_HOLD_RPM);
 
-		reg_OUTP(ID_PM_CONST_FB_U);
-		reg_OUTP(ID_PM_PROBE_SPEED_HOLD_RPM);
+        if (pm_wait_IDLE() != PM_OK) break;
 
-		if (pm_wait_IDLE() != PM_OK)
-			break;
+        tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
 
-		tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
+        if (pm.flux_LINKAGE != PM_ENABLED && pm.config_EXCITATION == PM_MAGNET_PERMANENT) {
+            reg_SET_F(ID_PM_S_SETPOINT_SPEED, pm.probe_speed_hold);
 
-		if (		pm.flux_LINKAGE != PM_ENABLED
-				&& pm.config_EXCITATION == PM_MAGNET_PERMANENT) {
+            if (pm_wait_spinup() != PM_OK) break;
 
-			reg_SET_F(ID_PM_S_SETPOINT_SPEED, pm.probe_speed_hold);
+            vTaskDelay((TickType_t)200);
 
-			if (pm_wait_spinup() != PM_OK)
-				break;
+            pm.fsm_req = PM_STATE_PROBE_CONST_FLUX_LINKAGE;
 
-			vTaskDelay((TickType_t) 200);
+            if (pm_wait_IDLE() != PM_OK) break;
 
-			pm.fsm_req = PM_STATE_PROBE_CONST_FLUX_LINKAGE;
+            reg_OUTP(ID_PM_LU_WS_RPM);
+            reg_OUTP(ID_PM_CONST_LAMBDA_KV);
+        }
 
-			if (pm_wait_IDLE() != PM_OK)
-				break;
+        pm_auto(&pm, PM_AUTO_ZONE_THRESHOLD);
+        pm_auto(&pm, PM_AUTO_PROBE_SPEED_HOLD);
+        pm_auto(&pm, PM_AUTO_FORCED_MAXIMAL);
 
-			reg_OUTP(ID_PM_LU_WS_RPM);
-			reg_OUTP(ID_PM_CONST_LAMBDA_KV);
-		}
+        reg_OUTP(ID_PM_PROBE_SPEED_HOLD_RPM);
+        reg_OUTP(ID_PM_FORCED_MAXIMAL_RPM);
 
-		pm_auto(&pm, PM_AUTO_ZONE_THRESHOLD);
-		pm_auto(&pm, PM_AUTO_PROBE_SPEED_HOLD);
-		pm_auto(&pm, PM_AUTO_FORCED_MAXIMAL);
+        reg_OUTP(ID_PM_ZONE_THRESHOLD_U);
+        reg_OUTP(ID_PM_ZONE_TOL_U);
 
-		reg_OUTP(ID_PM_PROBE_SPEED_HOLD_RPM);
-		reg_OUTP(ID_PM_FORCED_MAXIMAL_RPM);
+        reg_SET_F(ID_PM_S_SETPOINT_SPEED, pm.probe_speed_hold);
 
-		reg_OUTP(ID_PM_ZONE_THRESHOLD_U);
-		reg_OUTP(ID_PM_ZONE_TOL_U);
+        if (pm_wait_spinup() != PM_OK) break;
 
-		reg_SET_F(ID_PM_S_SETPOINT_SPEED, pm.probe_speed_hold);
+        if (pm.flux_ZONE != PM_ZONE_HIGH) {
+            pm.fsm_errno = PM_ERROR_NO_FLUX_CAUGHT;
+            break;
+        }
 
-		if (pm_wait_spinup() != PM_OK)
-			break;
+        if (pm.config_EXCITATION == PM_MAGNET_PERMANENT) {
+            vTaskDelay((TickType_t)200);
 
-		if (pm.flux_ZONE != PM_ZONE_HIGH) {
+            pm.fsm_req = PM_STATE_PROBE_CONST_FLUX_LINKAGE;
 
-			pm.fsm_errno = PM_ERROR_NO_FLUX_CAUGHT;
-			break;
-		}
+            if (pm_wait_IDLE() != PM_OK) break;
 
-		if (pm.config_EXCITATION == PM_MAGNET_PERMANENT) {
+            reg_OUTP(ID_PM_LU_WS_RPM);
+            reg_OUTP(ID_PM_CONST_LAMBDA_KV);
+        }
 
-			vTaskDelay((TickType_t) 200);
+        vTaskDelay((TickType_t)200);
 
-			pm.fsm_req = PM_STATE_PROBE_CONST_FLUX_LINKAGE;
+        pm.fsm_req = PM_STATE_PROBE_THRESHOLD_TOL;
 
-			if (pm_wait_IDLE() != PM_OK)
-				break;
+        if (pm_wait_IDLE() != PM_OK) break;
 
-			reg_OUTP(ID_PM_LU_WS_RPM);
-			reg_OUTP(ID_PM_CONST_LAMBDA_KV);
-		}
+        pm_auto(&pm, PM_AUTO_ZONE_THRESHOLD);
+        pm_auto(&pm, PM_AUTO_PROBE_SPEED_HOLD);
+        pm_auto(&pm, PM_AUTO_FORCED_MAXIMAL);
 
-		vTaskDelay((TickType_t) 200);
+        reg_OUTP(ID_PM_PROBE_SPEED_HOLD_RPM);
+        reg_OUTP(ID_PM_FORCED_MAXIMAL_RPM);
 
-		pm.fsm_req = PM_STATE_PROBE_THRESHOLD_TOL;
+        reg_OUTP(ID_PM_ZONE_THRESHOLD_U);
+        reg_OUTP(ID_PM_ZONE_TOL_U);
 
-		if (pm_wait_IDLE() != PM_OK)
-			break;
+        pm.fsm_req = PM_STATE_PROBE_CONST_INERTIA;
 
-		pm_auto(&pm, PM_AUTO_ZONE_THRESHOLD);
-		pm_auto(&pm, PM_AUTO_PROBE_SPEED_HOLD);
-		pm_auto(&pm, PM_AUTO_FORCED_MAXIMAL);
+        reg_OUTP(ID_PM_LU_WS_RPM);
+        vTaskDelay((TickType_t)100);
+        reg_SET_F(ID_PM_S_SETPOINT_SPEED_PC, 110.f);
+        vTaskDelay((TickType_t)400);
+        reg_OUTP(ID_PM_LU_WS_RPM);
+        reg_SET_F(ID_PM_S_SETPOINT_SPEED, pm.probe_speed_hold);
+        vTaskDelay((TickType_t)400);
 
-		reg_OUTP(ID_PM_PROBE_SPEED_HOLD_RPM);
-		reg_OUTP(ID_PM_FORCED_MAXIMAL_RPM);
+        if (pm_wait_IDLE() != PM_OK) break;
 
-		reg_OUTP(ID_PM_ZONE_THRESHOLD_U);
-		reg_OUTP(ID_PM_ZONE_TOL_U);
+        reg_OUTP(ID_PM_LU_WS_RPM);
+        reg_OUTP(ID_PM_CONST_JA_KGM2);
 
-		pm.fsm_req = PM_STATE_PROBE_CONST_INERTIA;
+        pm.fsm_req = PM_STATE_LU_SHUTDOWN;
 
-		reg_OUTP(ID_PM_LU_WS_RPM);
+        if (pm_wait_IDLE() != PM_OK) break;
 
-		vTaskDelay((TickType_t) 100);
+        pm_auto(&pm, PM_AUTO_FORCED_ACCEL);
+        pm_auto(&pm, PM_AUTO_LOOP_SPEED);
 
-		reg_SET_F(ID_PM_S_SETPOINT_SPEED_PC, 110.f);
+        reg_OUTP(ID_PM_FORCED_ACCEL_RPM);
+        reg_OUTP(ID_PM_LU_GAIN_MQ_LP);
+        reg_OUTP(ID_PM_S_GAIN_P);
+        reg_OUTP(ID_PM_S_GAIN_D);
+    } while (0);
 
-		vTaskDelay((TickType_t) 400);
+    reg_OUTP(ID_PM_FSM_ERRNO);
 
-		reg_OUTP(ID_PM_LU_WS_RPM);
+    if (pm.lu_MODE != PM_LU_DISABLED)
+        pm.fsm_req = PM_STATE_HALT;
 
-		reg_SET_F(ID_PM_S_SETPOINT_SPEED, pm.probe_speed_hold);
+    pm.config_LU_DRIVE = backup_LU_DRIVE;
 
-		vTaskDelay((TickType_t) 400);
-
-		if (pm_wait_IDLE() != PM_OK)
-			break;
-
-		reg_OUTP(ID_PM_LU_WS_RPM);
-		reg_OUTP(ID_PM_CONST_JA_KGM2);
-
-		pm.fsm_req = PM_STATE_LU_SHUTDOWN;
-
-		if (pm_wait_IDLE() != PM_OK)
-			break;
-
-		pm_auto(&pm, PM_AUTO_FORCED_ACCEL);
-		pm_auto(&pm, PM_AUTO_LOOP_SPEED);
-
-		reg_OUTP(ID_PM_FORCED_ACCEL_RPM);
-		reg_OUTP(ID_PM_LU_GAIN_MQ_LP);
-		reg_OUTP(ID_PM_S_GAIN_P);
-		reg_OUTP(ID_PM_S_GAIN_D);
-	}
-	while (0);
-
-	reg_OUTP(ID_PM_FSM_ERRNO);
-
-	if (pm.lu_MODE != PM_LU_DISABLED) {
-
-		pm.fsm_req = PM_STATE_HALT;
-	}
-
-	pm.config_LU_DRIVE = backup_LU_DRIVE;
-
-	tlm_halt(&tlm);
+    tlm_halt(&tlm);
 }
 
 SH_DEF(pm_probe_detached)
 {
-	if (pm.lu_MODE != PM_LU_DISABLED) {
+    if (pm.lu_MODE != PM_LU_DISABLED) {
+        printf("Unable when PM is running" EOL);
+        return;
+    }
 
-		printf("Unable when PM is running" EOL);
-		return;
-	}
+    if (pm.config_EXCITATION != PM_MAGNET_PERMANENT) {
+        printf("Unable when EXCITATION is not PERMANENT" EOL);
+        return;
+    }
 
-	if (pm.config_EXCITATION != PM_MAGNET_PERMANENT) {
+    do {
+        pm.fsm_req = PM_STATE_LU_DETACHED;
 
-		printf("Unable when EXCITATION is not PERMANENT" EOL);
-		return;
-	}
+        reg_OUTP(ID_PM_CONST_FB_U);
+        reg_OUTP(ID_PM_ZONE_THRESHOLD_RPM);
 
-	do {
-		pm.fsm_req = PM_STATE_LU_DETACHED;
+        if (pm_wait_motion() != PM_OK) break;
 
-		reg_OUTP(ID_PM_CONST_FB_U);
-		reg_OUTP(ID_PM_ZONE_THRESHOLD_RPM);
+        tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
 
-		if (pm_wait_motion() != PM_OK)
-			break;
+        pm.fsm_req = PM_STATE_PROBE_CONST_FLUX_LINKAGE;
 
-		tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
+        if (pm_wait_IDLE() != PM_OK) break;
 
-		pm.fsm_req = PM_STATE_PROBE_CONST_FLUX_LINKAGE;
+        reg_OUTP(ID_PM_LU_WS_RPM);
+        reg_OUTP(ID_PM_CONST_LAMBDA_KV);
 
-		if (pm_wait_IDLE() != PM_OK)
-			break;
+        pm.fsm_req = PM_STATE_LU_SHUTDOWN;
 
-		reg_OUTP(ID_PM_LU_WS_RPM);
-		reg_OUTP(ID_PM_CONST_LAMBDA_KV);
+        if (pm_wait_IDLE() != PM_OK) break;
+    } while (0);
 
-		pm.fsm_req = PM_STATE_LU_SHUTDOWN;
+    reg_OUTP(ID_PM_FSM_ERRNO);
 
-		if (pm_wait_IDLE() != PM_OK)
-			break;
-	}
-	while (0);
+    if (pm.lu_MODE != PM_LU_DISABLED)
+        pm.fsm_req = PM_STATE_HALT;
 
-	reg_OUTP(ID_PM_FSM_ERRNO);
-
-	if (pm.lu_MODE != PM_LU_DISABLED) {
-
-		pm.fsm_req = PM_STATE_HALT;
-	}
-
-	tlm_halt(&tlm);
+    tlm_halt(&tlm);
 }
 
 SH_DEF(pm_probe_const_flux_linkage)
 {
-	if (pm.lu_MODE == PM_LU_DISABLED) {
+    if (pm.lu_MODE == PM_LU_DISABLED) {
+        printf("Unable when PM is stopped" EOL);
+        return;
+    }
 
-		printf("Unable when PM is stopped" EOL);
-		return;
-	}
+    if (pm.config_EXCITATION != PM_MAGNET_PERMANENT) {
+        printf("Unable when EXCITATION is not PERMANENT" EOL);
+        return;
+    }
 
-	if (pm.config_EXCITATION != PM_MAGNET_PERMANENT) {
+    if (pm.flux_ZONE != PM_ZONE_HIGH) {
+        printf("Unable when FLUX is NOT in HIGH zone" EOL);
+        return;
+    }
 
-		printf("Unable when EXCITATION is not PERMANENT" EOL);
-		return;
-	}
+    do {
+        tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
 
-	if (pm.flux_ZONE != PM_ZONE_HIGH) {
+        pm.fsm_req = PM_STATE_PROBE_CONST_FLUX_LINKAGE;
 
-		printf("Unable when FLUX is NOT in HIGH zone" EOL);
-		return;
-	}
+        if (pm_wait_IDLE() != PM_OK)  break;
 
-	do {
-		tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
+        reg_OUTP(ID_PM_LU_WS_RPM);
+        reg_OUTP(ID_PM_CONST_LAMBDA_KV);
+    } while (0);
 
-		pm.fsm_req = PM_STATE_PROBE_CONST_FLUX_LINKAGE;
+    reg_OUTP(ID_PM_FSM_ERRNO);
 
-		if (pm_wait_IDLE() != PM_OK)
-			break;
-
-		reg_OUTP(ID_PM_LU_WS_RPM);
-		reg_OUTP(ID_PM_CONST_LAMBDA_KV);
-	}
-	while (0);
-
-	reg_OUTP(ID_PM_FSM_ERRNO);
-
-	tlm_halt(&tlm);
+    tlm_halt(&tlm);
 }
 
 SH_DEF(pm_probe_const_inertia)
 {
-	float		backup_wSP;
+    float backup_wSP;
 
-	if (pm.lu_MODE == PM_LU_DISABLED) {
+    if (pm.lu_MODE == PM_LU_DISABLED) {
+        printf("Unable when PM is stopped" EOL);
+        return;
+    }
 
-		printf("Unable when PM is stopped" EOL);
-		return;
-	}
+    if (pm.config_LU_DRIVE != PM_DRIVE_SPEED) {
+        printf("Unable when DRIVE is not SPEED" EOL);
+        return;
+    }
 
-	if (pm.config_LU_DRIVE != PM_DRIVE_SPEED) {
+    do {
+        tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
 
-		printf("Unable when DRIVE is not SPEED" EOL);
-		return;
-	}
+        pm.fsm_req = PM_STATE_PROBE_CONST_INERTIA;
 
-	do {
-		tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
+        reg_OUTP(ID_PM_LU_WS_RPM);
+        vTaskDelay((TickType_t)100);
+        backup_wSP = reg_GET_F(ID_PM_S_SETPOINT_SPEED);
+        reg_SET_F(ID_PM_S_SETPOINT_SPEED_PC, 110.f);
+        vTaskDelay((TickType_t)400);
+        reg_OUTP(ID_PM_LU_WS_RPM);
+        reg_SET_F(ID_PM_S_SETPOINT_SPEED, backup_wSP);
+        vTaskDelay((TickType_t)400);
 
-		pm.fsm_req = PM_STATE_PROBE_CONST_INERTIA;
+        if (pm_wait_IDLE() != PM_OK) break;
 
-		reg_OUTP(ID_PM_LU_WS_RPM);
+        reg_OUTP(ID_PM_LU_WS_RPM);
+        reg_OUTP(ID_PM_CONST_JA_KGM2);
+    } while (0);
 
-		vTaskDelay((TickType_t) 100);
+    reg_OUTP(ID_PM_FSM_ERRNO);
 
-		backup_wSP = reg_GET_F(ID_PM_S_SETPOINT_SPEED);
-		reg_SET_F(ID_PM_S_SETPOINT_SPEED_PC, 110.f);
-
-		vTaskDelay((TickType_t) 400);
-
-		reg_OUTP(ID_PM_LU_WS_RPM);
-
-		reg_SET_F(ID_PM_S_SETPOINT_SPEED, backup_wSP);
-
-		vTaskDelay((TickType_t) 400);
-
-		if (pm_wait_IDLE() != PM_OK)
-			break;
-
-		reg_OUTP(ID_PM_LU_WS_RPM);
-		reg_OUTP(ID_PM_CONST_JA_KGM2);
-	}
-	while (0);
-
-	reg_OUTP(ID_PM_FSM_ERRNO);
-
-	tlm_halt(&tlm);
+    tlm_halt(&tlm);
 }
 
 SH_DEF(pm_probe_threshold_tol)
 {
-	if (pm.lu_MODE == PM_LU_DISABLED) {
+    if (pm.lu_MODE == PM_LU_DISABLED) {
+        printf("Unable when PM is stopped" EOL);
+        return;
+    }
 
-		printf("Unable when PM is stopped" EOL);
-		return;
-	}
+    if (pm.flux_ZONE != PM_ZONE_HIGH) {
+        printf("Unable when FLUX is NOT in HIGH zone" EOL);
+        return;
+    }
 
-	if (pm.flux_ZONE != PM_ZONE_HIGH) {
+    do {
+        tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
 
-		printf("Unable when FLUX is NOT in HIGH zone" EOL);
-		return;
-	}
+        pm.fsm_req = PM_STATE_PROBE_THRESHOLD_TOL;
 
-	do {
-		tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
+        if (pm_wait_IDLE() != PM_OK) break;
 
-		pm.fsm_req = PM_STATE_PROBE_THRESHOLD_TOL;
+        reg_OUTP(ID_PM_LU_WS_RPM);
+        reg_OUTP(ID_PM_ZONE_TOL_U);
+    } while (0);
 
-		if (pm_wait_IDLE() != PM_OK)
-			break;
+    reg_OUTP(ID_PM_FSM_ERRNO);
 
-		reg_OUTP(ID_PM_LU_WS_RPM);
-		reg_OUTP(ID_PM_ZONE_TOL_U);
-	}
-	while (0);
-
-	reg_OUTP(ID_PM_FSM_ERRNO);
-
-	tlm_halt(&tlm);
+    tlm_halt(&tlm);
 }
 
 SH_DEF(pm_adjust_sensor_hall)
 {
-	int		backup_LU_SENSOR;
-	int		backup_LU_DRIVE;
+    int backup_LU_SENSOR;
+    int backup_LU_DRIVE;
 
-	if (pm.lu_MODE != PM_LU_DISABLED) {
+    if (pm.lu_MODE != PM_LU_DISABLED) {
+        printf("Unable when PM is running" EOL);
+        return;
+    }
 
-		printf("Unable when PM is running" EOL);
-		return;
-	}
+    backup_LU_SENSOR = pm.config_LU_SENSOR;
+    backup_LU_DRIVE = pm.config_LU_DRIVE;
 
-	backup_LU_SENSOR = pm.config_LU_SENSOR;
-	backup_LU_DRIVE = pm.config_LU_DRIVE;
+    pm.config_LU_SENSOR = PM_SENSOR_NONE;
+    pm.config_LU_DRIVE = PM_DRIVE_SPEED;
 
-	pm.config_LU_SENSOR = PM_SENSOR_NONE;
-	pm.config_LU_DRIVE = PM_DRIVE_SPEED;
+    do {
+        pm.fsm_req = PM_STATE_LU_STARTUP;
 
-	do {
-		pm.fsm_req = PM_STATE_LU_STARTUP;
+        reg_OUTP(ID_PM_CONST_FB_U);
+        reg_OUTP(ID_PM_PROBE_SPEED_HOLD_RPM);
 
-		reg_OUTP(ID_PM_CONST_FB_U);
-		reg_OUTP(ID_PM_PROBE_SPEED_HOLD_RPM);
+        if (pm_wait_IDLE() != PM_OK) break;
 
-		if (pm_wait_IDLE() != PM_OK)
-			break;
+        reg_SET_F(ID_PM_S_SETPOINT_SPEED, pm.probe_speed_hold);
 
-		reg_SET_F(ID_PM_S_SETPOINT_SPEED, pm.probe_speed_hold);
+        if (pm_wait_spinup() != PM_OK) break;
 
-		if (pm_wait_spinup() != PM_OK)
-			break;
+        tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
 
-		tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
+        pm.fsm_req = PM_STATE_ADJUST_SENSOR_HALL;
 
-		pm.fsm_req = PM_STATE_ADJUST_SENSOR_HALL;
+        if (pm_wait_IDLE() != PM_OK) break;
 
-		if (pm_wait_IDLE() != PM_OK)
-			break;
+        reg_OUTP(ID_PM_LU_WS_RPM);
 
-		reg_OUTP(ID_PM_LU_WS_RPM);
+        reg_OUTP(ID_PM_HALL_ST1);
+        reg_OUTP(ID_PM_HALL_ST2);
+        reg_OUTP(ID_PM_HALL_ST3);
+        reg_OUTP(ID_PM_HALL_ST4);
+        reg_OUTP(ID_PM_HALL_ST5);
+        reg_OUTP(ID_PM_HALL_ST6);
 
-		reg_OUTP(ID_PM_HALL_ST1);
-		reg_OUTP(ID_PM_HALL_ST2);
-		reg_OUTP(ID_PM_HALL_ST3);
-		reg_OUTP(ID_PM_HALL_ST4);
-		reg_OUTP(ID_PM_HALL_ST5);
-		reg_OUTP(ID_PM_HALL_ST6);
+        pm.fsm_req = PM_STATE_LU_SHUTDOWN;
 
-		pm.fsm_req = PM_STATE_LU_SHUTDOWN;
+        if (pm_wait_IDLE() != PM_OK) break;
+    } while (0);
 
-		if (pm_wait_IDLE() != PM_OK)
-			break;
-	}
-	while (0);
+    reg_OUTP(ID_PM_FSM_ERRNO);
 
-	reg_OUTP(ID_PM_FSM_ERRNO);
+    if (pm.lu_MODE != PM_LU_DISABLED) {
+        pm.fsm_req = PM_STATE_HALT;
+    }
 
-	if (pm.lu_MODE != PM_LU_DISABLED) {
+    pm.config_LU_SENSOR = backup_LU_SENSOR;
+    pm.config_LU_DRIVE = backup_LU_DRIVE;
 
-		pm.fsm_req = PM_STATE_HALT;
-	}
-
-	pm.config_LU_SENSOR = backup_LU_SENSOR;
-	pm.config_LU_DRIVE = backup_LU_DRIVE;
-
-	tlm_halt(&tlm);
+    tlm_halt(&tlm);
 }
 
 SH_DEF(pm_adjust_sensor_eabi)
 {
-	int		backup_LU_SENSOR;
-	int		backup_LU_DRIVE;
+    int backup_LU_SENSOR;
+    int backup_LU_DRIVE;
 
-	if (pm.lu_MODE != PM_LU_DISABLED) {
+    if (pm.lu_MODE != PM_LU_DISABLED) {
+        printf("Unable when PM is running" EOL);
+        return;
+    }
 
-		printf("Unable when PM is running" EOL);
-		return;
-	}
+    backup_LU_SENSOR = pm.config_LU_SENSOR;
+    backup_LU_DRIVE = pm.config_LU_DRIVE;
 
-	backup_LU_SENSOR = pm.config_LU_SENSOR;
-	backup_LU_DRIVE = pm.config_LU_DRIVE;
+    pm.config_LU_SENSOR = PM_SENSOR_NONE;
+    pm.config_LU_DRIVE = PM_DRIVE_SPEED;
 
-	pm.config_LU_SENSOR = PM_SENSOR_NONE;
-	pm.config_LU_DRIVE = PM_DRIVE_SPEED;
+    do {
+        pm.fsm_req = PM_STATE_LU_STARTUP;
 
-	do {
-		pm.fsm_req = PM_STATE_LU_STARTUP;
+        reg_OUTP(ID_PM_CONST_FB_U);
+        reg_OUTP(ID_PM_ZONE_THRESHOLD_RPM);
 
-		reg_OUTP(ID_PM_CONST_FB_U);
-		reg_OUTP(ID_PM_ZONE_THRESHOLD_RPM);
+        if (pm_wait_IDLE() != PM_OK) break;
 
-		if (pm_wait_IDLE() != PM_OK)
-			break;
+        reg_SET_F(ID_PM_S_SETPOINT_SPEED, pm.zone_threshold);
 
-		reg_SET_F(ID_PM_S_SETPOINT_SPEED, pm.zone_threshold);
+        if (pm_wait_spinup() != PM_OK) break;
 
-		if (pm_wait_spinup() != PM_OK)
-			break;
+        tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
 
-		tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
+        pm.fsm_req = PM_STATE_ADJUST_SENSOR_EABI;
 
-		pm.fsm_req = PM_STATE_ADJUST_SENSOR_EABI;
+        if (pm_wait_IDLE() != PM_OK) break;
 
-		if (pm_wait_IDLE() != PM_OK)
-			break;
+        reg_OUTP(ID_PM_EABI_CONST_EP);
+        reg_OUTP(ID_PM_EABI_CONST_ZS);
+        reg_OUTP(ID_PM_EABI_F0);
 
-		reg_OUTP(ID_PM_EABI_CONST_EP);
-		reg_OUTP(ID_PM_EABI_CONST_ZS);
-		reg_OUTP(ID_PM_EABI_F0);
+        pm.fsm_req = PM_STATE_LU_SHUTDOWN;
 
-		pm.fsm_req = PM_STATE_LU_SHUTDOWN;
+        if (pm_wait_IDLE() != PM_OK) break;
+    } while (0);
 
-		if (pm_wait_IDLE() != PM_OK)
-			break;
-	}
-	while (0);
+    reg_OUTP(ID_PM_FSM_ERRNO);
 
-	reg_OUTP(ID_PM_FSM_ERRNO);
+    if (pm.lu_MODE != PM_LU_DISABLED) {
+        pm.fsm_req = PM_STATE_HALT;
+    }
 
-	if (pm.lu_MODE != PM_LU_DISABLED) {
+    pm.config_LU_SENSOR = backup_LU_SENSOR;
+    pm.config_LU_DRIVE = backup_LU_DRIVE;
 
-		pm.fsm_req = PM_STATE_HALT;
-	}
-
-	pm.config_LU_SENSOR = backup_LU_SENSOR;
-	pm.config_LU_DRIVE = backup_LU_DRIVE;
-
-	tlm_halt(&tlm);
+    tlm_halt(&tlm);
 }
 
 SH_DEF(pm_adjust_sensor_sincos)
 {
-	int		backup_LU_SENSOR;
-	int		backup_LU_DRIVE;
+    int backup_LU_SENSOR;
+    int backup_LU_DRIVE;
 
-	if (pm.lu_MODE != PM_LU_DISABLED) {
+    if (pm.lu_MODE != PM_LU_DISABLED) {
+        printf("Unable when PM is running" EOL);
+        return;
+    }
 
-		printf("Unable when PM is running" EOL);
-		return;
-	}
+    backup_LU_SENSOR = pm.config_LU_SENSOR;
+    backup_LU_DRIVE = pm.config_LU_DRIVE;
 
-	backup_LU_SENSOR = pm.config_LU_SENSOR;
-	backup_LU_DRIVE = pm.config_LU_DRIVE;
+    pm.config_LU_SENSOR = PM_SENSOR_NONE;
+    pm.config_LU_DRIVE = PM_DRIVE_SPEED;
 
-	pm.config_LU_SENSOR = PM_SENSOR_NONE;
-	pm.config_LU_DRIVE = PM_DRIVE_SPEED;
+    do {
+        pm.fsm_req = PM_STATE_LU_STARTUP;
 
-	do {
-		pm.fsm_req = PM_STATE_LU_STARTUP;
+        reg_OUTP(ID_PM_CONST_FB_U);
+        reg_OUTP(ID_PM_PROBE_SPEED_HOLD_RPM);
 
-		reg_OUTP(ID_PM_CONST_FB_U);
-		reg_OUTP(ID_PM_PROBE_SPEED_HOLD_RPM);
+        if (pm_wait_IDLE() != PM_OK) break;
 
-		if (pm_wait_IDLE() != PM_OK)
-			break;
+        reg_SET_F(ID_PM_S_SETPOINT_SPEED, pm.probe_speed_hold);
 
-		reg_SET_F(ID_PM_S_SETPOINT_SPEED, pm.probe_speed_hold);
+        if (pm_wait_spinup() != PM_OK) break;
 
-		if (pm_wait_spinup() != PM_OK)
-			break;
+        tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
 
-		tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
+        pm.fsm_req = PM_STATE_ADJUST_SENSOR_SINCOS;
 
-		pm.fsm_req = PM_STATE_ADJUST_SENSOR_SINCOS;
+        reg_OUTP(ID_PM_LU_WS_RPM);
+        vTaskDelay((TickType_t)400);
+        reg_SET_F(ID_PM_S_SETPOINT_SPEED_PC, 110.f);
+        vTaskDelay((TickType_t)400);
+        reg_OUTP(ID_PM_LU_WS_RPM);
+        reg_SET_F(ID_PM_S_SETPOINT_SPEED, pm.probe_speed_hold);
+        vTaskDelay((TickType_t)400);
+        reg_OUTP(ID_PM_LU_WS_RPM);
+        reg_SET_F(ID_PM_S_SETPOINT_SPEED_PC, 110.f);
+        vTaskDelay((TickType_t)400);
+        reg_OUTP(ID_PM_LU_WS_RPM);
+        reg_SET_F(ID_PM_S_SETPOINT_SPEED, pm.probe_speed_hold);
+        vTaskDelay((TickType_t)400);
 
-		reg_OUTP(ID_PM_LU_WS_RPM);
+        if (pm_wait_IDLE() != PM_OK) break;
 
-		vTaskDelay((TickType_t) 400);
+        reg_OUTP(ID_PM_LU_WS_RPM);
 
-		reg_SET_F(ID_PM_S_SETPOINT_SPEED_PC, 110.f);
+        reg_OUTP(ID_PM_SINCOS_CONST0);
+        reg_OUTP(ID_PM_SINCOS_CONST1);
+        reg_OUTP(ID_PM_SINCOS_CONST2);
+        reg_OUTP(ID_PM_SINCOS_CONST3);
+        reg_OUTP(ID_PM_SINCOS_CONST4);
+        reg_OUTP(ID_PM_SINCOS_CONST5);
+        reg_OUTP(ID_PM_SINCOS_CONST6);
+        reg_OUTP(ID_PM_SINCOS_CONST7);
+        reg_OUTP(ID_PM_SINCOS_CONST8);
+        reg_OUTP(ID_PM_SINCOS_CONST9);
+        reg_OUTP(ID_PM_SINCOS_CONST10);
+        reg_OUTP(ID_PM_SINCOS_CONST11);
+        reg_OUTP(ID_PM_SINCOS_CONST12);
+        reg_OUTP(ID_PM_SINCOS_CONST13);
+        reg_OUTP(ID_PM_SINCOS_CONST14);
+        reg_OUTP(ID_PM_SINCOS_CONST15);
 
-		vTaskDelay((TickType_t) 400);
+        pm.fsm_req = PM_STATE_LU_SHUTDOWN;
 
-		reg_OUTP(ID_PM_LU_WS_RPM);
+        if (pm_wait_IDLE() != PM_OK) break;
+    } while (0);
 
-		reg_SET_F(ID_PM_S_SETPOINT_SPEED, pm.probe_speed_hold);
+    reg_OUTP(ID_PM_FSM_ERRNO);
 
-		vTaskDelay((TickType_t) 400);
+    if (pm.lu_MODE != PM_LU_DISABLED)
+        pm.fsm_req = PM_STATE_HALT;
 
-		reg_OUTP(ID_PM_LU_WS_RPM);
+    pm.config_LU_SENSOR = backup_LU_SENSOR;
+    pm.config_LU_DRIVE = backup_LU_DRIVE;
 
-		reg_SET_F(ID_PM_S_SETPOINT_SPEED_PC, 110.f);
-
-		vTaskDelay((TickType_t) 400);
-
-		reg_OUTP(ID_PM_LU_WS_RPM);
-
-		reg_SET_F(ID_PM_S_SETPOINT_SPEED, pm.probe_speed_hold);
-
-		vTaskDelay((TickType_t) 400);
-
-		if (pm_wait_IDLE() != PM_OK)
-			break;
-
-		reg_OUTP(ID_PM_LU_WS_RPM);
-
-		reg_OUTP(ID_PM_SINCOS_CONST0);
-		reg_OUTP(ID_PM_SINCOS_CONST1);
-		reg_OUTP(ID_PM_SINCOS_CONST2);
-		reg_OUTP(ID_PM_SINCOS_CONST3);
-		reg_OUTP(ID_PM_SINCOS_CONST4);
-		reg_OUTP(ID_PM_SINCOS_CONST5);
-		reg_OUTP(ID_PM_SINCOS_CONST6);
-		reg_OUTP(ID_PM_SINCOS_CONST7);
-		reg_OUTP(ID_PM_SINCOS_CONST8);
-		reg_OUTP(ID_PM_SINCOS_CONST9);
-		reg_OUTP(ID_PM_SINCOS_CONST10);
-		reg_OUTP(ID_PM_SINCOS_CONST11);
-		reg_OUTP(ID_PM_SINCOS_CONST12);
-		reg_OUTP(ID_PM_SINCOS_CONST13);
-		reg_OUTP(ID_PM_SINCOS_CONST14);
-		reg_OUTP(ID_PM_SINCOS_CONST15);
-
-		pm.fsm_req = PM_STATE_LU_SHUTDOWN;
-
-		if (pm_wait_IDLE() != PM_OK)
-			break;
-	}
-	while (0);
-
-	reg_OUTP(ID_PM_FSM_ERRNO);
-
-	if (pm.lu_MODE != PM_LU_DISABLED) {
-
-		pm.fsm_req = PM_STATE_HALT;
-	}
-
-	pm.config_LU_SENSOR = backup_LU_SENSOR;
-	pm.config_LU_DRIVE = backup_LU_DRIVE;
-
-	tlm_halt(&tlm);
+    tlm_halt(&tlm);
 }
 
 SH_DEF(ld_probe_const_inertia)
 {
-	if (pm.lu_MODE == PM_LU_DISABLED) {
+    if (pm.lu_MODE == PM_LU_DISABLED) {
+        printf("Unable when PM is stopped" EOL);
+        return;
+    }
 
-		printf("Unable when PM is stopped" EOL);
-		return;
-	}
+    if (pm.config_LU_DRIVE != PM_DRIVE_LOCATION) {
+        printf("Unable when DRIVE is not LOCATION" EOL);
+        return;
+    }
 
-	if (pm.config_LU_DRIVE != PM_DRIVE_LOCATION) {
+    do {
+        reg_SET_F(ID_PM_X_SETPOINT_LOCATION, pm.x_minimal);
+        reg_SET_F(ID_PM_X_SETPOINT_SPEED, 0.f);
 
-		printf("Unable when DRIVE is not LOCATION" EOL);
-		return;
-	}
+        if (pm_wait_settle() != PM_OK) break;
 
-	do {
-		reg_SET_F(ID_PM_X_SETPOINT_LOCATION, pm.x_minimal);
-		reg_SET_F(ID_PM_X_SETPOINT_SPEED, 0.f);
+        pm.fsm_req = PM_STATE_PROBE_CONST_INERTIA;
 
-		if (pm_wait_settle() != PM_OK)
-			break;
+        vTaskDelay((TickType_t)100);
+        reg_SET_F(ID_PM_X_SETPOINT_LOCATION, pm.x_maximal);
+        vTaskDelay((TickType_t)400);
+        reg_SET_F(ID_PM_X_SETPOINT_LOCATION, pm.x_minimal);
+        vTaskDelay((TickType_t)400);
 
-		pm.fsm_req = PM_STATE_PROBE_CONST_INERTIA;
+        if (pm_wait_IDLE() != PM_OK) break;
 
-		vTaskDelay((TickType_t) 100);
+        reg_OUTP(ID_PM_CONST_JA_KG);
+    } while (0);
 
-		reg_SET_F(ID_PM_X_SETPOINT_LOCATION, pm.x_maximal);
-
-		vTaskDelay((TickType_t) 400);
-
-		reg_SET_F(ID_PM_X_SETPOINT_LOCATION, pm.x_minimal);
-
-		vTaskDelay((TickType_t) 400);
-
-		if (pm_wait_IDLE() != PM_OK)
-			break;
-
-		reg_OUTP(ID_PM_CONST_JA_KG);
-	}
-	while (0);
-
-	reg_OUTP(ID_PM_FSM_ERRNO);
+    reg_OUTP(ID_PM_FSM_ERRNO);
 }
 
 SH_DEF(ld_adjust_limit)
 {
-	float			wSP = 1.f;
+    float wSP = 1.f;
 
-	if (pm.lu_MODE == PM_LU_DISABLED) {
+    if (pm.lu_MODE == PM_LU_DISABLED) {
+        printf("Unable when PM is stopped" EOL);
+        return;
+    }
 
-		printf("Unable when PM is stopped" EOL);
-		return;
-	}
+    if (pm.config_LU_DRIVE != PM_DRIVE_LOCATION) {
+        printf("Unable when DRIVE is not LOCATION" EOL);
+        return;
+    }
 
-	if (pm.config_LU_DRIVE != PM_DRIVE_LOCATION) {
+    do {
+        reg_SET_F(ID_PM_X_SETPOINT_LOCATION, pm.x_minimal);
+        reg_SET_F(ID_PM_X_SETPOINT_SPEED, 0.f);
 
-		printf("Unable when DRIVE is not LOCATION" EOL);
-		return;
-	}
+        if (pm_wait_settle() != PM_OK) break;
 
-	do {
-		reg_SET_F(ID_PM_X_SETPOINT_LOCATION, pm.x_minimal);
-		reg_SET_F(ID_PM_X_SETPOINT_SPEED, 0.f);
+        reg_SET_F(ID_PM_X_SETPOINT_SPEED, wSP);
 
-		if (pm_wait_settle() != PM_OK)
-			break;
+        /* TODO */
+    } while (0);
 
-		reg_SET_F(ID_PM_X_SETPOINT_SPEED, wSP);
-
-		/* TODO */
-	}
-	while (0);
-
-	reg_OUTP(ID_PM_FSM_ERRNO);
+    reg_OUTP(ID_PM_FSM_ERRNO);
 }
 
 SH_DEF(pm_fsm_detached)
 {
-	pm.fsm_req = PM_STATE_LU_DETACHED;
-	pm_wait_IDLE();
-
-	tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
-
-	reg_OUTP(ID_PM_FSM_ERRNO);
+    pm.fsm_req = PM_STATE_LU_DETACHED;
+    pm_wait_IDLE();
+    tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
+    reg_OUTP(ID_PM_FSM_ERRNO);
 }
 
 SH_DEF(pm_fsm_startup)
 {
-	pm.fsm_req = PM_STATE_LU_STARTUP;
-	pm_wait_IDLE();
-
-	tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
-
-	reg_OUTP(ID_PM_FSM_ERRNO);
+    pm.fsm_req = PM_STATE_LU_STARTUP;
+    pm_wait_IDLE();
+    tlm_startup(&tlm, tlm.rate_watch, TLM_MODE_WATCH);
+    reg_OUTP(ID_PM_FSM_ERRNO);
 }
 
 SH_DEF(pm_fsm_shutdown)
 {
-	pm.fsm_req = PM_STATE_LU_SHUTDOWN;
-	pm_wait_IDLE();
-
-	tlm_halt(&tlm);
-
-	reg_OUTP(ID_PM_FSM_ERRNO);
+    pm.fsm_req = PM_STATE_LU_SHUTDOWN;
+    pm_wait_IDLE();
+    tlm_halt(&tlm);
+    reg_OUTP(ID_PM_FSM_ERRNO);
 }
 
 SH_DEF(pm_default_config)
 {
-	pm_auto(&pm, PM_AUTO_CONFIG_DEFAULT);
+    pm_auto(&pm, PM_AUTO_CONFIG_DEFAULT);
 }
 
 SH_DEF(pm_default_machine)
 {
-	pm_auto(&pm, PM_AUTO_MACHINE_DEFAULT);
-	pm_auto(&pm, PM_AUTO_MAXIMAL_CURRENT);
+    pm_auto(&pm, PM_AUTO_MACHINE_DEFAULT);
+    pm_auto(&pm, PM_AUTO_MAXIMAL_CURRENT);
 }
 
 SH_DEF(pm_default_scale)
 {
-	pm_auto(&pm, PM_AUTO_SCALE_DEFAULT);
+    pm_auto(&pm, PM_AUTO_SCALE_DEFAULT);
 }
 

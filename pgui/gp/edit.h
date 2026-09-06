@@ -25,53 +25,51 @@
 #include "draw.h"
 #include "scheme.h"
 
-#define EDIT_TEXT_SIZE			360
-#define EDIT_STRING_MAX			400
+#define EDIT_TEXT_SIZE 360
+#define EDIT_STRING_MAX 400
 
 typedef struct {
+    int raised;
+    int entered;
+    int id;
 
-	int			raised;
-	int			entered;
-	int			id;
+    const char *title;
 
-	const char		*title;
+    int cur_X;
+    int cur_Y;
 
-	int			cur_X;
-	int			cur_Y;
+    int box_X;
+    int box_Y;
 
-	int			box_X;
-	int			box_Y;
+    int size_X;
+    int size_Y;
 
-	int			size_X;
-	int			size_Y;
+    TTF_Font *font;
+    clipBox_t screen;
 
-	TTF_Font		*font;
-	clipBox_t		screen;
+    char text[EDIT_STRING_MAX];
+    char *text_cur;
 
-	char			text[EDIT_STRING_MAX];
-	char			*text_cur;
+    int layout_height;
+    int layout_long;
 
-	int			layout_height;
-	int			layout_long;
+    const char *list_fmt;
 
-	const char		*list_fmt;
-
-	draw_t			*dw;
-	scheme_t		*sch;
-}
-edit_t;
+    draw_t *dw;
+    scheme_t *sch;
+} edit_t;
 
 enum {
-	EDIT_EVNO_CLICK			= 1,
-	EDIT_EVNO_ARROW_LEFT,
-	EDIT_EVNO_ARROW_RIGHT,
-	EDIT_EVNO_RETURN,
-	EDIT_EVNO_BACKSPACE,
-	EDIT_EVNO_DELETE,
-	EDIT_EVNO_CTRL_X,
-	EDIT_EVNO_CTRL_C,
-	EDIT_EVNO_CTRL_V,
-	EDIT_EVNO_TAB,
+    EDIT_EVNO_CLICK = 1,
+    EDIT_EVNO_ARROW_LEFT,
+    EDIT_EVNO_ARROW_RIGHT,
+    EDIT_EVNO_RETURN,
+    EDIT_EVNO_BACKSPACE,
+    EDIT_EVNO_DELETE,
+    EDIT_EVNO_CTRL_X,
+    EDIT_EVNO_CTRL_C,
+    EDIT_EVNO_CTRL_V,
+    EDIT_EVNO_TAB,
 };
 
 const char *utf8_go_next(const char *s);

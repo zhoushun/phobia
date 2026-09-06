@@ -1,18 +1,18 @@
 #ifndef _H_LIB_M_
 #define _H_LIB_M_
 
-#define M_EPSILON		1.19209E-7f
-#define M_PI_F			3.14159265f
-#define M_2_PI_F 		6.28318531f
-#define M_LOG_E 		0.69314718f
-#define M_LOG_10		0.30103000f
+#define M_EPSILON   1.19209E-7f
+#define M_PI_F      3.14159265f
+#define M_2_PI_F    6.28318531f
+#define M_LOG_E     0.69314718f
+#define M_LOG_10    0.30103000f
 
 #ifndef likely
-#define likely(x)		__builtin_expect(!!(x), 1)
+#define likely(x) __builtin_expect(!!(x), 1)
 #endif
 
 #ifndef unlikely
-#define unlikely(x)		__builtin_expect(!!(x), 0)
+#define unlikely(x) __builtin_expect(!!(x), 0)
 #endif
 
 static inline float m_fabsf(float x) { return __builtin_fabsf(x); }
@@ -45,11 +45,9 @@ float m_powf(float x, float y);
 void m_la_eigf(const float a[3], float v[4], int m);
 
 typedef struct {
-
-	float		seed[4];
-	int		nb;
-}
-lfseed_t;
+    float seed[4];
+    int nb;
+} lfseed_t;
 
 void m_lf_randseed(lfseed_t *lf, int seed);
 float m_lf_urandf(lfseed_t *lf);

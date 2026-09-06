@@ -15,81 +15,74 @@
 
 AP_TASK_DEF(HX711)
 {
-	AP_KNOB(knob);
+    AP_KNOB(knob);
 
-	const int		gpio_DOUT = GPIO_SPI1_MISO;
-	const int		gpio_PD_SCK = GPIO_SPI1_SCK;
+    const int gpio_DOUT = GPIO_SPI1_MISO;
+    const int gpio_PD_SCK = GPIO_SPI1_SCK;
 
-	int			DOUT, ADC, N;
+    int DOUT, ADC, N;
 
-	if (SPI_is_halted(HW_SPI_EXT_ID) != HAL_OK) {
+    if (SPI_is_halted(HW_SPI_EXT_ID) != HAL_OK) {
+        printf("Unable to start application when SPI is busy" EOL);
 
-		printf("Unable to start application when SPI is busy" EOL);
+        AP_TERMINATE(knob);
+    }
 
-		AP_TERMINATE(knob);
-	}
+    SPI_startup(HW_SPI_EXT_ID, 0, 0);
 
-	SPI_startup(HW_SPI_EXT_ID, 0, 0);
+    GPIO_set_mode_INPUT(gpio_DOUT);
+    GPIO_set_mode_OUTPUT(gpio_PD_SCK);
 
-	GPIO_set_mode_INPUT(gpio_DOUT);
-	GPIO_set_mode_OUTPUT(gpio_PD_SCK);
+    GPIO_set_LOW(gpio_PD_SCK);
 
-	GPIO_set_LOW(gpio_PD_SCK);
+    do {
+        vTaskDelay((TickType_t) 5);
 
-	do {
-		vTaskDelay((TickType_t) 5);
+        DOUT = GPIO_get_STATE(gpio_DOUT);
 
-		DOUT = GPIO_get_STATE(gpio_DOUT);
+        if (DOUT == 0) {
+            /* Get ADC result.
+             *
+             * +-----------+---------+------+
+             * | Number of | Input   | Gain |
+             * | pulses    | channel |      |
+             * +-----------+---------+------+
+             * |    25     |    A    | 128  |
+             * +-----------+---------+------+
+             * |    26     |    B    |  32  |
+             * +-----------+---------+------+
+             * |    27     |    A    |  64  |
+             * +-----------+---------+------+
+             * */
 
-		if (DOUT == 0) {
+            for (N = 0; N < 25; ++N) {
+                GPIO_set_HIGH(gpio_PD_SCK);
+                TIM_wait_ns(550);
 
-			/* Get ADC result.
-			 *
-			 * +-----------+---------+------+
-			 * | Number of | Input   | Gain |
-			 * | pulses    | channel |      |
-			 * +-----------+---------+------+
-			 * |    25     |    A    | 128  |
-			 * +-----------+---------+------+
-			 * |    26     |    B    |  32  |
-			 * +-----------+---------+------+
-			 * |    27     |    A    |  64  |
-			 * +-----------+---------+------+
-			 * */
+                DOUT = GPIO_get_STATE(gpio_DOUT);
 
-			for (N = 0; N < 25; ++N) {
+                if (N == 0) {
+                    ADC = (DOUT != 0) ? -1 : 0;
+                } else if (N < 24) {
+                    ADC <<= 1;
+                    ADC |= (DOUT != 0) ? 1 : 0;
+                }
 
-				GPIO_set_HIGH(gpio_PD_SCK);
-				TIM_wait_ns(550);
+                GPIO_set_LOW(gpio_PD_SCK);
+                TIM_wait_ns(550);
+            }
 
-				DOUT = GPIO_get_STATE(gpio_DOUT);
+            /* Store the ADC code in a register.
+             * */
+            ap.load_HX711 = ADC;
+        }
+    } while (AP_CONDITION(knob));
 
-				if (N == 0) {
+    GPIO_set_mode_INPUT(gpio_DOUT);
+    GPIO_set_mode_INPUT(gpio_PD_SCK);
 
-					ADC = (DOUT != 0) ? -1 : 0;
-				}
-				else if (N < 24) {
+    SPI_halt(HW_SPI_EXT_ID);
 
-					ADC <<= 1;
-					ADC |= (DOUT != 0) ? 1 : 0;
-				}
-
-				GPIO_set_LOW(gpio_PD_SCK);
-				TIM_wait_ns(550);
-			}
-
-			/* Store the ADC code in a register.
-			 * */
-			ap.load_HX711 = ADC;
-		}
-	}
-	while (AP_CONDITION(knob));
-
-	GPIO_set_mode_INPUT(gpio_DOUT);
-	GPIO_set_mode_INPUT(gpio_PD_SCK);
-
-	SPI_halt(HW_SPI_EXT_ID);
-
-	AP_TERMINATE(knob);
+    AP_TERMINATE(knob);
 }
 

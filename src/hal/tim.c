@@ -2,12 +2,11 @@
 #include "cmsis/stm32xx.h"
 
 typedef struct {
-
-	uint32_t		tick_CNT;
+	uint32_t tick_CNT;
 }
 priv_TIM_t;
 
-static priv_TIM_t		priv_TIM;
+static priv_TIM_t priv_TIM;
 
 void irq_TIM7()
 {
@@ -41,9 +40,9 @@ void TIM_startup()
 
 void TIM_wait_ns(int ns)
 {
-	uint32_t		END, CNT;
+	uint32_t END, CNT;
 
-	END = TIM7->CNT + (uint32_t) (ns)
+	END = TIM7->CNT + (uint32_t)(ns)
 		* (CLOCK_TIM7_HZ / 1000000UL) / 1000UL;
 
 	do {

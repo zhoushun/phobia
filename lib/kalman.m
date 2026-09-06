@@ -47,20 +47,20 @@ Fb(1,3) = T * (u(2) * cos(th*2) - u(1) * sin(th*2) + u(3) * cos(th));
 Fb(2,3) = T * (u(1) * cos(th*2) + u(2) * sin(th*2) + u(3) * sin(th));
 
 Fb(1,4) =   T * lam * sin(th) / Lq;
-Fb(2,4) = - T * lam * cos(th) / Lq;
+Fb(2,4) = -T * lam * cos(th) / Lq;
 
-Fb(1,5) = - T * sin(th) / Lq;
+Fb(1,5) = -T * sin(th) / Lq;
 Fb(2,5) =   T * cos(th) / Lq;
 
 Fw(1,1) =   T * w * sin(th) * cos(th)        * (Ld/Lq - Lq/Ld);
 Fw(1,2) =   T * w * ((Ld/Lq - 1) - cos(th)^2 * (Ld/Lq - Lq/Ld));
 Fw(2,1) =   T * w * ((1 - Lq/Ld) - cos(th)^2 * (Ld/Lq - Lq/Ld));
-Fw(2,2) = - T * w * sin(th) * cos(th)        * (Ld/Lq - Lq/Ld);
+Fw(2,2) = -T * w * sin(th) * cos(th)        * (Ld/Lq - Lq/Ld);
 
 Fw(1,3) =   T * w * u(4) * (Ld/Lq - Lq/Ld);
-Fw(2,3) = - T * w * u(5) * (Ld/Lq - Lq/Ld);
+Fw(2,3) = -T * w * u(5) * (Ld/Lq - Lq/Ld);
 
-Fw(1,4) = - T / 2 * (Iy * (Ld - Lq) - u(5) * (Ld + Lq)) * (1/Ld - 1/Lq);
+Fw(1,4) = -T / 2 * (Iy * (Ld - Lq) - u(5) * (Ld + Lq)) * (1/Ld - 1/Lq);
 Fw(2,4) =   T / 2 * (Ix * (Ld - Lq) + u(4) * (Ld + Lq)) * (1/Ld - 1/Lq);
 
 % Check for equality.

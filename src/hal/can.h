@@ -7,20 +7,16 @@
 #define CAN_EXTENID_MIN		2048U
 
 typedef struct {
-
-	uint32_t		ID;
-	uint16_t		len;
+	uint32_t ID;
+	uint16_t len;
 
 	union {
-
-		uint8_t		b[8];
-		uint16_t	s[4];
-		uint32_t	l[2];
-		float		f[2];
-	}
-	payload;
-}
-CAN_msg_t;
+		uint8_t b[8];
+		uint16_t s[4];
+		uint32_t l[2];
+		float f[2];
+	} payload;
+} CAN_msg_t;
 
 void CAN_startup();
 void CAN_configure();

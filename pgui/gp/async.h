@@ -25,34 +25,32 @@
 #include <SDL2/SDL.h>
 
 enum {
-	ASYNC_OK		= 0,
-	ASYNC_NO_FREE_SPACE,
-	ASYNC_NO_DATA_READY,
-	ASYNC_END_OF_FILE
+    ASYNC_OK = 0,
+    ASYNC_NO_FREE_SPACE,
+    ASYNC_NO_DATA_READY,
+    ASYNC_END_OF_FILE
 };
 
 typedef struct {
+    FILE *fd;
+    SDL_Thread *thread;
 
-	FILE		*fd;
-	SDL_Thread	*thread;
+    Uint32 clock;
 
-	Uint32		clock;
+    int preload;
+    int chunk;
+    int timeout;
+    int cached;
+    int waiting;
 
-	int		preload;
-	int		chunk;
-	int		timeout;
-	int		cached;
-	int		waiting;
+    char *stream;
 
-	char		*stream;
+    SDL_atomic_t rp;
+    SDL_atomic_t wp;
 
-	SDL_atomic_t	rp;
-	SDL_atomic_t	wp;
-
-	SDL_atomic_t	flag_eof;
-	SDL_atomic_t	flag_break;
-}
-async_FILE;
+    SDL_atomic_t flag_eof;
+    SDL_atomic_t flag_break;
+} async_FILE;
 
 async_FILE *async_open(FILE *fd, int preload, int chunk, int timeout);
 async_FILE *async_stub(int preload, int chunk, int timeout);

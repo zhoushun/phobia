@@ -1694,12 +1694,9 @@ __STATIC_INLINE void __NVIC_EnableIRQ(IRQn_Type IRQn)
  */
 __STATIC_INLINE uint32_t __NVIC_GetEnableIRQ(IRQn_Type IRQn)
 {
-  if ((int32_t)(IRQn) >= 0)
-  {
+  if ((int32_t)(IRQn) >= 0) {
     return((uint32_t)(((NVIC->ISER[(((uint32_t)IRQn) >> 5UL)] & (1UL << (((uint32_t)IRQn) & 0x1FUL))) != 0UL) ? 1UL : 0UL));
-  }
-  else
-  {
+  } else {
     return(0U);
   }
 }
@@ -1732,11 +1729,9 @@ __STATIC_INLINE void __NVIC_DisableIRQ(IRQn_Type IRQn)
  */
 __STATIC_INLINE uint32_t __NVIC_GetPendingIRQ(IRQn_Type IRQn)
 {
-  if ((int32_t)(IRQn) >= 0)
-  {
+  if ((int32_t)(IRQn) >= 0) {
     return((uint32_t)(((NVIC->ISPR[(((uint32_t)IRQn) >> 5UL)] & (1UL << (((uint32_t)IRQn) & 0x1FUL))) != 0UL) ? 1UL : 0UL));
-  }
-  else
+  } else
   {
     return(0U);
   }
@@ -1783,12 +1778,9 @@ __STATIC_INLINE void __NVIC_ClearPendingIRQ(IRQn_Type IRQn)
  */
 __STATIC_INLINE uint32_t __NVIC_GetActive(IRQn_Type IRQn)
 {
-  if ((int32_t)(IRQn) >= 0)
-  {
+  if ((int32_t)(IRQn) >= 0) {
     return((uint32_t)(((NVIC->IABR[(((uint32_t)IRQn) >> 5UL)] & (1UL << (((uint32_t)IRQn) & 0x1FUL))) != 0UL) ? 1UL : 0UL));
-  }
-  else
-  {
+  } else {
     return(0U);
   }
 }
@@ -1827,13 +1819,9 @@ __STATIC_INLINE void __NVIC_SetPriority(IRQn_Type IRQn, uint32_t priority)
  */
 __STATIC_INLINE uint32_t __NVIC_GetPriority(IRQn_Type IRQn)
 {
-
-  if ((int32_t)(IRQn) >= 0)
-  {
+  if ((int32_t)(IRQn) >= 0) {
     return(((uint32_t)NVIC->IP[((uint32_t)IRQn)]               >> (8U - __NVIC_PRIO_BITS)));
-  }
-  else
-  {
+  } else {
     return(((uint32_t)SCB->SHP[(((uint32_t)IRQn) & 0xFUL)-4UL] >> (8U - __NVIC_PRIO_BITS)));
   }
 }
@@ -1969,7 +1957,7 @@ __STATIC_INLINE uint32_t SCB_GetFPUType(void)
   uint32_t mvfr0;
 
   mvfr0 = FPU->MVFR0;
-  if      ((mvfr0 & (FPU_MVFR0_Single_precision_Msk | FPU_MVFR0_Double_precision_Msk)) == 0x020U)
+  if ((mvfr0 & (FPU_MVFR0_Single_precision_Msk | FPU_MVFR0_Double_precision_Msk)) == 0x020U)
   {
     return 1U;           /* Single precision FPU */
   }

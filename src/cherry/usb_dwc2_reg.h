@@ -31,7 +31,7 @@ typedef struct
   __IO uint32_t GPWRDN;               /*!< Power Down Register                          058h */
   __IO uint32_t GDFIFOCFG;            /*!< DFIFO Software Config Register               05Ch */
    __IO uint32_t GADPCTL;             /*!< ADP Timer, Control and Status Register       60Ch */
-    uint32_t  Reserved43[39];         /*!< Reserved                                058h-0FFh */
+    uint32_t Reserved43[39];          /*!< Reserved                                058h-0FFh */
   __IO uint32_t HPTXFSIZ;             /*!< Host Periodic Tx FIFO Size Reg               100h */
   __IO uint32_t DIEPTXF[0x0F];        /*!< dev Periodic Transmit FIFO */
 } USB_OTG_GlobalTypeDef;
@@ -49,7 +49,7 @@ typedef struct
   __IO uint32_t DOEPMSK;         /*!< dev OUT Endpoint Mask        814h */
   __IO uint32_t DAINT;           /*!< dev All Endpoints Itr Reg    818h */
   __IO uint32_t DAINTMSK;        /*!< dev All Endpoints Itr Mask   81Ch */
-  uint32_t  Reserved20;          /*!< Reserved                     820h */
+  uint32_t Reserved20;          /*!< Reserved                     820h */
   uint32_t Reserved9;            /*!< Reserved                     824h */
   __IO uint32_t DVBUSDIS;        /*!< dev VBUS discharge Register  828h */
   __IO uint32_t DVBUSPULSE;      /*!< dev VBUS Pulse Register      82Ch */
@@ -59,7 +59,7 @@ typedef struct
   __IO uint32_t DEACHMSK;        /*!< dedicated EP msk             83Ch */
   uint32_t Reserved40;           /*!< dedicated EP mask            840h */
   __IO uint32_t DINEP1MSK;       /*!< dedicated EP mask            844h */
-  uint32_t  Reserved44[15];      /*!< Reserved                 844-87Ch */
+  uint32_t Reserved44[15];      /*!< Reserved                 844-87Ch */
   __IO uint32_t DOUTEP1MSK;      /*!< dedicated EP msk             884h */
 } USB_OTG_DeviceTypeDef;
 

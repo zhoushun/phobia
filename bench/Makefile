@@ -5,7 +5,7 @@ CC	= gcc
 LD	= gcc
 GDB	= gdb
 MK	= mkdir -p
-RM      = rm -rf
+RM  = rm -rf
 
 CFLAGS	= -std=gnu99 -Wall -O3 -flto=auto -g3 -pipe
 

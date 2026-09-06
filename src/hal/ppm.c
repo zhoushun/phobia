@@ -2,33 +2,27 @@
 #include "cmsis/stm32xx.h"
 
 typedef struct {
+	float clock_PSC;
+} priv_PPM_t;
 
-	float			clock_PSC;
-}
-priv_PPM_t;
-
-static priv_PPM_t		priv_PPM;
+static priv_PPM_t priv_PPM;
 
 void irq_TIM4()
 {
-	int		SR;
+	int SR;
 
 	SR = TIM4->SR;
 
 	if (likely(SR & TIM_SR_CC2IF)) {
-
 		TIM4->SR = ~TIM_SR_CC2IF;
 		TIM4->DIER = TIM_DIER_CC4IE;
-	}
-	else if (SR & TIM_SR_CC4IF) {
-
+	} else if (SR & TIM_SR_CC4IF) {
 		TIM4->SR = ~TIM_SR_CC4IF;
 		TIM4->DIER = TIM_DIER_CC2IE;
 	}
 }
 
-static void
-PPM_mode_PULSE_WIDTH()
+static void PPM_mode_PULSE_WIDTH()
 {
 	/* Enable TIM4 clock.
 	 * */
@@ -52,7 +46,7 @@ PPM_mode_PULSE_WIDTH()
 	TIM4->CCR3 = 0;
 	TIM4->CCR4 = 65535;
 
-	priv_PPM.clock_PSC = (float) (TIM4->PSC + 1U) / (float) CLOCK_TIM4_HZ;
+	priv_PPM.clock_PSC = (float)(TIM4->PSC + 1U) / (float)CLOCK_TIM4_HZ;
 	hal.PPM_frequency = CLOCK_TIM4_HZ / (TIM4->PSC + 1U);
 
 	/* Enable IRQ.
@@ -73,17 +67,13 @@ PPM_mode_PULSE_WIDTH()
 void PPM_startup()
 {
 	if (hal.PPM_mode == PPM_PULSE_WIDTH) {
-
 		PPM_mode_PULSE_WIDTH();
-	}
-	else if (hal.PPM_mode == PPM_PULSE_OUTPUT) {
-
+	} else if (hal.PPM_mode == PPM_PULSE_OUTPUT) {
 		/* TODO */
 	}
 }
 
-static void
-PPM_halt()
+static void PPM_halt()
 {
 	/* Disable TIM4 pins.
 	 * */
@@ -106,22 +96,20 @@ PPM_halt()
 void PPM_configure()
 {
 	if (hal.PPM_mode != PPM_DISABLED) {
-
 		PPM_halt();
 		PPM_startup();
-	}
-	else {
+	} else {
 		PPM_halt();
 	}
 }
 
 float PPM_get_PULSE()
 {
-	return (float) TIM4->CCR2 * priv_PPM.clock_PSC;
+	return (float)TIM4->CCR2 * priv_PPM.clock_PSC;
 }
 
 float PPM_get_PERIOD()
 {
-	return (float) TIM4->CCR1 * priv_PPM.clock_PSC;
+	return (float)TIM4->CCR1 * priv_PPM.clock_PSC;
 }
 

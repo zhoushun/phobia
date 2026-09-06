@@ -8,685 +8,552 @@
 #endif /* HW_HAVE_NETWORK_EPCAN */
 #include "libc.h"
 
-#define SH_CLINE_MAX			84
-#define SH_HISTORY_MAX			240
+#define SH_CLINE_MAX 84
+#define SH_HISTORY_MAX 240
 
-#define SH_HIST_INC(n)                 	(((n) < (SH_HISTORY_MAX - 1)) ? (n) + 1 : 0)
-#define SH_HIST_DEC(n)                 	(((n) > 0) ? (n) - 1 : SH_HISTORY_MAX - 1)
+#define SH_HIST_INC(n) (((n) < (SH_HISTORY_MAX - 1)) ? (n) + 1 : 0)
+#define SH_HIST_DEC(n) (((n) > 0) ? (n) - 1 : SH_HISTORY_MAX - 1)
 
-static const char
-SH_ALLOWED[] = " +-_.",
-SH_PROMPT[] = "(pmc) ",
-SH_BACKSPACE[] = "\b \b";
+static const char SH_ALLOWED[] = " +-_.";
+static const char SH_PROMPT[] = "(pmc) ";
+static const char SH_BACKSPACE[] = "\b \b";
 
 enum {
-	DIR_UP,
-	DIR_DOWN
+    DIR_UP,
+    DIR_DOWN
 };
 
 typedef struct {
+    /* Command evaluate.
+     * */
+    char cline[SH_CLINE_MAX];
+    int ceol, xESC;
+    char *cargs;
 
-	/* Command evaluate.
-	 * */
-	char		cline[SH_CLINE_MAX];
-	int		ceol, xESC;
-	char		*cargs;
+    /* Completion feature.
+     * */
+    int mcomp, ceon, cnum;
 
-	/* Completion feature.
-	 * */
-	int		mcomp, ceon, cnum;
-
-	/* History feature.
-	 * */
-	char		cprev[SH_HISTORY_MAX];
-	int		mprev, head, tail, pnum;
-}
-priv_sh_t;
+    /* History feature.
+     * */
+    char cprev[SH_HISTORY_MAX];
+    int mprev, head, tail, pnum;
+} priv_sh_t;
 
 #undef SH_DEF
-#define SH_DEF(name)	void name(const char *s);
+#define SH_DEF(name) void name(const char *s);
 #include "shdefs.h"
 
-const sh_cmd_t		cmLIST[] = {
-
+const sh_cmd_t cmLIST[] = {
 #undef SH_DEF
-#define SH_DEF(name)	{ #name, &name},
+#define SH_DEF(name) { #name, &name},
 #include "shdefs.h"
-
-	{NULL, NULL}
+    {NULL, NULL}
 };
 
-#define cmLIST_END	(cmLIST + sizeof(cmLIST) / sizeof(sh_cmd_t) - 2)
+#define cmLIST_END (cmLIST + sizeof(cmLIST) / sizeof(sh_cmd_t) - 2)
 
-static int
-sh_byte_is_letter(int c)
+static int sh_byte_is_letter(int c)
 {
-	return ((c >= 'a') && (c <= 'z'))
-		|| ((c >= 'A') && (c <= 'Z'));
+    return ((c >= 'a') && (c <= 'z'))
+            || ((c >= 'A') && (c <= 'Z'));
 }
 
-static int
-sh_byte_is_digit(int c)
+static int sh_byte_is_digit(int c)
 {
-	return (c >= '0') && (c <= '9');
+    return (c >= '0') && (c <= '9');
 }
 
-static void
-sh_puts_erase(int n)
+static void sh_puts_erase(int n)
 {
-	while (n > 0) {
-
-		puts(SH_BACKSPACE);
-		--n;
-	}
+    while (n > 0) {
+        puts(SH_BACKSPACE);
+        --n;
+    }
 }
 
-static void
-sh_exact_match_call(priv_sh_t *sh)
+static void sh_exact_match_call(priv_sh_t *sh)
 {
-	const sh_cmd_t		*cmd;
-	const char		*id;
+    const sh_cmd_t *cmd;
+    const char *id;
 
-	cmd = cmLIST;
+    cmd = cmLIST;
 
-	do {
-		id = cmd->sym;
+    do {
+        id = cmd->sym;
+        if (id == NULL) break;
 
-		if (id == NULL)
-			break;
+        if (strcmp(sh->cline, id) == 0) {
+            /* Call the function.
+             * */
+            cmd->proc(sh->cargs);
+            break;
+        }
 
-		if (strcmp(sh->cline, id) == 0) {
-
-			/* Call the function.
-			 * */
-			cmd->proc(sh->cargs);
-
-			break;
-		}
-
-		++cmd;
-	}
-	while (1);
+        ++cmd;
+    } while (1);
 }
 
-static void
-sh_cyclic_match(priv_sh_t *sh, int xd)
+static void sh_cyclic_match(priv_sh_t *sh, int xd)
 {
-	const sh_cmd_t		*cmd;
-	const char		*id;
-	int			N = 0;
+    const sh_cmd_t *cmd;
+    const char *id;
+    int N = 0;
 
-	cmd = cmLIST + sh->cnum;
-	sh->cline[sh->ceon] = 0;
+    cmd = cmLIST + sh->cnum;
+    sh->cline[sh->ceon] = 0;
 
-	do {
-		cmd += (xd == DIR_UP) ? 1 : - 1;
+    do {
+        cmd += (xd == DIR_UP) ? 1 : - 1;
+        cmd = (cmd < cmLIST) ? cmLIST_END
+                : (cmd > cmLIST_END) ? cmLIST : cmd;
+        id = cmd->sym;
 
-		cmd = (cmd < cmLIST) ? cmLIST_END
-			: (cmd > cmLIST_END) ? cmLIST : cmd;
+        if (strcmps(sh->cline, id) == 0) {
+            /* Copy the command name.
+             * */
+            strncpy(sh->cline, id, SH_CLINE_MAX - 2);
+            break;
+        }
 
-		id = cmd->sym;
+        ++N;
+        if (N > (int)(cmLIST_END - cmLIST)) break;
+    } while (1);
 
-		if (strcmps(sh->cline, id) == 0) {
-
-			/* Copy the command name.
-			 * */
-			strncpy(sh->cline, id, SH_CLINE_MAX - 2);
-
-			break;
-		}
-
-		++N;
-
-		if (N > (int) (cmLIST_END - cmLIST))
-			break;
-	}
-	while (1);
-
-	sh->cnum = cmd - cmLIST;
+    sh->cnum = cmd - cmLIST;
 }
 
-static void
-sh_common_match(priv_sh_t *sh)
+static void sh_common_match(priv_sh_t *sh)
 {
-	const sh_cmd_t		*cmd;
-	const char		*id, *com;
-	int			len;
+    const sh_cmd_t *cmd;
+    const char *id, *com;
+    int len;
 
-	com = NULL;
-	cmd = cmLIST;
+    com = NULL;
+    cmd = cmLIST;
+    sh->cnum = 0;
 
-	sh->cnum = 0;
+    do {
+        id = cmd->sym;
+        if (id == NULL) break;
 
-	do {
-		id = cmd->sym;
+        if (strcmps(sh->cline, id) == 0) {
+            len = (com != NULL) ? strclen(com, id, len) : strlen(id);
+            com = id;
+            sh->cnum++;
+        }
 
-		if (id == NULL)
-			break;
+        ++cmd;
+    } while (1);
 
-		if (strcmps(sh->cline, id) == 0) {
-
-			len = (com != NULL) ? strclen(com, id, len) : strlen(id);
-			com = id;
-
-			sh->cnum++;
-		}
-
-		++cmd;
-	}
-	while (1);
-
-	if (com != NULL) {
-
-		len = (len > SH_CLINE_MAX - 2) ? SH_CLINE_MAX - 2 : len;
-
-		strncpy(sh->cline, com, len);
-		sh->ceon = len;
-	}
-	else {
-		sh->ceon = 0;
-	}
+    if (com != NULL) {
+        len = (len > SH_CLINE_MAX - 2) ? SH_CLINE_MAX - 2 : len;
+        strncpy(sh->cline, com, len);
+        sh->ceon = len;
+    } else {
+        sh->ceon = 0;
+    }
 }
 
-static int
-sh_history_move(priv_sh_t *sh, int xnum, int xd)
+static int sh_history_move(priv_sh_t *sh, int xnum, int xd)
 {
-	if (xd == DIR_UP) {
+    if (xd == DIR_UP) {
+        if (xnum != sh->head) {
+            /* Get previous line.
+             * */
+            xnum = SH_HIST_DEC(xnum);
 
-		if (xnum != sh->head) {
+            do {
+                xnum = SH_HIST_DEC(xnum);
+                if (sh->cprev[xnum] == 0) break;
+            } while (1);
 
-			/* Get previous line.
-			 * */
-			xnum = SH_HIST_DEC(xnum);
+            xnum = SH_HIST_INC(xnum);
+        }
+    } else {
+        if (xnum != sh->tail) {
+            /* Get next line.
+             * */
+            do {
+                xnum = SH_HIST_INC(xnum);
+                if (sh->cprev[xnum] == 0) break;
+            } while (1);
 
-			do {
-				xnum = SH_HIST_DEC(xnum);
+            xnum = SH_HIST_INC(xnum);
+        }
+    }
 
-				if (sh->cprev[xnum] == 0)
-					break;
-			}
-			while (1);
-
-			xnum = SH_HIST_INC(xnum);
-		}
-	}
-	else {
-		if (xnum != sh->tail) {
-
-			/* Get next line.
-			 * */
-			do {
-				xnum = SH_HIST_INC(xnum);
-
-				if (sh->cprev[xnum] == 0)
-					break;
-			}
-			while (1);
-
-			xnum = SH_HIST_INC(xnum);
-		}
-	}
-
-	return xnum;
+    return xnum;
 }
 
-static void
-sh_history_put(priv_sh_t *sh, const char *s)
+static void sh_history_put(priv_sh_t *sh, const char *s)
 {
-	int			xnum, r;
-	const char		*q = s;
+    int xnum, r;
+    const char *q = s;
 
-	if (sh->head != sh->tail) {
+    if (sh->head != sh->tail) {
+        xnum = sh_history_move(sh, sh->tail, DIR_UP);
 
-		xnum = sh_history_move(sh, sh->tail, DIR_UP);
+        do {
+            r = sh->cprev[xnum] - *q;
+            if (r || !*q) break;
 
-		do {
-			r = sh->cprev[xnum] - *q;
+            xnum = SH_HIST_INC(xnum);
+            ++q;
+        } while (1);
 
-			if (r || !*q)
-				break;
+        if (r == 0) {
+            /* Do not put the same line again.
+             * */
+            return;
+        }
+    }
 
-			xnum = SH_HIST_INC(xnum);
-			++q;
-		}
-		while (1);
+    do {
+        sh->cprev[sh->tail] = *s;
+        sh->tail = SH_HIST_INC(sh->tail);
 
-		if (r == 0) {
+        if (sh->tail == sh->head) {
+            /* Forget old lines.
+             * */
+            do {
+                sh->head = SH_HIST_INC(sh->head);
 
-			/* Do not put the same line again.
-			 * */
-			return ;
-		}
-	}
+                if (sh->cprev[sh->head] == 0) break;
+            } while (1);
 
-	do {
-		sh->cprev[sh->tail] = *s;
-		sh->tail = SH_HIST_INC(sh->tail);
+            sh->head = SH_HIST_INC(sh->head);
+        }
 
-		if (sh->tail == sh->head) {
-
-			/* Forget old lines.
-			 * */
-			do {
-				sh->head = SH_HIST_INC(sh->head);
-
-				if (sh->cprev[sh->head] == 0)
-					break;
-			}
-			while (1);
-
-			sh->head = SH_HIST_INC(sh->head);
-		}
-
-		if (*s == 0)
-			break;
-		else
-			++s;
-	}
-	while (1);
+        if (*s == 0) break;
+        ++s;
+    } while (1);
 }
 
-static char *
-sh_markup_args(char *s)
+static char *sh_markup_args(char *s)
 {
-	const char		*delim = " ";
-	char			*argv, *q;
-	int			argn, n;
+    const char *delim = " ";
+    char *argv, *q;
+    int argn, n;
 
-	argv = NULL;
-	argn = 1;
+    argv = NULL;
+    argn = 1;
+    q = s;
+    n = 1;
 
-	q = s;
-	n = 1;
+    while (*s != 0) {
+        if (strchr(delim, *s) == NULL) {
+            if (n == 2) argv = q;
 
-	while (*s != 0) {
+            *q++ = *s;
+            n = 0;
+        } else {
+            if (n == 0) {
+                *q++ = 0;
+                argn++;
+            }
 
-		if (strchr(delim, *s) == NULL) {
+            n = argn;
+        }
 
-			if (n == 2) {
+        ++s;
+    }
 
-				argv = q;
-			}
+    if (argv == NULL) argv = q;
 
-			*q++ = *s;
+    *(q + 0) = 0;
+    *(q + 1) = 0;
 
-			n = 0;
-		}
-		else {
-			if (n == 0) {
-
-				*q++ = 0;
-				argn++;
-			}
-
-			n = argn;
-		}
-
-		++s;
-	}
-
-	if (argv == NULL) { argv = q; }
-
-	*(q + 0) = 0;
-	*(q + 1) = 0;
-
-	return argv;
+    return argv;
 }
 
-static void
-sh_evaluate(priv_sh_t *sh)
+static void sh_evaluate(priv_sh_t *sh)
 {
-	char			*s;
+    char *s;
 
-	s = sh->cline;
+    s = sh->cline;
+    if (*s != 0) {
+        /* Put the line in history.
+         * */
+        sh_history_put(sh, s);
 
-	if (*s != 0) {
+        /* Get the command line arguments.
+         * */
+        sh->cargs = sh_markup_args(s);
 
-		/* Put the line in history.
-		 * */
-		sh_history_put(sh, s);
-
-		/* Get the command line arguments.
-		 * */
-		sh->cargs = sh_markup_args(s);
-
-		/* Search for specific command to execute.
-		 * */
-		sh_exact_match_call(sh);
-	}
+        /* Search for specific command to execute.
+         * */
+        sh_exact_match_call(sh);
+    }
 }
 
-static void
-sh_complete(priv_sh_t *sh, int xd)
+static void sh_complete(priv_sh_t *sh, int xd)
 {
-	const char		space = ' ';
-	char			*s;
+    const char space = ' ';
+    char *s;
 
-	if (sh->mcomp == 0) {
+    if (sh->mcomp == 0) {
+        s = sh->cline;
 
-		s = sh->cline;
+        /* Do not complete with trailing spaces.
+         * */
+        if (strchr(s, space) != NULL) return;
 
-		/* Do not complete with trailing spaces.
-		 * */
-		if (strchr(s, space) != NULL)
-			return ;
+        /* Complete to the common substring.
+         * */
+        sh_common_match(sh);
+        puts(sh->cline + sh->ceol);
 
-		/* Complete to the common substring.
-		 * */
-		sh_common_match(sh);
-		puts(sh->cline + sh->ceol);
+        if (sh->cnum == 1) {
+            /* Exact match.
+             * */
+            sh->ceol = sh->ceon;
+            if (sh->ceol < SH_CLINE_MAX - 2) {
+                /* Put trailing space since completion is done.
+                 * */
+                sh->cline[sh->ceol++] = space;
+                sh->cline[sh->ceol] = 0;
 
-		if (sh->cnum == 1) {
+                putc(space);
+            }
+        } else if (sh->ceol <= sh->ceon) {
+            /* Enter completion mode.
+             * */
+            sh->mcomp = 1;
+            sh->cnum = (xd == DIR_UP) ? - 1 : 0;
 
-			/* Exact match.
-			 * */
-			sh->ceol = sh->ceon;
+            if (sh->ceol != sh->ceon) {
+                sh->ceol = sh->ceon;
+            } else {
+                sh_complete(sh, xd);
+            }
+        }
+    } else {
+        /* Search for the next match.
+         * */
+        sh_cyclic_match(sh, xd);
 
-			if (sh->ceol < SH_CLINE_MAX - 2) {
+        /* Update the command line.
+         * */
+        sh_puts_erase(sh->ceol - sh->ceon);
+        sh->ceol = strlen(sh->cline);
+        puts(sh->cline + sh->ceon);
+    }
 
-				/* Put trailing space since completion is done.
-				 * */
-				sh->cline[sh->ceol++] = space;
-				sh->cline[sh->ceol] = 0;
-
-				putc(space);
-			}
-		}
-		else if (sh->ceol <= sh->ceon) {
-
-			/* Enter completion mode.
-			 * */
-			sh->mcomp = 1;
-			sh->cnum = (xd == DIR_UP) ? - 1 : 0;
-
-			if (sh->ceol != sh->ceon) {
-
-				sh->ceol = sh->ceon;
-			}
-			else {
-				sh_complete(sh, xd);
-			}
-		}
-	}
-	else {
-		/* Search for the next match.
-		 * */
-		sh_cyclic_match(sh, xd);
-
-		/* Update the command line.
-		 * */
-		sh_puts_erase(sh->ceol - sh->ceon);
-		sh->ceol = strlen(sh->cline);
-		puts(sh->cline + sh->ceon);
-	}
-
-	sh->mprev = 0;
+    sh->mprev = 0;
 }
 
-static void
-sh_history(priv_sh_t *sh, int xd)
+static void sh_history(priv_sh_t *sh, int xd)
 {
-	int			xnum;
-	char			*s;
+    int xnum;
+    char *s;
 
-	if (sh->mprev == 0) {
+    if (sh->mprev == 0) {
+        /* Enter history mode.
+         * */
+        sh->pnum = sh->tail;
+        sh->mprev = 1;
 
-		/* Enter history mode.
-		 * */
-		sh->pnum = sh->tail;
-		sh->mprev = 1;
+        xnum = sh->tail;
 
-		xnum = sh->tail;
+        /* Save current line.
+         * */
+        sh_history_put(sh, sh->cline);
 
-		/* Save current line.
-		 * */
-		sh_history_put(sh, sh->cline);
+        sh->tail = xnum;
+    }
 
-		sh->tail = xnum;
-	}
+    xnum = sh_history_move(sh, sh->pnum, xd);
 
-	xnum = sh_history_move(sh, sh->pnum, xd);
+    if (xnum != sh->pnum) {
+        sh->pnum = xnum;
+        s = sh->cline;
 
-	if (xnum != sh->pnum) {
+        do {
+            if ((*s = sh->cprev[xnum]) == 0)
+                break;
 
-		sh->pnum = xnum;
-		s = sh->cline;
+            xnum = SH_HIST_INC(xnum);
+            ++s;
+        } while (1);
 
-		do {
-			if ((*s = sh->cprev[xnum]) == 0)
-				break;
+        /* Update the command line.
+         * */
+        sh_puts_erase(sh->ceol);
+        sh->ceol = strlen(sh->cline);
 
-			xnum = SH_HIST_INC(xnum);
-			++s;
-		}
-		while (1);
+        puts(sh->cline);
+    }
 
-		/* Update the command line.
-		 * */
-		sh_puts_erase(sh->ceol);
-		sh->ceol = strlen(sh->cline);
-
-		puts(sh->cline);
-	}
-
-	sh->mcomp = 0;
+    sh->mcomp = 0;
 }
 
-static void
-sh_line_putc(priv_sh_t *sh, char c)
+static void sh_line_putc(priv_sh_t *sh, char c)
 {
-	if (sh->ceol < SH_CLINE_MAX - 2) {
+    if (sh->ceol < SH_CLINE_MAX - 2) {
+        sh->cline[sh->ceol++] = c;
+        sh->cline[sh->ceol] = 0;
 
-		sh->cline[sh->ceol++] = c;
-		sh->cline[sh->ceol] = 0;
+        /* Echo.
+         * */
+        putc(c);
 
-		/* Echo.
-		 * */
-		putc(c);
-
-		sh->mcomp = 0;
-		sh->mprev = 0;
-	}
+        sh->mcomp = 0;
+        sh->mprev = 0;
+    }
 }
 
-static void
-sh_line_bs(priv_sh_t *sh)
+static void sh_line_bs(priv_sh_t *sh)
 {
-	if (sh->ceol > 0) {
+    if (sh->ceol > 0) {
+        sh->cline[--sh->ceol] = 0;
 
-		sh->cline[--sh->ceol] = 0;
+        /* Echo.
+         * */
+        puts(SH_BACKSPACE);
 
-		/* Echo.
-		 * */
-		puts(SH_BACKSPACE);
-
-		sh->mcomp = 0;
-		sh->mprev = 0;
-	}
+        sh->mcomp = 0;
+        sh->mprev = 0;
+    }
 }
 
-static void
-sh_line_null(priv_sh_t *sh)
+static void sh_line_null(priv_sh_t *sh)
 {
-	sh->cline[sh->ceol = 0] = 0;
+    sh->cline[sh->ceol = 0] = 0;
 
 #ifdef HW_HAVE_NETWORK_EPCAN
-	if (iodef == &io_CAN) {
-
-		/* Prompt with CAN node ID.
-		 * */
-		printf("(net/%i) ", net.node_ID);
-	}
-	else
+    if (iodef == &io_CAN) {
+        /* Prompt with CAN node ID.
+         * */
+        printf("(net/%i) ", net.node_ID);
+    } else
 #endif /* HW_HAVE_NETWORK_EPCAN */
+    {
+        /* Prompt (local).
+         * */
+        puts(SH_PROMPT);
+    }
 
-	{
-		/* Prompt (local).
-		 * */
-		puts(SH_PROMPT);
-	}
-
-	sh->mcomp = 0;
-	sh->mprev = 0;
+    sh->mcomp = 0;
+    sh->mprev = 0;
 }
 
 const char *sh_next_arg(const char *s)
 {
-	int			len;
+    int len;
 
-	len = strlen(s);
-	s += (len != 0) ? len + 1 : 0;
+    len = strlen(s);
+    s += (len != 0) ? len + 1 : 0;
 
-	return s;
+    return s;
 }
 
-static priv_sh_t		privsh;
+static priv_sh_t privsh;
 
 LD_TASK void task_CMDSH(void *pData)
 {
-	priv_sh_t	*sh = &privsh;
-	int		c;
+    priv_sh_t *sh = &privsh;
+    int c;
 
-	do {
-		c = getc();
+    do {
+        c = getc();
 
-		if (sh->xESC == 0) {
+        if (sh->xESC == 0) {
+            if (sh_byte_is_letter(c) || sh_byte_is_digit(c)
+                    || strchr(SH_ALLOWED, c) != NULL) {
+                sh_line_putc(sh, c);
+            } else if (c == K_CR) {
+                /* Return.
+                 * */
+                puts(EOL);
 
-			if (sh_byte_is_letter(c) || sh_byte_is_digit(c)
-					|| strchr(SH_ALLOWED, c) != NULL) {
+                sh_evaluate(sh);
+                sh_line_null(sh);
+            } else if (c == K_BS || c == K_DEL) {
+                /* Backspace.
+                 * */
+                sh_line_bs(sh);
+            } else if (c == K_TAB || c == '@') {
+                /* Tab.
+                 * */
+                sh_complete(sh, DIR_UP);
+            } else if (c == K_ETX || c == K_EOT) {
+                /* Ctrl + C.
+                 * */
+                puts(EOL);
 
-				sh_line_putc(sh, c);
-			}
-			else if (c == K_CR) {
-
-				/* Return.
-				 * */
-				puts(EOL);
-
-				sh_evaluate(sh);
-				sh_line_null(sh);
-			}
-			else if (c == K_BS || c == K_DEL) {
-
-				/* Backspace.
-				 * */
-				sh_line_bs(sh);
-			}
-			else if (c == K_TAB || c == '@') {
-
-				/* Tab.
-				 * */
-				sh_complete(sh, DIR_UP);
-			}
-			else if (c == K_ETX || c == K_EOT) {
-
-				/* Ctrl + C.
-				 * */
-				puts(EOL);
-
-				sh_line_null(sh);
-			}
-			else if (c == K_DLE) {
-
-				/* Ctrl + P.
-				 * */
-				sh_history(sh, DIR_UP);
-			}
-			else if (c == K_SO) {
-
-				/* Ctrl + N.
-				 * */
-				sh_history(sh, DIR_DOWN);
-			}
-			else if (c == K_ESC) {
-
-				sh->xESC = 1;
-			}
-		}
-		else {
-			switch (sh->xESC) {
-
-				case 1:
-					sh->xESC = (c == '[') ? 2 : 0;
-					break;
-
-				case 2:
-					if (c == '3') {
-
-						sh->xESC = 3;
-					}
-					else if (c == 'A') {
-
-						/* Up.
-						 * */
-						sh_history(sh, DIR_UP);
-
-						sh->xESC = 0;
-					}
-					else if (c == 'B') {
-
-						/* Down.
-						 * */
-						sh_history(sh, DIR_DOWN);
-
-						sh->xESC = 0;
-					}
-					else if (c == 'Z') {
-
-						/* Shift + Tab.
-						 * */
-						sh_complete(sh, DIR_DOWN);
-
-						sh->xESC = 0;
-					}
-					else {
-						sh->xESC = 0;
-					}
-					break;
-
-				case 3:
-					if (c == '~') {
-
-						/* Delete.
-						 * */
-						puts(EOL);
-						sh_line_null(sh);
-
-						sh->xESC = 0;
-					}
-					else {
-						sh->xESC = 0;
-					}
-					break;
-
-				default:
-					sh->xESC = 0;
-			}
-		}
-	}
-	while (1);
+                sh_line_null(sh);
+            } else if (c == K_DLE) {
+                /* Ctrl + P.
+                 * */
+                sh_history(sh, DIR_UP);
+            } else if (c == K_SO) {
+                /* Ctrl + N.
+                 * */
+                sh_history(sh, DIR_DOWN);
+            } else if (c == K_ESC) {
+                sh->xESC = 1;
+            }
+        } else {
+            switch (sh->xESC) {
+            case 1:
+                sh->xESC = (c == '[') ? 2 : 0;
+                break;
+            case 2:
+                if (c == '3') {
+                    sh->xESC = 3;
+                } else if (c == 'A') {
+                    /* Up.
+                        * */
+                    sh_history(sh, DIR_UP);
+                    sh->xESC = 0;
+                } else if (c == 'B') {
+                    /* Down.
+                        * */
+                    sh_history(sh, DIR_DOWN);
+                    sh->xESC = 0;
+                } else if (c == 'Z') {
+                    /* Shift + Tab.
+                        * */
+                    sh_complete(sh, DIR_DOWN);
+                    sh->xESC = 0;
+                } else {
+                    sh->xESC = 0;
+                }
+                break;
+            case 3:
+                if (c == '~') {
+                    /* Delete.
+                        * */
+                    puts(EOL);
+                    sh_line_null(sh);
+                    sh->xESC = 0;
+                } else {
+                    sh->xESC = 0;
+                }
+                break;
+            default:
+                sh->xESC = 0;
+            }
+        }
+    } while (1);
 }
 
 #undef SH_DEF
-#define SH_DEF(name)		void name(const char *s)
+#define SH_DEF(name) void name(const char *s)
 
 SH_DEF(help)
 {
-	const sh_cmd_t		*cmd;
+    const sh_cmd_t *cmd;
+    cmd = cmLIST;
 
-	cmd = cmLIST;
+    do {
+        if (cmd->sym == NULL) break;
 
-	do {
-		if (cmd->sym == NULL)
-			break;
+        if (strstr(cmd->sym, s) != NULL)
+            printf("%s" EOL, cmd->sym);
 
-		if (strstr(cmd->sym, s) != NULL) {
-
-			printf("%s" EOL, cmd->sym);
-		}
-
-		++cmd;
-	}
-	while (1);
+        ++cmd;
+    } while (1);
 }
 

@@ -26,9 +26,9 @@ struct gp_context;
 typedef struct gp_context gpcon_t;
 
 enum {
-	GP_PAGE_SELECT		= 0,
-	GP_PAGE_COMBINE,
-	GP_PAGE_NO_REMAP
+    GP_PAGE_SELECT = 0,
+    GP_PAGE_COMBINE,
+    GP_PAGE_NO_REMAP
 };
 
 gpcon_t *gp_Alloc();

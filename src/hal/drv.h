@@ -8,21 +8,19 @@ enum {
 };
 
 typedef struct {
+	int partno;
 
-	int		partno;
+	int gpio_GATE_EN;
+	int gpio_FAULT;
 
-	int		gpio_GATE_EN;
-	int		gpio_FAULT;
+	int auto_RESTART;
+	int status_raw;
+	int gate_current;
+	int ocp_level;
 
-	int		auto_RESTART;
-	int		status_raw;
-	int		gate_current;
-	int		ocp_level;
-
-	int		partno_ENABLED;
-	int		fault_CNT;
-}
-DRV_config_t;
+	int partno_ENABLED;
+	int fault_CNT;
+} DRV_config_t;
 
 void DRV_startup();
 void DRV_halt();

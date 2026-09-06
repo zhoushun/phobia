@@ -1,24 +1,22 @@
 #ifndef _H_SERIAL_
 #define _H_SERIAL_
 
-#define SERIAL_DEVICE_MAX		100
-#define SERIAL_MEMORY_SIZE		8192
+#define SERIAL_DEVICE_MAX 100
+#define SERIAL_MEMORY_SIZE 8192
 
-#define SERIAL_DEFAULT			"8E1"
+#define SERIAL_DEFAULT "8E1"
 
 enum {
-	SERIAL_OK		= 0,
-	SERIAL_ASYNC_WAIT	= -1,
-	SERIAL_ERROR_UNKNOWN	= -2,
+    SERIAL_OK = 0,
+    SERIAL_ASYNC_WAIT = -1,
+    SERIAL_ERROR_UNKNOWN = -2,
 };
 
 struct serial_list {
-
-	const char		*name[SERIAL_DEVICE_MAX];
-	int			dnum;
-
-	char			mb[SERIAL_MEMORY_SIZE];
-	char			*mbflow;
+    const char *name[SERIAL_DEVICE_MAX];
+    int dnum;
+    char mb[SERIAL_MEMORY_SIZE];
+    char *mbflow;
 };
 
 struct serial_fd;

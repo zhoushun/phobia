@@ -4,27 +4,25 @@ export CROSS="armv7m-none-eabi"
 export MAKEOPTS="-j8"
 
 for hwfile in hal/hw/*; do
-
-	export HWREV=$(basename $hwfile .h)
-	make $MAKEOPTS $1					|| exit
+    export HWREV=$(basename $hwfile .h)
+    make $MAKEOPTS $1 || exit
 done
 
-make -C ../pgui -f Makefile.mingw ARCH=i686   $MAKEOPTS $1	|| exit
-make -C ../pgui -f Makefile.mingw ARCH=x86_64 $MAKEOPTS $1	|| exit
+make -C ../pgui -f Makefile.mingw ARCH=i686   $MAKEOPTS $1 || exit
+make -C ../pgui -f Makefile.mingw ARCH=x86_64 $MAKEOPTS $1 || exit
 
 export BUNDLE="pmc-bundle-$(hg log -r tip --template "{branch}-{rev}")"
 
 if [ -n "$1" ] && [ "$1" = "clean" ]; then
-
-	rm -rf /tmp/$BUNDLE /tmp/$BUNDLE.tar.xz
-	exit
+    rm -rf /tmp/$BUNDLE /tmp/$BUNDLE.tar.xz
+    exit
 fi
 
-install -m 0664 -Dt /tmp/$BUNDLE/ ../README.md 				|| exit
-install -m 0664 -Dt /tmp/$BUNDLE/doc ../doc/*.md 			|| exit
+install -m 0664 -Dt /tmp/$BUNDLE/ ../README.md  || exit
+install -m 0664 -Dt /tmp/$BUNDLE/doc ../doc/*.md  || exit
 
-install -m 0664 -Dt /tmp/$BUNDLE/firmware /tmp/pmc-*/pmc-*.bin		|| exit
-install -m 0664 -Dt /tmp/$BUNDLE/pgui /tmp/pgui/*/pgui-*.exe 		|| exit
+install -m 0664 -Dt /tmp/$BUNDLE/firmware /tmp/pmc-*/pmc-*.bin || exit
+install -m 0664 -Dt /tmp/$BUNDLE/pgui /tmp/pgui/*/pgui-*.exe   || exit
 
 tar -cJvf /tmp/$BUNDLE.tar.xz -C /tmp $BUNDLE
 

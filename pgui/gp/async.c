@@ -26,297 +26,253 @@
 #include "async.h"
 #include "plot.h"
 
-static int
-async_READ(async_FILE *afd)
+static int async_READ(async_FILE *afd)
 {
-	int		rp, wp, nw, rc;
+    int rp, wp, nw, rc;
 
-	wp = SDL_AtomicGet(&afd->wp);
+    wp = SDL_AtomicGet(&afd->wp);
 
-	do {
-		rp = SDL_AtomicGet(&afd->rp);
+    do {
+        rp = SDL_AtomicGet(&afd->rp);
 
-		nw = rp - (wp + 1);
-		nw += (nw < 0) ? afd->preload : 0;
+        nw = rp - (wp + 1);
+        nw += (nw < 0) ? afd->preload : 0;
 
-		if (nw >= afd->chunk) {
+        if (nw >= afd->chunk) {
+            nw = afd->preload - wp;
+            nw = (nw > afd->chunk) ? afd->chunk : nw;
 
-			nw = afd->preload - wp;
-			nw = (nw > afd->chunk) ? afd->chunk : nw;
+            rc = (int)fread(afd->stream + wp, 1, nw, afd->fd);
 
-			rc = (int) fread(afd->stream + wp, 1, nw, afd->fd);
+            if (rc != 0) {
+                wp += rc;
+                wp -= (wp >= afd->preload) ? afd->preload : 0;
 
-			if (rc != 0) {
+                SDL_AtomicSet(&afd->wp, wp);
 
-				wp += rc;
-				wp -= (wp >= afd->preload) ? afd->preload : 0;
+                afd->waiting = 0;
+            }
 
-				SDL_AtomicSet(&afd->wp, wp);
+            if (rc != nw) {
+                if (feof(afd->fd) || ferror(afd->fd)) {
+                    if (afd->waiting < afd->timeout) {
+                        clearerr(afd->fd);
+                        SDL_Delay(10);
+                        afd->waiting += 10;
+                    } else {
+                        break;
+                    }
+                }
+            }
+        } else {
+            SDL_Delay(1);
+        }
+    } while (SDL_AtomicGet(&afd->flag_break) == 0);
 
-				afd->waiting = 0;
-			}
+    SDL_AtomicSet(&afd->flag_eof, 1);
 
-			if (rc != nw) {
-
-				if (feof(afd->fd) || ferror(afd->fd)) {
-
-					if (afd->waiting < afd->timeout) {
-
-						clearerr(afd->fd);
-
-						SDL_Delay(10);
-
-						afd->waiting += 10;
-					}
-					else {
-						break;
-					}
-				}
-			}
-		}
-		else {
-			SDL_Delay(1);
-		}
-	}
-	while (SDL_AtomicGet(&afd->flag_break) == 0);
-
-	SDL_AtomicSet(&afd->flag_eof, 1);
-
-	return 0;
+    return 0;
 }
 
 async_FILE *async_open(FILE *fd, int preload, int chunk, int timeout)
 {
-	async_FILE		*afd;
+    async_FILE *afd;
 
-	afd = (async_FILE *) calloc(1, sizeof(async_FILE));
+    afd = (async_FILE *)calloc(1, sizeof(async_FILE));
 
-	afd->preload = preload;
-	afd->chunk = chunk;
-	afd->timeout = timeout;
+    afd->preload = preload;
+    afd->chunk = chunk;
+    afd->timeout = timeout;
 
-	afd->stream = (char *) malloc(afd->preload);
+    afd->stream = (char *)malloc(afd->preload);
 
-	if (afd->stream == NULL) {
+    if (afd->stream == NULL) {
+        ERROR("No memory allocated for async preload\n");
+        return NULL;
+    }
 
-		ERROR("No memory allocated for async preload\n");
-		return NULL;
-	}
+    afd->fd = fd;
+    afd->thread = SDL_CreateThread((int (*)(void *))&async_READ, "async_READ", afd);
 
-	afd->fd = fd;
-	afd->thread = SDL_CreateThread((int (*) (void *)) &async_READ, "async_READ", afd);
-
-	return afd;
+    return afd;
 }
 
 async_FILE *async_stub(int preload, int chunk, int timeout)
 {
-	async_FILE		*afd;
+    async_FILE *afd;
 
-	afd = (async_FILE *) calloc(1, sizeof(async_FILE));
+    afd = (async_FILE *)calloc(1, sizeof(async_FILE));
+    afd->preload = preload;
+    afd->chunk = chunk;
+    afd->timeout = timeout;
+    afd->stream = (char *) malloc(afd->preload);
 
-	afd->preload = preload;
-	afd->chunk = chunk;
-	afd->timeout = timeout;
+    if (afd->stream == NULL) {
+        ERROR("No memory allocated for async preload\n");
+        return NULL;
+    }
 
-	afd->stream = (char *) malloc(afd->preload);
-
-	if (afd->stream == NULL) {
-
-		ERROR("No memory allocated for async preload\n");
-		return NULL;
-	}
-
-	return afd;
+    return afd;
 }
 
 void async_close(async_FILE *afd)
 {
-	int		tN = 0;
+    int tN = 0;
 
-	SDL_AtomicSet(&afd->flag_break, 1);
-	SDL_DetachThread(afd->thread);
+    SDL_AtomicSet(&afd->flag_break, 1);
+    SDL_DetachThread(afd->thread);
 
-	do {
-		SDL_Delay(10);
+    do {
+        SDL_Delay(10);
 
-		if (SDL_AtomicGet(&afd->flag_eof) != 0) {
+        if (SDL_AtomicGet(&afd->flag_eof) != 0) {
+            free(afd->stream);
+            free(afd);
+            break;
+        }
 
-			free(afd->stream);
-			free(afd);
-			break;
-		}
+        tN += 1;
 
-		tN += 1;
-
-		if (tN >= 100) {
-
-			ERROR("Unable to terminate async_READ (memory leak)\n");
-			break;
-		}
-	}
-	while (1);
+        if (tN >= 100) {
+            ERROR("Unable to terminate async_READ (memory leak)\n");
+            break;
+        }
+    } while (1);
 }
 
 int async_write(async_FILE *afd, const char *raw, int n)
 {
-	int		rp, wp, nw;
+    int rp, wp, nw;
 
-	rp = SDL_AtomicGet(&afd->rp);
-	wp = SDL_AtomicGet(&afd->wp);
+    rp = SDL_AtomicGet(&afd->rp);
+    wp = SDL_AtomicGet(&afd->wp);
 
-	nw = (wp < rp) ? rp - wp : rp + afd->preload - wp;
+    nw = (wp < rp) ? rp - wp : rp + afd->preload - wp;
 
-	if (nw > n) {
+    if (nw > n) {
+        if (wp + n >= afd->preload) {
+            nw = afd->preload - wp;
 
-		if (wp + n >= afd->preload) {
+            memcpy(afd->stream + wp, raw, nw);
+            memcpy(afd->stream, raw + nw, n - nw);
 
-			nw = afd->preload - wp;
+            wp += n - afd->preload;
+        } else {
+            memcpy(afd->stream + wp, raw, n);
 
-			memcpy(afd->stream + wp, raw, nw);
-			memcpy(afd->stream, raw + nw, n - nw);
+            wp += n;
+        }
 
-			wp += n - afd->preload;
-		}
-		else {
-			memcpy(afd->stream + wp, raw, n);
+        afd->clock = SDL_GetTicks();
 
-			wp += n;
-		}
+        SDL_AtomicSet(&afd->wp, wp);
 
-		afd->clock = SDL_GetTicks();
-
-		SDL_AtomicSet(&afd->wp, wp);
-
-		return ASYNC_OK;
-	}
-	else {
-		return ASYNC_NO_FREE_SPACE;
-	}
+        return ASYNC_OK;
+    } else {
+        return ASYNC_NO_FREE_SPACE;
+    }
 }
 
 int async_read(async_FILE *afd, char *raw, int n)
 {
-	int		rp, wp, nr;
+    int rp, wp, nr;
 
-	rp = SDL_AtomicGet(&afd->rp);
-	wp = SDL_AtomicGet(&afd->wp);
+    rp = SDL_AtomicGet(&afd->rp);
+    wp = SDL_AtomicGet(&afd->wp);
 
-	nr = (wp < rp) ? wp + afd->preload - rp : wp - rp;
+    nr = (wp < rp) ? wp + afd->preload - rp : wp - rp;
 
-	if (nr >= n) {
+    if (nr >= n) {
+        if (rp + n >= afd->preload) {
+            nr = afd->preload - rp;
 
-		if (rp + n >= afd->preload) {
+            memcpy(raw, afd->stream + rp, nr);
+            memcpy(raw + nr, afd->stream, n - nr);
 
-			nr = afd->preload - rp;
+            rp += n - afd->preload;
+        } else {
+            memcpy(raw, afd->stream + rp, n);
 
-			memcpy(raw, afd->stream + rp, nr);
-			memcpy(raw + nr, afd->stream, n - nr);
+            rp += n;
+        }
 
-			rp += n - afd->preload;
-		}
-		else {
-			memcpy(raw, afd->stream + rp, n);
+        SDL_AtomicSet(&afd->rp, rp);
 
-			rp += n;
-		}
-
-		SDL_AtomicSet(&afd->rp, rp);
-
-		return ASYNC_OK;
-	}
-	else if (SDL_AtomicGet(&afd->flag_eof) != 0) {
-
-		return ASYNC_END_OF_FILE;
-	}
-	else {
-		return ASYNC_NO_DATA_READY;
-	}
+        return ASYNC_OK;
+    } else if (SDL_AtomicGet(&afd->flag_eof) != 0) {
+        return ASYNC_END_OF_FILE;
+    } else {
+        return ASYNC_NO_DATA_READY;
+    }
 }
 
 int async_gets(async_FILE *afd, char *raw, int n)
 {
-	int		rp, wp, eol, nq;
-	char		c;
+    int rp, wp, eol, nq;
+    char c;
 
-	rp = SDL_AtomicGet(&afd->rp);
-	wp = SDL_AtomicGet(&afd->wp);
+    rp = SDL_AtomicGet(&afd->rp);
+    wp = SDL_AtomicGet(&afd->wp);
 
-	if (wp != afd->cached) {
+    if (wp != afd->cached) {
+        eol = 0;
+        nq = 0;
 
-		eol = 0;
-		nq = 0;
+        do {
+            if (rp == wp) break;
 
-		do {
-			if (rp == wp)
-				break;
+            c = (int)afd->stream[rp];
 
-			c = (int) afd->stream[rp];
+            if (c == '\r' || c == '\n') {
+                eol = (nq > 0) ? 1 : 0;
+            } else if (eol != 0) {
+                break;
+            } else if (nq < n - 1) {
+                *raw++ = (char)c;
+                nq++;
+            }
 
-			if (c == '\r' || c == '\n') {
+            rp = (rp < afd->preload - 1) ? rp + 1 : 0;
+        } while (1);
 
-				eol = (nq > 0) ? 1 : 0;
-			}
-			else if (eol != 0) {
+        afd->cached = rp;
 
-				break;
-			}
-			else if (nq < n - 1) {
+        if (eol != 0) {
+            *raw = 0;
 
-				*raw++ = (char) c;
-				nq++;
-			}
+            SDL_AtomicSet(&afd->rp, rp);
 
-			rp = (rp < afd->preload - 1) ? rp + 1 : 0;
-		}
-		while (1);
+            return ASYNC_OK;
+        }
 
-		afd->cached = rp;
+        return ASYNC_NO_DATA_READY;
+    } else if (SDL_AtomicGet(&afd->flag_eof) != 0) {
+        if (rp != wp) {
+            nq = 0;
 
-		if (eol != 0) {
+            do {
+                if (rp == wp) break;
 
-			*raw = 0;
+                c = (int)afd->stream[rp];
 
-			SDL_AtomicSet(&afd->rp, rp);
+                if (nq < n - 1) {
+                    *raw++ = (char)c;
+                    nq++;
+                }
 
-			return ASYNC_OK;
-		}
+                rp = (rp < afd->preload - 1) ? rp + 1 : 0;
+            } while (1);
 
-		return ASYNC_NO_DATA_READY;
-	}
-	else if (SDL_AtomicGet(&afd->flag_eof) != 0) {
+            *raw = 0;
 
-		if (rp != wp) {
+            SDL_AtomicSet(&afd->rp, rp);
 
-			nq = 0;
+            return ASYNC_OK;
+        }
 
-			do {
-				if (rp == wp)
-					break;
-
-				c = (int) afd->stream[rp];
-
-				if (nq < n - 1) {
-
-					*raw++ = (char) c;
-					nq++;
-				}
-
-				rp = (rp < afd->preload - 1) ? rp + 1 : 0;
-			}
-			while (1);
-
-			*raw = 0;
-
-			SDL_AtomicSet(&afd->rp, rp);
-
-			return ASYNC_OK;
-		}
-
-		return ASYNC_END_OF_FILE;
-	}
-	else {
-		return ASYNC_NO_DATA_READY;
-	}
+        return ASYNC_END_OF_FILE;
+    } else {
+        return ASYNC_NO_DATA_READY;
+    }
 }
 

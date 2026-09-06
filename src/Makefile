@@ -2,8 +2,8 @@ HWREV	?= PHOBIA_rev5
 
 include hal/mk/$(HWREV).d
 
-BUILD	?= /tmp/pmc-$(HWREV)
-LOG	?= /tmp/phobia.log
+BUILD	?= ../bin/pmc-$(HWREV)
+LOG	?= ./log/phobia.log
 
 TARGET	= $(BUILD)/pmc-$(HWREV)
 IMAGE	= $(TARGET).bin

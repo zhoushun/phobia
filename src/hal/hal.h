@@ -104,118 +104,110 @@ enum {
 };
 
 typedef struct {
+	uint32_t ld_begin;
+	uint32_t ld_crc32;
 
-	uint32_t	ld_begin;
-	uint32_t	ld_crc32;
-
-	const char	hardware[64];
-	const char	revision[64];
-	const char	build[16];
-}
-fw_info_t;
+	const char hardware[64];
+	const char revision[64];
+	const char build[16];
+} fw_info_t;
 
 typedef struct {
+	int MCU_ID;
 
-	int		MCU_ID;
+	int USART_baudrate;
+	int USART_parity;
 
-	int		USART_baudrate;
-	int		USART_parity;
-
-	float		PWM_frequency;
-	int		PWM_resolution;
-	float		PWM_deadtime;
+	float PWM_frequency;
+	int PWM_resolution;
+	float PWM_deadtime;
 #ifdef HW_HAVE_PWM_STOP
-	int		PWM_stop;
+	int PWM_stop;
 #endif /* HW_HAVE_PWM_STOP */
 
-	float		ADC_reference_voltage;
-	float		ADC_shunt_resistance;
-	float		ADC_amplifier_gain;
-	float		ADC_voltage_ratio;
-	float		ADC_terminal_ratio;
+	float ADC_reference_voltage;
+	float ADC_shunt_resistance;
+	float ADC_amplifier_gain;
+	float ADC_voltage_ratio;
+	float ADC_terminal_ratio;
 
-	int		ADC_sample_time;
-	int		ADC_sample_advance;
+	int ADC_sample_time;
+	int ADC_sample_advance;
 
 #ifdef HW_HAVE_ANALOG_KNOB
-	float		ADC_knob_ratio;
+	float ADC_knob_ratio;
 #endif /* HW_HAVE_ANALOG_KNOB */
 
-	float		ADC_current_A;
-	float		ADC_current_B;
-	float		ADC_current_C;
-	float		ADC_voltage_U;
-	float		ADC_voltage_A;
-	float		ADC_voltage_B;
-	float		ADC_voltage_C;
+	float ADC_current_A;
+	float ADC_current_B;
+	float ADC_current_C;
+	float ADC_voltage_U;
+	float ADC_voltage_A;
+	float ADC_voltage_B;
+	float ADC_voltage_C;
 
 #if (HW_ADC_SAMPLING_SEQUENCE == ADC_SEQUENCE__ABC_UTT_TSC)
-	float		ADC_analog_SIN;
-	float		ADC_analog_COS;
+	float ADC_analog_SIN;
+	float ADC_analog_COS;
 #endif /* ADC_SEQUENCE__ABC_UTT_TSC */
 
 #ifdef HW_HAVE_NETWORK_EPCAN
-	int		CAN_bitfreq;
-	int		CAN_errate;
+	int CAN_bitfreq;
+	int CAN_errate;
 
 	CAN_msg_t	CAN_msg;
 #endif /* HW_HAVE_NETWORK_EPCAN */
 
-	int		DPS_mode;
+	int DPS_mode;
 
-	int		PPM_mode;
-	int		PPM_frequency;
+	int PPM_mode;
+	int PPM_frequency;
 
-	int		STEP_mode;
-	int		STEP_frequency;
+	int STEP_mode;
+	int STEP_frequency;
 
 #ifdef HW_HAVE_DRV_ON_PCB
 	DRV_config_t	DRV;
 #endif /* HW_HAVE_DRV_ON_PCB */
 
 #ifdef HW_HAVE_ALT_FUNCTION
-	int		ALT_current;
-	int		ALT_voltage;
+	int ALT_current;
+	int ALT_voltage;
 #endif /* HW_HAVE_ALT_FUNCTION */
 
-	uint32_t	CNT_raw[4];
-	float		CNT_diag[3];
+	uint32_t CNT_raw[4];
+	float CNT_diag[3];
 
 	struct {
-
-		float		GA;
-		float		GU;
-		float		GT;
-		float		GS;
-		float		TS[2];
+		float GA;
+		float GU;
+		float GT;
+		float GS;
+		float TS[2];
 #ifdef HW_HAVE_ANALOG_KNOB
-		float		GK;
+		float GK;
 #endif /* HW_HAVE_ANALOG_KNOB */
-	}
-	const_ADC;
+	} const_ADC;
 
-	float		const_CNT[2];
-}
-HAL_t;
+	float const_CNT[2];
+} HAL_t;
 
 typedef struct {
+	uint32_t boot_FLAG;
+	uint32_t boot_COUNT;
 
-	uint32_t	boot_FLAG;
-	uint32_t	boot_COUNT;
+	char text[2000];
+	int text_wp;
+	int text_rp;
+} LOG_t;
 
-	char		text[2000];
-	int		text_wp;
-	int		text_rp;
-}
-LOG_t;
+extern const fw_info_t fw;
 
-extern const fw_info_t		fw;
+extern uint32_t ld_text_begin;
+extern uint32_t clock_cpu_hz;
 
-extern uint32_t			ld_text_begin;
-extern uint32_t			clock_cpu_hz;
-
-extern HAL_t			hal;
-extern LOG_t			log;
+extern HAL_t hal;
+extern LOG_t log;
 
 void hal_bootload();
 void hal_startup();

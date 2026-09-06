@@ -22,123 +22,115 @@
 /* Define the maximal full size to be allocated. This is the sum of \x and \z
  * row-vector sizes.
  * */
-#define LSE_FULL_MAX			10
+#define LSE_FULL_MAX 10
 
 /* Define the maximal number of cascades. A large value gives greater precision
  * on large datasets but consumes more memory. Reasonable values are from 2 to 4.
  * */
-#define LSE_CASCADE_MAX			4
+#define LSE_CASCADE_MAX 4
 
 /* Define whether to use fast Givens transformation in QR update. Typical this
  * is useful for fairly large matrix sizes. Also consumes a few of memory.
  * */
-#define LSE_FAST_GIVENS			1
+#define LSE_FAST_GIVENS 1
 
 /* Define native floating-point type to use inside of LSE.
  * */
-typedef double		lse_float_t;
+typedef double lse_float_t;
 
 typedef struct {
+    /* The size of the upper-triangular matrix.
+     * */
+    int len;
 
-	/* The size of the upper-triangular matrix.
-	 * */
-	int		len;
+    /* The number of rows in actual use.
+     * */
+    int rows;
 
-	/* The number of rows in actual use.
-	 * */
-	int		rows;
+    /* The number of data rows that matrix keeps.
+     * */
+    int keep;
 
-	/* The number of data rows that matrix keeps.
-	 * */
-	int		keep;
+    /* The marker of lazy merging.
+     * */
+    int lazy;
 
-	/* The marker of lazy merging.
-	 * */
-	int		lazy;
-
-	/* Content of the upper-triangular matrix.
-	 * */
-	lse_float_t	* restrict m;
+    /* Content of the upper-triangular matrix.
+     * */
+    lse_float_t * restrict m;
 
 #if LSE_FAST_GIVENS != 0
-	/* Content of the scale diagonal matrix.
-	 * */
-	lse_float_t	* restrict d;
+    /* Content of the scale diagonal matrix.
+     * */
+    lse_float_t * restrict d;
 #endif /* LSE_FAST_GIVENS */
-}
-lse_upper_t;
+} lse_upper_t;
 
 typedef struct {
+    /* The length of the row-vector.
+     * */
+    int len;
 
-	/* The length of the row-vector.
-	 * */
-	int		len;
-
-	/* Content of the row-vector.
-	 * */
-	lse_float_t	* restrict m;
-}
-lse_row_t;
+    /* Content of the row-vector.
+     * */
+    lse_float_t * restrict m;
+} lse_row_t;
 
 typedef struct {
+    /* Cascades in actual use.
+     * */
+    int n_cascades;
 
-	/* Cascades in actual use.
-	 * */
-	int		n_cascades;
+    /* Input DATA sizes.
+     * */
+    int n_len_of_x;
+    int n_len_of_z;
 
-	/* Input DATA sizes.
-	 * */
-	int		n_len_of_x;
-	int		n_len_of_z;
+    /* Processed DATA sizes.
+     * */
+    int n_threshold;
+    int n_total;
 
-	/* Processed DATA sizes.
-	 * */
-	int		n_threshold;
-	int		n_total;
+    /* \rm(i) is row-major upper-triangular matrix array with block
+     * structure as shown. We store only the upper triangular elements.
+     *
+     *                                    [0 1 2 3]
+     *                                    [  4 5 6]
+     *          [ RX  S  ]                [    7 8]
+     * \rm(i) = [ 0   RZ ],       (ex.) = [      9].
+     *
+     * \RX - upper-triangular matrix size of \x,
+     * \RZ - upper-triangular matrix size of \z,
+     * \S  - rectangular matrix size of \x by \z.
+     *
+     * */
+    lse_upper_t rm[LSE_CASCADE_MAX];
 
-	/* \rm(i) is row-major upper-triangular matrix array with block
-	 * structure as shown. We store only the upper triangular elements.
-	 *
-	 *                                    [0 1 2 3]
-	 *                                    [  4 5 6]
-	 *          [ RX  S  ]                [    7 8]
-	 * \rm(i) = [ 0   RZ ],       (ex.) = [      9].
-	 *
-	 * \RX - upper-triangular matrix size of \x,
-	 * \RZ - upper-triangular matrix size of \z,
-	 * \S  - rectangular matrix size of \x by \z.
-	 *
-	 * */
-	lse_upper_t	rm[LSE_CASCADE_MAX];
+    /* LS solution \b is a column-major matrix.
+     * */
+    lse_row_t sol;
 
-	/* LS solution \b is a column-major matrix.
-	 * */
-	lse_row_t	sol;
+    /* Standard deviation of \z row-vector.
+     * */
+    lse_row_t std;
 
-	/* Standard deviation of \z row-vector.
-	 * */
-	lse_row_t	std;
+    /* Extremal singular values of \RX.
+     * */
+    struct {
+        lse_float_t min;
+        lse_float_t max;
+    } esv;
 
-	/* Extremal singular values of \RX.
-	 * */
-	struct {
-
-		lse_float_t	min;
-		lse_float_t	max;
-	}
-	esv;
-
-	/* We allocate the maximal amount of memory.
-	 * */
-	lse_float_t	vm[LSE_CASCADE_MAX * LSE_FULL_MAX * (LSE_FULL_MAX + 1) / 2
+    /* We allocate the maximal amount of memory.
+     * */
+    lse_float_t vm[LSE_CASCADE_MAX * LSE_FULL_MAX * (LSE_FULL_MAX + 1) / 2
 
 #if LSE_FAST_GIVENS != 0
-			 + LSE_CASCADE_MAX * LSE_FULL_MAX
+             + LSE_CASCADE_MAX * LSE_FULL_MAX
 #endif /* LSE_FAST_GIVENS */
 
-			 + LSE_FULL_MAX * LSE_FULL_MAX / 4 + LSE_FULL_MAX / 2 + 1];
-}
-lse_t;
+             + LSE_FULL_MAX * LSE_FULL_MAX / 4 + LSE_FULL_MAX / 2 + 1];
+} lse_t;
 
 /* The function determines the size of LSE structure. So you can allocate LSE
  * structure dynamically with size returned.

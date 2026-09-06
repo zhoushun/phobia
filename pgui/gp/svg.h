@@ -24,20 +24,18 @@
 
 #include <SDL2/SDL.h>
 
-typedef Uint32		svgCol_t;
+typedef Uint32 svgCol_t;
 
 typedef struct {
+    FILE *fd;
 
-	FILE		*fd;
+    const char *font_family;
+    int font_pt;
 
-	const char	*font_family;
-	int		font_pt;
-
-	int		line_open;
-	double		last_x;
-	double		last_y;
-}
-svg_t;
+    int line_open;
+    double last_x;
+    double last_y;
+} svg_t;
 
 svg_t *svgOpenNew(const char *file, int width, int height);
 void svgClose(svg_t *g);

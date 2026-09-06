@@ -4,54 +4,50 @@
 #include "cmsis/stm32xx.h"
 
 typedef struct {
+	SemaphoreHandle_t mutex_sem;
+	uint32_t dmabuf[8] LD_DMA;
+} priv_ADC_t;
 
-	SemaphoreHandle_t	mutex_sem;
-
-	uint32_t		dmabuf[8] LD_DMA;
-}
-priv_ADC_t;
-
-static priv_ADC_t		priv_ADC;
+static priv_ADC_t priv_ADC;
 
 void irq_ADC()
 {
 	if (likely(ADC3->SR & ADC_SR_JEOC)) {
-
 		ADC1->SR = ~ADC_SR_JEOC;
 		ADC2->SR = ~ADC_SR_JEOC;
 		ADC3->SR = ~ADC_SR_JEOC;
 
 #if (HW_ADC_SAMPLING_SEQUENCE == ADC_SEQUENCE__ABU)
-		hal.ADC_current_A = (float) ((int) ADC1->JDR1 - 2047) * hal.const_ADC.GA;
-		hal.ADC_current_B = (float) ((int) ADC2->JDR1 - 2047) * hal.const_ADC.GA;
-		hal.ADC_voltage_U = (float) ((int) ADC3->JDR1) * hal.const_ADC.GU;
+		hal.ADC_current_A = (float)((int) ADC1->JDR1 - 2047) * hal.const_ADC.GA;
+		hal.ADC_current_B = (float)((int) ADC2->JDR1 - 2047) * hal.const_ADC.GA;
+		hal.ADC_voltage_U = (float)((int) ADC3->JDR1) * hal.const_ADC.GU;
 #elif (HW_ADC_SAMPLING_SEQUENCE == ADC_SEQUENCE__ABU_TTT)
-		hal.ADC_current_A = (float) ((int) ADC1->JDR1 - 2047) * hal.const_ADC.GA;
-		hal.ADC_current_B = (float) ((int) ADC2->JDR1 - 2047) * hal.const_ADC.GA;
-		hal.ADC_voltage_U = (float) ((int) ADC3->JDR1) * hal.const_ADC.GU;
-		hal.ADC_voltage_A = (float) ((int) ADC1->JDR2) * hal.const_ADC.GT;
-		hal.ADC_voltage_B = (float) ((int) ADC2->JDR2) * hal.const_ADC.GT;
-		hal.ADC_voltage_C = (float) ((int) ADC3->JDR2) * hal.const_ADC.GT;
+		hal.ADC_current_A = (float)((int) ADC1->JDR1 - 2047) * hal.const_ADC.GA;
+		hal.ADC_current_B = (float)((int) ADC2->JDR1 - 2047) * hal.const_ADC.GA;
+		hal.ADC_voltage_U = (float)((int) ADC3->JDR1) * hal.const_ADC.GU;
+		hal.ADC_voltage_A = (float)((int) ADC1->JDR2) * hal.const_ADC.GT;
+		hal.ADC_voltage_B = (float)((int) ADC2->JDR2) * hal.const_ADC.GT;
+		hal.ADC_voltage_C = (float)((int) ADC3->JDR2) * hal.const_ADC.GT;
 #elif (HW_ADC_SAMPLING_SEQUENCE == ADC_SEQUENCE__ABC_UXX)
 		/* TODO */
 #elif (HW_ADC_SAMPLING_SEQUENCE == ADC_SEQUENCE__ABC_UTT_TXX)
-		hal.ADC_current_A = (float) ((int) ADC1->JDR1 - 2047) * hal.const_ADC.GA;
-		hal.ADC_current_B = (float) ((int) ADC2->JDR1 - 2047) * hal.const_ADC.GA;
-		hal.ADC_current_C = (float) ((int) ADC3->JDR1 - 2047) * hal.const_ADC.GA;
-		hal.ADC_voltage_U = (float) ((int) ADC1->JDR2) * hal.const_ADC.GU;
-		hal.ADC_voltage_A = (float) ((int) ADC2->JDR2) * hal.const_ADC.GT;
-		hal.ADC_voltage_B = (float) ((int) ADC3->JDR2) * hal.const_ADC.GT;
-		hal.ADC_voltage_C = (float) ((int) ADC1->JDR3) * hal.const_ADC.GT;
+		hal.ADC_current_A = (float)((int) ADC1->JDR1 - 2047) * hal.const_ADC.GA;
+		hal.ADC_current_B = (float)((int) ADC2->JDR1 - 2047) * hal.const_ADC.GA;
+		hal.ADC_current_C = (float)((int) ADC3->JDR1 - 2047) * hal.const_ADC.GA;
+		hal.ADC_voltage_U = (float)((int) ADC1->JDR2) * hal.const_ADC.GU;
+		hal.ADC_voltage_A = (float)((int) ADC2->JDR2) * hal.const_ADC.GT;
+		hal.ADC_voltage_B = (float)((int) ADC3->JDR2) * hal.const_ADC.GT;
+		hal.ADC_voltage_C = (float)((int) ADC1->JDR3) * hal.const_ADC.GT;
 #elif (HW_ADC_SAMPLING_SEQUENCE == ADC_SEQUENCE__ABC_UTT_TSC)
-		hal.ADC_current_A = (float) ((int) ADC1->JDR1 - 2047) * hal.const_ADC.GA;
-		hal.ADC_current_B = (float) ((int) ADC2->JDR1 - 2047) * hal.const_ADC.GA;
-		hal.ADC_current_C = (float) ((int) ADC3->JDR1 - 2047) * hal.const_ADC.GA;
-		hal.ADC_voltage_U = (float) ((int) ADC1->JDR2) * hal.const_ADC.GU;
-		hal.ADC_voltage_A = (float) ((int) ADC2->JDR2) * hal.const_ADC.GT;
-		hal.ADC_voltage_B = (float) ((int) ADC3->JDR2) * hal.const_ADC.GT;
-		hal.ADC_voltage_C = (float) ((int) ADC1->JDR3) * hal.const_ADC.GT;
-		hal.ADC_analog_SIN = (float) ((int) ADC2->JDR3) * hal.const_ADC.GS;
-		hal.ADC_analog_COS = (float) ((int) ADC3->JDR3) * hal.const_ADC.GS;
+		hal.ADC_current_A = (float)((int) ADC1->JDR1 - 2047) * hal.const_ADC.GA;
+		hal.ADC_current_B = (float)((int) ADC2->JDR1 - 2047) * hal.const_ADC.GA;
+		hal.ADC_current_C = (float)((int) ADC3->JDR1 - 2047) * hal.const_ADC.GA;
+		hal.ADC_voltage_U = (float)((int) ADC1->JDR2) * hal.const_ADC.GU;
+		hal.ADC_voltage_A = (float)((int) ADC2->JDR2) * hal.const_ADC.GT;
+		hal.ADC_voltage_B = (float)((int) ADC3->JDR2) * hal.const_ADC.GT;
+		hal.ADC_voltage_C = (float)((int) ADC1->JDR3) * hal.const_ADC.GT;
+		hal.ADC_analog_SIN = (float)((int) ADC2->JDR3) * hal.const_ADC.GS;
+		hal.ADC_analog_COS = (float)((int) ADC3->JDR3) * hal.const_ADC.GS;
 #endif /* HW_ADC_SAMPLING_SEQUENCE */
 
 		EXTI->SWIER = EXTI_SWIER_SWIER0;
@@ -74,19 +70,16 @@ void irq_EXTI0()
 	hal.CNT_raw[2] = (hal.CNT_raw[2] - hal.CNT_raw[1]) & 0xFFFFU;
 	hal.CNT_raw[3] = (hal.CNT_raw[3] - hal.CNT_raw[1]) & 0xFFFFU;
 
-	hal.CNT_diag[0] = (float) hal.CNT_raw[0] * hal.const_CNT[0];
-	hal.CNT_diag[1] = hal.CNT_diag[0] + (float) hal.CNT_raw[2] * hal.const_CNT[1];
-	hal.CNT_diag[2] = hal.CNT_diag[0] + (float) hal.CNT_raw[3] * hal.const_CNT[1];
+	hal.CNT_diag[0] = (float)hal.CNT_raw[0] * hal.const_CNT[0];
+	hal.CNT_diag[1] = hal.CNT_diag[0] + (float)hal.CNT_raw[2] * hal.const_CNT[1];
+	hal.CNT_diag[2] = hal.CNT_diag[0] + (float)hal.CNT_raw[3] * hal.const_CNT[1];
 }
 
-static void
-ADC_set_SMPR(ADC_TypeDef *pADC, int xCH, int xSMP)
+static void ADC_set_SMPR(ADC_TypeDef *pADC, int xCH, int xSMP)
 {
 	if (xCH < 10) {
-
 		MODIFY_REG(pADC->SMPR2, 7U << (xCH * 3), xSMP << (xCH * 3));
-	}
-	else {
+	} else {
 		MODIFY_REG(pADC->SMPR1, 7U << ((xCH - 10) * 3), xSMP << ((xCH - 10) * 3));
 	}
 }
@@ -94,29 +87,28 @@ ADC_set_SMPR(ADC_TypeDef *pADC, int xCH, int xSMP)
 void ADC_const_build()
 {
 #if defined(STM32F4)
-	const uint16_t		*TS_30 = (const uint16_t *) 0x1FFF7A2CU;
-	const uint16_t		*TS_110 = (const uint16_t *) 0x1FFF7A2EU;
+	const uint16_t *TS_30 = (const uint16_t *)0x1FFF7A2CU;
+	const uint16_t *TS_110 = (const uint16_t *)0x1FFF7A2EU;
 #elif defined(STM32F7)
-	const uint16_t		*TS_30 = (const uint16_t *) 0x1FF07A2CU;
-	const uint16_t		*TS_110 = (const uint16_t *) 0x1FF07A2EU;
+	const uint16_t *TS_30 = (const uint16_t *)0x1FF07A2CU;
+	const uint16_t *TS_110 = (const uint16_t *)0x1FF07A2EU;
 #endif /* STM32Fx */
 
-	float			U_reference, R_equivalent;
+	float U_reference, R_equivalent;
 
-	U_reference = hal.ADC_reference_voltage / (float) ADC_RESOLUTION;
+	U_reference = hal.ADC_reference_voltage / (float)ADC_RESOLUTION;
 	R_equivalent = hal.ADC_shunt_resistance * hal.ADC_amplifier_gain;
 
 	hal.const_ADC.GA = U_reference / R_equivalent;
 	hal.const_ADC.GU = U_reference / hal.ADC_voltage_ratio;
 	hal.const_ADC.GT = U_reference / hal.ADC_terminal_ratio;
 	hal.const_ADC.GS = U_reference;
-	hal.const_ADC.TS[1] = 80.f / (float) (*TS_110 - *TS_30);
-	hal.const_ADC.TS[0] = 110.f - hal.const_ADC.TS[1] * (float) (*TS_110);
+	hal.const_ADC.TS[1] = 80.f / (float)(*TS_110 - *TS_30);
+	hal.const_ADC.TS[0] = 110.f - hal.const_ADC.TS[1] * (float)(*TS_110);
 
 #ifdef STM32F4
-	if (		hal.MCU_ID == MCU_ID_GD32F405
-			|| *TS_110 == *TS_30) {
-
+	if (hal.MCU_ID == MCU_ID_GD32F405
+		|| *TS_110 == *TS_30) {
 		hal.const_ADC.TS[1] = 0.323f;
 		hal.const_ADC.TS[0] = -279.f;
 	}
@@ -126,8 +118,8 @@ void ADC_const_build()
 	hal.const_ADC.GK = 1.f / hal.ADC_knob_ratio;
 #endif /* HW_HAVE_ANALOG_KNOB */
 
-	hal.const_CNT[0] = 1.f / (float) CLOCK_TIM1_HZ;
-	hal.const_CNT[1] = 1.f / (float) CLOCK_TIM7_HZ;
+	hal.const_CNT[0] = 1.f / (float)CLOCK_TIM1_HZ;
+	hal.const_CNT[1] = 1.f / (float)CLOCK_TIM7_HZ;
 
 #if (HW_ADC_SAMPLING_SEQUENCE == ADC_SEQUENCE__ABU)
 	ADC_set_SMPR(ADC1, XGPIO_GET_CH(GPIO_ADC_CURRENT_A), hal.ADC_sample_time);
@@ -285,8 +277,8 @@ void ADC_startup()
 	 * */
 	DMA2_Stream0->CR = (0U << DMA_SxCR_CHSEL_Pos) | DMA_SxCR_PL_1
 		| (2U << DMA_SxCR_MSIZE_Pos) | (2U << DMA_SxCR_PSIZE_Pos);
-	DMA2_Stream0->PAR = (uint32_t) &ADC1->DR;
-	DMA2_Stream0->M0AR = (uint32_t) &priv_ADC.dmabuf[0];
+	DMA2_Stream0->PAR = (uint32_t)&ADC1->DR;
+	DMA2_Stream0->M0AR = (uint32_t)&priv_ADC.dmabuf[0];
 	DMA2_Stream0->FCR = DMA_SxFCR_DMDIS;
 
 	/* Enable ADCs.
@@ -297,7 +289,6 @@ void ADC_startup()
 
 #ifdef STM32F4
 	if (hal.MCU_ID == MCU_ID_GD32F405) {
-
 		TIM_wait_ns(900);
 
 		ADC1->CR2 |= (1U << 3);	/* RSTCLB */
@@ -309,10 +300,9 @@ void ADC_startup()
 		ADC3->CR2 |= (1U << 3);
 		ADC3->CR2 |= (1U << 2);
 
-		while (		   (ADC1->CR2 & (1U << 2)) == 0U
+		while ((ADC1->CR2 & (1U << 2)) == 0U
 				&& (ADC2->CR2 & (1U << 2)) == 0U
 				&& (ADC3->CR2 & (1U << 2)) == 0U) {
-
 			__NOP();
 		}
 	}
@@ -332,12 +322,11 @@ void ADC_startup()
 
 float ADC_analog_sample(int xGPIO)
 {
-	int			xCH, xADC;
-	float			analog = -1.f;
+	int xCH, xADC;
+	float analog = -1.f;
 
 	if (xSemaphoreTake(priv_ADC.mutex_sem, (TickType_t) 10) == pdTRUE) {
-
-		int		N = 0;
+		int N = 0;
 
 		DMA2_Stream0->CR &= ~DMA_SxCR_EN;
 
@@ -346,7 +335,7 @@ float ADC_analog_sample(int xGPIO)
 #ifdef STM32F7
 		/* Invalidate D-Cache on DMABUF.
 		 * */
-		SCB->DCIMVAC = (uint32_t) &priv_ADC.dmabuf[0];
+		SCB->DCIMVAC = (uint32_t)&priv_ADC.dmabuf[0];
 
 		__DSB();
 		__ISB();
@@ -369,24 +358,19 @@ float ADC_analog_sample(int xGPIO)
 			taskYIELD();
 
 			if ((DMA2->LISR & (DMA_LISR_TCIF0 | DMA_LISR_TEIF0)) != 0U) {
-
 				xADC = priv_ADC.dmabuf[0];
 
 				if (xCH == XGPIO_GET_CH(GPIO_ADC_TEMPINT)) {
-
-					analog = (float) (xADC) * hal.const_ADC.TS[1]
-								+ hal.const_ADC.TS[0];
-				}
-				else {
-					analog = (float) (xADC) * hal.const_ADC.GS;
+					analog = (float)(xADC) * hal.const_ADC.TS[1] + hal.const_ADC.TS[0];
+				} else {
+					analog = (float)(xADC) * hal.const_ADC.GS;
 				}
 
 				break;
 			}
 
 			N++;
-		}
-		while (N < 7000);
+		} while (N < 7000);
 
 		xSemaphoreGive(priv_ADC.mutex_sem);
 	}

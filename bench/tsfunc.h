@@ -1,8 +1,8 @@
 #ifndef _H_TSFUNC_
 #define _H_TSFUNC_
 
-extern blm_t			m;
-extern pmc_t			pm;
+extern blm_t m;
+extern pmc_t pm;
 
 extern void tlm_restart();
 extern void sim_runtime(double dT);

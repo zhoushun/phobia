@@ -3,136 +3,112 @@
 
 #include "config.h"
 
-#define LINK_REGS_MAX		900
-#define LINK_NAME_MAX		80
-#define LINK_COMBO_MAX		40
-#define LINK_EPCAN_MAX		32
-#define LINK_FLASH_MAX		10
+#define LINK_REGS_MAX 900
+#define LINK_NAME_MAX 80
+#define LINK_COMBO_MAX 40
+#define LINK_EPCAN_MAX 32
+#define LINK_FLASH_MAX 10
 
-#define LINK_LINE_MAX		400
-#define LINK_DATA_MAX		40000
+#define LINK_LINE_MAX 400
+#define LINK_DATA_MAX 40000
 
 enum {
-	LINK_REG_CONFIG		= 1U,
-	LINK_REG_READ_ONLY	= 2U,
-	LINK_REG_LINKED		= 4U,
-	LINK_REG_HIDDEN		= 8U,
-
-	LINK_REG_TYPE_INT		= (1U << 8),
-	LINK_REG_TYPE_FLOAT		= (1U << 9),
-
-	LINK_REG_TYPE_ENUMERATE		= (1U << 10)
+    LINK_REG_CONFIG = 1U,
+    LINK_REG_READ_ONLY = 2U,
+    LINK_REG_LINKED = 4U,
+    LINK_REG_HIDDEN = 8U,
+    LINK_REG_TYPE_INT = (1U << 8),
+    LINK_REG_TYPE_FLOAT = (1U << 9),
+    LINK_REG_TYPE_ENUMERATE = (1U << 10)
 };
 
 enum {
-	LINK_PRIMAL_UNDEFINED	= 0,
-	LINK_PRIMAL_NONE,
-	LINK_PRIMAL_ENABLED
+    LINK_PRIMAL_UNDEFINED = 0,
+    LINK_PRIMAL_NONE,
+    LINK_PRIMAL_ENABLED
 };
 
 enum {
-	LINK_COMMAND_NONE	= 0,
-	LINK_COMMAND_PENDING,
-	LINK_COMMAND_RUNING,
-	LINK_COMMAND_WAITING
+    LINK_COMMAND_NONE = 0,
+    LINK_COMMAND_PENDING,
+    LINK_COMMAND_RUNING,
+    LINK_COMMAND_WAITING
 };
 
 struct link_priv;
 
 struct link_reg {
-
-	int		mode;
-
-	int		shown;
-	int		modified;
-	int		fetched;
-	int		queued;
-	int		enumerated;
-
-	char		sym[LINK_NAME_MAX];
-	char		val[LINK_NAME_MAX];
-	char		um[LINK_NAME_MAX];
-
-	int		lval;
-	float		fval;
-
-	float		fmin;
-	float		fmax;
-
-	char		vmin[LINK_NAME_MAX];
-	char		vmax[LINK_NAME_MAX];
-
-	int		started;
-	int		update;
-	int		onefetch;
-
-	char		*combo[LINK_COMBO_MAX];
-	int		lmax_combo;
-
-	int		um_sel;
-	int		primal;
+    int mode;
+    int shown;
+    int modified;
+    int fetched;
+    int queued;
+    int enumerated;
+    char sym[LINK_NAME_MAX];
+    char val[LINK_NAME_MAX];
+    char um[LINK_NAME_MAX];
+    int lval;
+    float fval;
+    float fmin;
+    float fmax;
+    char vmin[LINK_NAME_MAX];
+    char vmax[LINK_NAME_MAX];
+    int started;
+    int update;
+    int onefetch;
+    char *combo[LINK_COMBO_MAX];
+    int lmax_combo;
+    int um_sel;
+    int primal;
 };
 
 struct link_pmc {
+    struct link_priv *priv;
+    struct config_phobia *fe;
+    char devname[LINK_NAME_MAX];
+    int baudrate;
+    int linked;
+    int time;
+    int clock;
+    int locked;
+    int active;
+    int keep;
 
-	struct link_priv	*priv;
-	struct config_phobia	*fe;
+    struct {
+        char hardware[LINK_NAME_MAX];
+        char revision[LINK_NAME_MAX];
+        char build[LINK_NAME_MAX];
+        char crc32[LINK_NAME_MAX];
+    } hw;
 
-	char			devname[LINK_NAME_MAX];
-	int			baudrate;
+    char hwinfo[LINK_NAME_MAX];
+    char network[LINK_NAME_MAX];
 
-	int			linked;
-	int			time;
+    struct {
+        char UID[16];
+        char node_ID[24];
+    } epcan[LINK_EPCAN_MAX];
 
-	int			clock;
-	int			locked;
-	int			active;
-	int			keep;
+    struct {
 
-	struct {
+        char block[32];
+    } flash[LINK_FLASH_MAX];
 
-		char		hardware[LINK_NAME_MAX];
-		char		revision[LINK_NAME_MAX];
-		char		build[LINK_NAME_MAX];
-		char		crc32[LINK_NAME_MAX];
-	}
-	hw;
-
-	char			hwinfo[LINK_NAME_MAX];
-	char			network[LINK_NAME_MAX];
-
-	struct {
-
-		char		UID[16];
-		char		node_ID[24];
-	}
-	epcan[LINK_EPCAN_MAX];
-
-	struct {
-
-		char		block[32];
-	}
-	flash[LINK_FLASH_MAX];
-
-	int			unable_warning;
-	int			time_warning;
-
-	int			command_state;
-	char			command_grab[LINK_DATA_MAX];
-
-	int			line_N;
-	int			grab_N;
-
-	struct link_reg		reg[LINK_REGS_MAX];
-
-	int			reg_MAX_N;
+    int unable_warning;
+    int time_warning;
+    int command_state;
+    char command_grab[LINK_DATA_MAX];
+    int line_N;
+    int grab_N;
+    struct link_reg reg[LINK_REGS_MAX];
+    int reg_MAX_N;
 };
 
 const char *lk_stoi(int *x, const char *s);
 const char *lk_stod(double *x, const char *s);
 
 void link_open(struct link_pmc *lp, struct config_phobia *fe,
-		const char *devname, int baudrate, const char *mode);
+        const char *devname, int baudrate, const char *mode);
 void link_close(struct link_pmc *lp);
 void link_remote(struct link_pmc *lp);
 

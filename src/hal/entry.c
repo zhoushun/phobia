@@ -46,10 +46,9 @@ void irq_USART3() LD_IRQ_WEAK;
 void irq_TIM7() LD_IRQ_WEAK;
 void irq_OTG_FS() LD_IRQ_WEAK;
 
-const fw_info_t		fw = {
-
-	(uint32_t) &ld_text_begin,
-	(uint32_t) &ld_crc32_stub,
+const fw_info_t fw = {
+	(uint32_t)&ld_text_begin,
+	(uint32_t)&ld_crc32_stub,
 
 #include "hgdef.h"
 
@@ -57,8 +56,7 @@ const fw_info_t		fw = {
 };
 
 LD_VTABLE void *vtab[] = {
-
-	(void *) &ld_stack,
+	(void *)&ld_stack,
 
 	irq_Reset,
 	irq_NMI,
@@ -66,7 +64,7 @@ LD_VTABLE void *vtab[] = {
 	irq_MemoryFault,
 	irq_BusFault,
 	irq_UsageFault,
-	(void *) &fw,
+	(void *)&fw,
 	irq_Default,
 	irq_Default,
 	irq_Default,
@@ -160,16 +158,14 @@ LD_VTABLE void *vtab[] = {
 	irq_Default
 };
 
-static void
-init_data(const uint32_t *long_s, uint32_t *long_d, const uint32_t *long_e)
+static void init_data(const uint32_t *long_s, uint32_t *long_d, const uint32_t *long_e)
 {
-	while (long_d < long_e) { * (long_d++) = * (long_s++); }
+	while (long_d < long_e) { *(long_d++) = *(long_s++); }
 }
 
-static void
-init_bss(uint32_t *long_d, const uint32_t *long_e)
+static void init_bss(uint32_t *long_d, const uint32_t *long_e)
 {
-	while (long_d < long_e) { * (long_d++) = 0U; }
+	while (long_d < long_e) { *(long_d++) = 0U; }
 }
 
 LD_IRQ void irq_Reset()

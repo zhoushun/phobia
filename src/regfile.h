@@ -2,39 +2,32 @@
 #define _H_REGFILE_
 
 enum {
-	REG_CONFIG		= 1U,
-	REG_READ_ONLY		= 2U,
-	REG_LINKED		= 4U,
-	REG_HIDDEN		= 8U
+    REG_CONFIG = 1U,
+    REG_READ_ONLY = 2U,
+    REG_LINKED = 4U,
+    REG_HIDDEN = 8U
 };
 
 enum {
 #include "regdefs.h"
-
-	ID_MAX
+    ID_MAX
 };
 
 typedef union {
-
-	float		f;
-	int		i;
-}
-rval_t;
+    float f;
+    int i;
+} rval_t;
 
 typedef struct {
+    const char *sym;
+    const char fmt[4];
+    int mode;
+    volatile rval_t *link;
+    void (* proc) (const void *reg, rval_t *lval, const rval_t *rval);
+    void (* format) (const void *reg, const rval_t *rval);
+} reg_t;
 
-	const char		*sym;
-	const char		fmt[4];
-
-	int			mode;
-	volatile rval_t		*link;
-
-	void	(* proc) (const void *reg, rval_t *lval, const rval_t *rval);
-	void	(* format) (const void *reg, const rval_t *rval);
-}
-reg_t;
-
-extern const reg_t	regfile[];
+extern const reg_t regfile[];
 
 void reg_format_rval(const reg_t *reg, const rval_t *rval);
 void reg_format(const reg_t *reg);

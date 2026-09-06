@@ -25,71 +25,67 @@
 #include "draw.h"
 #include "scheme.h"
 
-#define MENU_FUZZY_SIZE			80
-#define MENU_STRING_MAX			200
-#define MENU_OPTION_MAX			10
+#define MENU_FUZZY_SIZE 80
+#define MENU_STRING_MAX 200
+#define MENU_OPTION_MAX 10
 
 typedef struct {
+    int raised;
+    int clicked;
+    int id;
 
-	int			raised;
-	int			clicked;
-	int			id;
+    const char *list;
+    int hidden_N[MENU_OPTION_MAX];
+    int colorful;
 
-	const char		*list;
-	int			hidden_N[MENU_OPTION_MAX];
-	int			colorful;
+    struct {
+        int N;
+        const char *subs;
+    } mark[MENU_OPTION_MAX];
 
-	struct {
+    int cur_X;
+    int cur_Y;
 
-		int		N;
-		const char	*subs;
-	}
-	mark[MENU_OPTION_MAX];
+    int box_X;
+    int box_Y;
 
-	int			cur_X;
-	int			cur_Y;
+    int size_X;
+    int size_Y;
+    int size_N;
 
-	int			box_X;
-	int			box_Y;
+    int scroll_limit;
+    int scroll_shift;
+    int scroll_drag;
+    int scroll_page;
 
-	int			size_X;
-	int			size_Y;
-	int			size_N;
+    int hovered_N;
+    int clicked_N;
 
-	int			scroll_limit;
-	int			scroll_shift;
-	int			scroll_drag;
-	int			scroll_page;
+    TTF_Font *font;
+    clipBox_t screen;
 
-	int			hovered_N;
-	int			clicked_N;
+    char fuzzy[MENU_FUZZY_SIZE];
 
-	TTF_Font		*font;
-	clipBox_t		screen;
+    int layout_height;
 
-	char			fuzzy[MENU_FUZZY_SIZE];
-
-	int			layout_height;
-
-	draw_t			*dw;
-	scheme_t		*sch;
-}
-menu_t;
+    draw_t *dw;
+    scheme_t *sch;
+} menu_t;
 
 enum {
-	MENU_EVNO_CLICK			= 1,
-	MENU_EVNO_UNCLICK,
-	MENU_EVNO_MOTION,
-	MENU_EVNO_SCROLL_UP,
-	MENU_EVNO_SCROLL_DOWN,
-	MENU_EVNO_ARROW_UP,
-	MENU_EVNO_ARROW_DOWN,
-	MENU_EVNO_PAGE_UP,
-	MENU_EVNO_PAGE_DOWN,
-	MENU_EVNO_HOME,
-	MENU_EVNO_END,
-	MENU_EVNO_RETURN,
-	MENU_EVNO_BACKSPACE,
+    MENU_EVNO_CLICK = 1,
+    MENU_EVNO_UNCLICK,
+    MENU_EVNO_MOTION,
+    MENU_EVNO_SCROLL_UP,
+    MENU_EVNO_SCROLL_DOWN,
+    MENU_EVNO_ARROW_UP,
+    MENU_EVNO_ARROW_DOWN,
+    MENU_EVNO_PAGE_UP,
+    MENU_EVNO_PAGE_DOWN,
+    MENU_EVNO_HOME,
+    MENU_EVNO_END,
+    MENU_EVNO_RETURN,
+    MENU_EVNO_BACKSPACE,
 };
 
 menu_t *menuAlloc(draw_t *dw, scheme_t *sch);

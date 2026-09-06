@@ -13,20 +13,18 @@
 
 AP_TASK_DEF(MPU6050)
 {
-	AP_KNOB(knob);
+    AP_KNOB(knob);
 
-	if (SPI_is_halted(HW_SPI_EXT_ID) != HAL_OK) {
+    if (SPI_is_halted(HW_SPI_EXT_ID) != HAL_OK) {
+        printf("Unable to start application when SPI is busy" EOL);
 
-		printf("Unable to start application when SPI is busy" EOL);
+        AP_TERMINATE(knob);
+    }
 
-		AP_TERMINATE(knob);
-	}
+    do {
+        /* TODO */
+    } while (AP_CONDITION(knob));
 
-	do {
-		/* TODO */
-	}
-	while (AP_CONDITION(knob));
-
-	AP_TERMINATE(knob);
+    AP_TERMINATE(knob);
 }
 
